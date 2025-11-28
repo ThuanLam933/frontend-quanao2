@@ -218,12 +218,12 @@ export default function InventoryPage({ setSnack }) {
                                 <TableRow>
                                     <TableCell>#</TableCell>
                                     <TableCell>ProductDetail</TableCell>
-                                    <TableCell>Type</TableCell>
-                                    <TableCell>Change</TableCell>
-                                    <TableCell>Qty before</TableCell>
-                                    <TableCell>Qty after</TableCell>
+                                    <TableCell>Nguồn</TableCell>
+                                    <TableCell>Cập Nhật</TableCell>
+                                    <TableCell>Số lượng ban đầu</TableCell>
+                                    <TableCell>Số lượng sau</TableCell>
                                     <TableCell>Related</TableCell>
-                                    <TableCell>User</TableCell>
+                                    <TableCell>Người dùng</TableCell>
                                     <TableCell>Actions</TableCell>
                                 </TableRow>
                             </TableHead>
