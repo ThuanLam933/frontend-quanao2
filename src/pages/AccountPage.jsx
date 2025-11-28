@@ -5,26 +5,28 @@ import {
   Container,
   Paper,
   Typography,
-  Avatar,
   Button,
   Grid,
-  Tabs,
-  Tab,
   TextField,
   Stack,
   List,
   ListItem,
   ListItemText,
+  ListItemIcon,
+  ListItemButton,
   Divider,
   CircularProgress,
-  Chip,
   Snackbar,
   Alert,
 } from "@mui/material";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
-import EditIcon from "@mui/icons-material/Edit";
+
+import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import ShoppingBagIcon from "@mui/icons-material/ShoppingBag";
-import HomeIcon from "@mui/icons-material/Home";
+import LocalShippingIcon from "@mui/icons-material/LocalShipping";
+import MailOutlineIcon from "@mui/icons-material/MailOutline";
+import LogoutIcon from "@mui/icons-material/Logout";
+
 import { useNavigate } from "react-router-dom";
 
 const API_BASE = process.env.REACT_APP_API_BASE || "http://127.0.0.1:8000";
@@ -33,21 +35,22 @@ const theme = createTheme({
   palette: {
     mode: "light",
     background: { default: "#F7FAFC", paper: "#fff" },
-    primary: { main: "#162447", contrastText: "#fff" },
-    text: { primary: "#0D1B2A", secondary: "#5C6F91" },
+    primary: { main: "#000000", contrastText: "#fff" }, // nút đen
+    text: { primary: "#111", secondary: "#666" },
   },
   typography: { fontFamily: "Poppins, Roboto, sans-serif" },
-  shape: { borderRadius: 8 },
+  shape: { borderRadius: 2 },
 });
 
+// helper
 function a11yProps(index) {
-  return { id: `account-tab-${index}`, "aria-controls": `account-tabpanel-${index}` };
+  return { id: `account-section-${index}`, "aria-controls": `account-panel-${index}` };
 }
 
 export default function AccountPage() {
   const navigate = useNavigate();
 
-  // user is read from localStorage; replace with auth context or API call if available
+  // user từ localStorage
   const [user, setUser] = useState(() => {
     try {
       const raw = localStorage.getItem("user");
@@ -57,97 +60,105 @@ export default function AccountPage() {
     }
   });
 
-  const [tab, setTab] = useState(0);
+  const [section, setSection] = useState(0); // 0: info, 1: orders, 2: shipping, 3: newsletter
   const [saving, setSaving] = useState(false);
   const [snack, setSnack] = useState(null);
 
-  // profile form
-  const [form, setForm] = useState({ name: "", email: "", phone: "", password: "" });
+  // profile form (KHÔNG còn birthday)
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    password: "",
+  });
 
-  // orders / wishlist / addresses state
+  // orders / addresses
   const [orders, setOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
-  const [wishlist, setWishlist] = useState([]);
-  const [loadingWishlist, setLoadingWishlist] = useState(false);
   const [addresses, setAddresses] = useState([]);
 
-  // chỉ giữ chữ số và giới hạn tối đa 10 ký tự
+  // chỉ giữ chữ số, dài tối đa 10
   const sanitizePhone = (value) => {
     if (!value) return "";
     const digits = value.replace(/\D/g, "");
     return digits.slice(0, 10);
   };
 
-  // initialize form when user loads or changes
+  // init form theo user
   useEffect(() => {
-    if (user)
+    if (user) {
       setForm({
         name: user.name ?? "",
         email: user.email ?? "",
         phone: sanitizePhone(user.phone ?? ""),
         password: user.password ?? "",
       });
+    }
   }, [user]);
 
-  // ---------- fetchOrders: function declaration (hoisted) to avoid TDZ ----------
-  // fetch orders (use Authorization token; handle errors without auto-logout)
+  // ====== FETCH ORDERS ======
   async function fetchOrders() {
     setLoadingOrders(true);
     try {
       const token = localStorage.getItem("access_token");
       if (!token) {
-        // no token -> don't call API, show nothing
         setOrders([]);
         setLoadingOrders(false);
         return;
       }
 
-      const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+      const headers = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      };
       const url = `${API_BASE}/api/orders`;
-      let res = await fetch(url, { headers });
+      const res = await fetch(url, { headers });
 
-      // read body/text for robust parsing
       const text = await res.text().catch(() => "");
       const ct = res.headers.get("content-type") || "";
 
-      // parse JSON if possible
       let parsed = null;
-      if (ct.includes("application/json") || text.trim().startsWith("{") || text.trim().startsWith("[")) {
+      if (
+        ct.includes("application/json") ||
+        text.trim().startsWith("{") ||
+        text.trim().startsWith("[")
+      ) {
         try {
           parsed = text ? JSON.parse(text) : null;
-        } catch (e) {
+        } catch {
           parsed = null;
         }
       }
 
       if (!res.ok) {
-        // If 401/403: warn user but do not force logout to avoid unexpected behavior
         if (res.status === 401 || res.status === 403) {
           console.warn("fetchOrders auth warning:", res.status, parsed || text);
-          setSnack({ severity: "warning", message: "Không thể tải đơn hàng: cần đăng nhập hoặc quyền không đủ." });
+          setSnack({
+            severity: "warning",
+            message: "Không thể tải đơn hàng: cần đăng nhập hoặc quyền không đủ.",
+          });
           setOrders([]);
           return;
         }
-        // other errors: show server message if available
-        const msg = (parsed && (parsed.message || parsed.error)) || `Lỗi khi tải đơn hàng (${res.status})`;
+        const msg =
+          (parsed && (parsed.message || parsed.error)) ||
+          `Lỗi khi tải đơn hàng (${res.status})`;
         setSnack({ severity: "error", message: msg });
         setOrders([]);
         return;
       }
 
-      // OK: use parsed JSON or wrapper
-      const list = Array.isArray(parsed) ? parsed : parsed?.data ?? parsed?.orders ?? [];
-      setOrders(Array.isArray(list) ? list : []);
+      const list = Array.isArray(parsed)
+        ? parsed
+        : parsed?.data ?? parsed?.orders ?? [];
+      const finalList = Array.isArray(list) ? list : [];
+      setOrders(finalList);
       try {
-        localStorage.setItem("orders_cache", JSON.stringify(Array.isArray(list) ? list : []));
+        localStorage.setItem("orders_cache", JSON.stringify(finalList));
       } catch {}
-
-      // success done
-      return;
     } catch (err) {
       console.error("fetchOrders network error:", err);
       setSnack({ severity: "error", message: "Lỗi mạng khi tải đơn hàng." });
-      // fallback -> cached orders
       try {
         const raw = localStorage.getItem("orders_cache") || "[]";
         const cached = JSON.parse(raw);
@@ -160,10 +171,9 @@ export default function AccountPage() {
     }
   }
 
-  // fetch addresses (if you store locally or via API)
+  // ====== FETCH ADDRESSES (localStorage demo) ======
   const fetchAddresses = useCallback(() => {
     try {
-      // try localStorage fallback
       const raw = localStorage.getItem("addresses") || "[]";
       setAddresses(JSON.parse(raw));
     } catch {
@@ -171,52 +181,45 @@ export default function AccountPage() {
     }
   }, []);
 
-  // Call fetchOrders only when user exists AND token exists
   useEffect(() => {
     const token = localStorage.getItem("access_token");
     if (user && token) {
       fetchOrders();
-      // fetchWishlist();
       fetchAddresses();
     } else if (user && !token) {
-      // user object exists but token missing -> show mild warning
-      setSnack({ severity: "warning", message: "Bạn chưa đăng nhập hoặc token không hợp lệ." });
+      setSnack({
+        severity: "warning",
+        message: "Bạn chưa đăng nhập hoặc token không hợp lệ.",
+      });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, fetchAddresses]);
 
-  const handleTabChange = (e, v) => setTab(v);
-
+  // ====== SAVE PROFILE ======
   const handleSaveProfile = async () => {
     setSaving(true);
-
     try {
-      // === basic validation ===
       if (form.email && !/^\S+@\S+\.\S+$/.test(form.email)) {
         setSnack({ severity: "error", message: "Email không hợp lệ." });
         setSaving(false);
         return;
       }
-      // sau kiểm tra email
       if (form.phone && !/^\d{10}$/.test(form.phone)) {
-        setSnack({ severity: "error", message: "Số điện thoại phải đúng 10 chữ số (chỉ gồm số)." });
+        setSnack({
+          severity: "error",
+          message: "Số điện thoại phải đúng 10 chữ số (chỉ gồm số).",
+        });
         setSaving(false);
         return;
       }
 
-      // keep original for rollback
       const originalUser = user ? { ...user } : null;
       const optimisticUser = { ...(user || {}), ...form };
 
-      // === OPTIMISTIC: update UI & localStorage right away ===
       setUser(optimisticUser);
       try {
         localStorage.setItem("user", JSON.stringify(optimisticUser));
-      } catch (e) {
-        console.warn("localStorage set failed (optimistic):", e);
-      }
+      } catch {}
 
-      // notify other listeners/tabs
       try {
         window.dispatchEvent(new Event("userUpdated"));
         if (typeof BroadcastChannel !== "undefined") {
@@ -224,36 +227,30 @@ export default function AccountPage() {
           bc.postMessage({ type: "userUpdated", user: optimisticUser });
           bc.close();
         }
-      } catch (e) {
-        /* ignore broadcast errors */
-      }
+      } catch {}
 
-      // === if offline: keep optimistic and inform user ===
       if (!navigator.onLine) {
-        // Optionally queue for later sync: push to 'pendingUserUpdates' array in localStorage
         try {
           const pendingKey = "pending_user_updates";
           const raw = localStorage.getItem(pendingKey) || "[]";
           const arr = JSON.parse(raw);
           arr.push({ at: Date.now(), payload: form, userId: user?.id ?? null });
           localStorage.setItem(pendingKey, JSON.stringify(arr));
-        } catch (e) {
-          console.warn("queue pending update failed:", e);
-        }
-
-        setSnack({ severity: "info", message: "Bạn đang offline — thay đổi đã lưu cục bộ và sẽ đồng bộ khi có mạng." });
+        } catch {}
+        setSnack({
+          severity: "info",
+          message:
+            "Bạn đang offline — thay đổi đã lưu cục bộ và sẽ đồng bộ khi có mạng.",
+        });
         setSaving(false);
         return;
       }
 
-      // === Prepare API call ===
       const token = localStorage.getItem("access_token");
       const headers = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      // prefer /api/me endpoint (ensure you have it server-side)
       const url = `${API_BASE}/api/me`;
-
       const res = await fetch(url, {
         method: "PUT",
         headers,
@@ -263,10 +260,11 @@ export default function AccountPage() {
         return null;
       });
 
-      // if network error (res === null)
       if (!res) {
-        // keep optimistic local change, inform user
-        setSnack({ severity: "info", message: "Lỗi mạng — đã lưu cục bộ, sẽ thử đồng bộ sau." });
+        setSnack({
+          severity: "info",
+          message: "Lỗi mạng — đã lưu cục bộ, sẽ thử đồng bộ sau.",
+        });
         setSaving(false);
         return;
       }
@@ -275,48 +273,45 @@ export default function AccountPage() {
       let body = null;
       try {
         body = text ? JSON.parse(text) : null;
-      } catch (e) {
+      } catch {
         body = null;
       }
 
       if (!res.ok) {
-        // Special-case 404: endpoint not found -> keep local but notify
         if (res.status === 404) {
-          console.warn("Profile update endpoint not found (404). Keeping local changes.");
-          setSnack({ severity: "warning", message: "Đã lưu cục bộ nhưng server không hỗ trợ cập nhật (404)." });
+          console.warn("Profile update endpoint not found (404). Keeping local.");
+          setSnack({
+            severity: "warning",
+            message: "Đã lưu cục bộ nhưng server không hỗ trợ cập nhật (404).",
+          });
           setSaving(false);
           return;
         }
+        const serverMsg =
+          (body && (body.message || body.error)) ||
+          `Cập nhật thất bại (${res.status})`;
 
-        // For other errors -> rollback optimistic changes
-        const serverMsg = (body && (body.message || body.error)) || `Cập nhật thất bại (${res.status})`;
-        // rollback localStorage & state
         try {
-          if (originalUser) localStorage.setItem("user", JSON.stringify(originalUser));
+          if (originalUser)
+            localStorage.setItem("user", JSON.stringify(originalUser));
           else localStorage.removeItem("user");
-        } catch (e) {
-          console.warn("rollback localStorage failed:", e);
-        }
+        } catch {}
         setUser(originalUser);
         setSnack({ severity: "error", message: serverMsg });
         setSaving(false);
         return;
       }
 
-      // === Success ===
-      // Prefer server-returned user object (body may include user)
       const updatedFromServer =
-        body && typeof body === "object" && (body.id || body.email || body.name) ? body : optimisticUser;
+        body && typeof body === "object" && (body.id || body.email || body.name)
+          ? body
+          : optimisticUser;
 
       try {
         localStorage.setItem("user", JSON.stringify(updatedFromServer));
-      } catch (e) {
-        console.warn("localStorage set failed (final):", e);
-      }
-
+      } catch {}
       setUser(updatedFromServer);
 
-      // broadcast final user
       try {
         window.dispatchEvent(new Event("userUpdated"));
         if (typeof BroadcastChannel !== "undefined") {
@@ -324,14 +319,14 @@ export default function AccountPage() {
           bc.postMessage({ type: "userUpdated", user: updatedFromServer });
           bc.close();
         }
-      } catch (e) {
-        /* ignore */
-      }
+      } catch {}
 
-      setSnack({ severity: "success", message: "Cập nhật thông tin thành công." });
+      setSnack({
+        severity: "success",
+        message: "Cập nhật thông tin thành công.",
+      });
     } catch (err) {
       console.error("save profile err:", err);
-      // rollback to original if possible
       try {
         if (user) {
           localStorage.setItem("user", JSON.stringify(user));
@@ -340,22 +335,23 @@ export default function AccountPage() {
           localStorage.removeItem("user");
           setUser(null);
         }
-      } catch (e) {
-        console.warn("rollback failed:", e);
-      }
-      setSnack({ severity: "error", message: err?.message ?? "Cập nhật thất bại." });
+      } catch {}
+      setSnack({
+        severity: "error",
+        message: err?.message ?? "Cập nhật thất bại.",
+      });
     } finally {
       setSaving(false);
     }
   };
 
+  // ====== LOGOUT ======
   const handleLogout = () => {
     try {
       localStorage.removeItem("access_token");
       localStorage.removeItem("user");
       setUser(null);
       setSnack({ severity: "info", message: "Đã đăng xuất." });
-      // navigate to home or login
       navigate("/login");
     } catch (err) {
       console.warn("logout", err);
@@ -363,135 +359,307 @@ export default function AccountPage() {
     }
   };
 
-  const handleGoToProduct = (id) => navigate(`/product/${id}`);
+  const handleGoToOrder = (id) => navigate(`/order/${id}`);
 
-  // small UI helpers
-  const initials = (u) => {
-    if (!u) return "U";
-    const n = u.name || u.email || "";
-    const parts = n.trim().split(/\s+/);
-    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  };
+  const fullName = user?.name || "";
+  const greetingName =
+    fullName || (user?.email ? user.email.split("@")[0] : "Bạn");
+
+  // ============ RENDER ============
 
   return (
     <ThemeProvider theme={theme}>
-      <Box sx={{ minHeight: "80vh", backgroundColor: "background.default", py: 6 }}>
+      <Box sx={{ minHeight: "80vh", backgroundColor: "#fff", py: 6 }}>
         <Container maxWidth="lg">
-          <Grid container spacing={3}>
-            {/* Left: summary / avatar */}
-            <Grid item xs={12} md={4}>
-              <Paper sx={{ p: 3, position: "sticky", top: 24 }}>
-                <Stack direction="row" spacing={2} alignItems="center">
-                  <Avatar sx={{ width: 72, height: 72, bgcolor: "primary.main" }}>{initials(user)}</Avatar>
-                  <Box>
-                    <Typography variant="h6" sx={{ fontWeight: 800 }}>
-                      {user?.name ?? "Khách"}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {user?.email ?? "Chưa có email"}
-                    </Typography>
-                  </Box>
-                </Stack>
+          <Grid container spacing={4}>
+            {/* LEFT: menu + logout */}
+            <Grid item xs={12} md={3}>
+              <Box sx={{ mb: 3 }}>
+                <Typography
+                  variant="h5"
+                  sx={{ fontWeight: 800, textTransform: "capitalize" }}
+                >
+                  Xin Chào, {greetingName}!
+                </Typography>
+                <Button
+                  onClick={handleLogout}
+                  sx={{
+                    mt: 1,
+                    p: 0,
+                    minWidth: "auto",
+                    color: "#000",
+                    textTransform: "uppercase",
+                    fontWeight: 600,
+                    fontSize: 14,
+                    textDecoration: "underline",
+                  }}
+                  startIcon={<LogoutIcon sx={{ fontSize: 18 }} />}
+                >
+                  Đăng xuất
+                </Button>
+              </Box>
 
-                <Divider sx={{ my: 2 }} />
+              <Paper
+                sx={{
+                  borderRadius: 0,
+                  boxShadow: "none",
+                  border: "1px solid #eee",
+                }}
+              >
+                <List disablePadding>
+                  <ListItem disablePadding>
+                    <ListItemButton
+                      selected={section === 0}
+                      onClick={() => setSection(0)}
+                      {...a11yProps(0)}
+                      sx={{
+                        py: 2,
+                        "&.Mui-selected": {
+                          backgroundColor: "#f5f5f5",
+                        },
+                      }}
+                    >
+                      <ListItemIcon>
+                        <PersonOutlineIcon />
+                      </ListItemIcon>
+                      <ListItemText primary="Thông Tin Cá Nhân" />
+                    </ListItemButton>
+                  </ListItem>
 
-                <Stack spacing={1}>
-                  <Button startIcon={<EditIcon />} variant="outlined" onClick={() => setTab(0)}>
-                    Chỉnh sửa thông tin
-                  </Button>
-                  <Button startIcon={<ShoppingBagIcon />} variant="outlined" onClick={() => setTab(1)}>
-                    Đơn hàng
-                  </Button>
-                  <Button startIcon={<HomeIcon />} color="error" variant="outlined" onClick={handleLogout}>
-                    Đăng xuất
-                  </Button>
-                </Stack>
+                  <Divider />
+
+                  <ListItem disablePadding>
+                    <ListItemButton
+                      selected={section === 1}
+                      onClick={() => setSection(1)}
+                      {...a11yProps(1)}
+                      sx={{
+                        py: 2,
+                        "&.Mui-selected": {
+                          backgroundColor: "#f5f5f5",
+                        },
+                      }}
+                    >
+                      <ListItemIcon>
+                        <ShoppingBagIcon />
+                      </ListItemIcon>
+                      <ListItemText primary="Lịch Sử Đặt Hàng" />
+                    </ListItemButton>
+                  </ListItem>
+
+                  <Divider />
+
+                  <ListItem disablePadding>
+                    <ListItemButton
+                      selected={section === 2}
+                      onClick={() => setSection(2)}
+                      {...a11yProps(2)}
+                      sx={{
+                        py: 2,
+                        "&.Mui-selected": {
+                          backgroundColor: "#f5f5f5",
+                        },
+                      }}
+                    >
+                      <ListItemIcon>
+                        <LocalShippingIcon />
+                      </ListItemIcon>
+                      <ListItemText primary="Thông Tin Giao Hàng" />
+                    </ListItemButton>
+                  </ListItem>
+
+                  <Divider />
+
+                  <ListItem disablePadding>
+                    <ListItemButton
+                      selected={section === 3}
+                      onClick={() => setSection(3)}
+                      {...a11yProps(3)}
+                      sx={{
+                        py: 2,
+                        "&.Mui-selected": {
+                          backgroundColor: "#f5f5f5",
+                        },
+                      }}
+                    >
+                      <ListItemIcon>
+                        <MailOutlineIcon />
+                      </ListItemIcon>
+                      <ListItemText primary="Đăng Ký Nhận Tin" />
+                    </ListItemButton>
+                  </ListItem>
+                </List>
               </Paper>
             </Grid>
 
-            {/* Right: tabs content */}
-            <Grid item xs={12} md={8}>
-              <Paper sx={{ p: 2 }}>
-                <Tabs value={tab} onChange={handleTabChange} aria-label="account tabs" variant="fullWidth" sx={{ mb: 2 }}>
-                  <Tab label="Thông tin" {...a11yProps(0)} />
-                  <Tab label="Đơn hàng" {...a11yProps(1)} />
-                  <Tab label="Địa chỉ" {...a11yProps(2)} />
-                </Tabs>
-
-                {/* Tab 0: Profile */}
-                {tab === 0 && (
-                  <Box>
-                    <Typography variant="h6" sx={{ mb: 2 }}>
-                      Thông tin cá nhân
+            {/* RIGHT: content */}
+            <Grid item xs={12} md={9}>
+              <Paper
+                sx={{
+                  p: 4,
+                  borderRadius: 0,
+                  border: "1px solid #eee",
+                  boxShadow: "none",
+                }}
+              >
+                {/* SECTION 0: PERSONAL INFO */}
+                {section === 0 && (
+                  <Box id="account-panel-0">
+                    <Typography
+                      variant="h5"
+                      sx={{
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        mb: 3,
+                      }}
+                    >
+                      Thông Tin Cá Nhân
                     </Typography>
-                    <Grid container spacing={2}>
-                      <Grid item xs={12} sm={6}>
-                        <TextField label="Họ tên" fullWidth value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+
+                    {/* Tất cả ô ở 1 cột, "Sinh nhật" -> "Mật khẩu" */}
+                    <Grid container spacing={3} direction="column">
+                      <Grid item xs={12}>
+                        <TextField
+                          label="Email"
+                          fullWidth
+                          value={form.email}
+                          onChange={(e) =>
+                            setForm({ ...form, email: e.target.value })
+                          }
+                        />
                       </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <TextField label="Email" fullWidth value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+                      <Grid item xs={12}>
+                        <TextField
+                          label="Họ & Tên"
+                          fullWidth
+                          value={form.name}
+                          onChange={(e) =>
+                            setForm({ ...form, name: e.target.value })
+                          }
+                        />
                       </Grid>
-                      <Grid item xs={12} sm={6}>
+                      <Grid item xs={12}>
+                        <TextField
+                          label="Mật khẩu"
+                          type="password"
+                          fullWidth
+                          value={form.password}
+                          onChange={(e) =>
+                            setForm({ ...form, password: e.target.value })
+                          }
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
                         <TextField
                           label="Số điện thoại"
                           fullWidth
                           value={form.phone}
-                          onChange={(e) => setForm({ ...form, phone: sanitizePhone(e.target.value) })}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              phone: sanitizePhone(e.target.value),
+                            })
+                          }
                           inputProps={{ maxLength: 10 }}
                         />
                       </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <TextField label="Password" fullWidth value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
-                      </Grid>
                     </Grid>
 
-                    <Box sx={{ display: "flex", gap: 1, mt: 3 }}>
-                      <Button variant="contained" onClick={handleSaveProfile} disabled={saving}>
-                        {saving ? <CircularProgress size={20} /> : "Lưu"}
-                      </Button>
+                    <Box sx={{ mt: 4 }}>
                       <Button
-                        variant="outlined"
-                        onClick={() => {
-                          setForm({ name: user?.name ?? "", email: user?.email ?? "", phone: user?.phone ?? "", password: user?.password ?? "" });
-                          setSnack({ severity: "info", message: "Đã phục hồi" });
+                        variant="contained"
+                        onClick={handleSaveProfile}
+                        disabled={saving}
+                        sx={{
+                          px: 5,
+                          py: 1.5,
+                          fontWeight: 700,
+                          fontSize: 14,
                         }}
                       >
-                        Hủy
+                        {saving ? (
+                          <CircularProgress size={20} sx={{ color: "#fff" }} />
+                        ) : (
+                          "LƯU THAY ĐỔI"
+                        )}
                       </Button>
                     </Box>
                   </Box>
                 )}
 
-                {/* Tab 1: Orders */}
-                {tab === 1 && (
-                  <Box>
-                    <Typography variant="h6" sx={{ mb: 2 }}>
-                      Đơn hàng của tôi
+                {/* SECTION 1: ORDER HISTORY */}
+                {section === 1 && (
+                  <Box id="account-panel-1">
+                    <Typography
+                      variant="h5"
+                      sx={{
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        mb: 3,
+                      }}
+                    >
+                      Lịch Sử Đặt Hàng
                     </Typography>
+
                     {loadingOrders ? (
-                      <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          justifyContent: "center",
+                          py: 4,
+                        }}
+                      >
                         <CircularProgress />
                       </Box>
                     ) : orders.length === 0 ? (
-                      <Typography>Chưa có đơn hàng.</Typography>
+                      <Typography>Chưa có đơn hàng nào.</Typography>
                     ) : (
                       <List>
                         {orders.map((o) => (
                           <React.Fragment key={o.id}>
-                            <ListItem alignItems="flex-start" sx={{ py: 2 }}>
+                            <ListItem
+                              sx={{ py: 2 }}
+                              secondaryAction={
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  onClick={() => handleGoToOrder(o.id)}
+                                >
+                                  Xem chi tiết
+                                </Button>
+                              }
+                            >
                               <ListItemText
-                                primary={`#${o.id} — ${o.status ?? "—"}`}
+                                primary={`Đơn hàng #${o.id}`}
                                 secondary={
-                                  <Box>
-                                    <Typography variant="body2" color="text.secondary">{`Tổng: ${o.Total_price ? Number(o.Total_price).toLocaleString("vi-VN") + "₫" : "—"}`}</Typography>
-                                    <Typography variant="caption" color="text.secondary">{`Ngày: ${o.created_at ?? o.date ?? "—"}`}</Typography>
-                                  </Box>
+                                  <>
+                                    <Typography
+                                      variant="body2"
+                                      color="text.secondary"
+                                    >
+                                      {`Trạng thái: ${o.status ?? "—"}`}
+                                    </Typography>
+                                    <Typography
+                                      variant="body2"
+                                      color="text.secondary"
+                                    >
+                                      {`Tổng: ${
+                                        o.Total_price
+                                          ? Number(
+                                              o.Total_price
+                                            ).toLocaleString("vi-VN") + "₫"
+                                          : "—"
+                                      }`}
+                                    </Typography>
+                                    <Typography
+                                      variant="caption"
+                                      color="text.secondary"
+                                    >
+                                      {`Ngày: ${o.created_at ?? o.date ?? "—"}`}
+                                    </Typography>
+                                  </>
                                 }
                               />
-                              <Button size="small" onClick={() => navigate(`/order/${o.id}`)}>
-                                Chi tiết
-                              </Button>
                             </ListItem>
                             <Divider />
                           </React.Fragment>
@@ -501,27 +669,50 @@ export default function AccountPage() {
                   </Box>
                 )}
 
-                {/* Tab 2: Addresses */}
-                {tab === 2 && (
-                  <Box>
-                    <Typography variant="h6" sx={{ mb: 2 }}>
-                      Địa chỉ giao hàng
+                {/* SECTION 2: SHIPPING INFO */}
+                {section === 2 && (
+                  <Box id="account-panel-2">
+                    <Typography
+                      variant="h5"
+                      sx={{
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        mb: 3,
+                      }}
+                    >
+                      Thông Tin Giao Hàng
                     </Typography>
+
                     {addresses.length === 0 ? (
-                      <Typography>Chưa có địa chỉ nào. Bạn có thể thêm địa chỉ trong phần sửa thông tin.</Typography>
+                      <Typography>
+                        Chưa có địa chỉ nào. Bạn có thể lưu địa chỉ trong phần
+                        thông tin cá nhân hoặc tại bước thanh toán.
+                      </Typography>
                     ) : (
                       <Grid container spacing={2}>
                         {addresses.map((a, idx) => (
                           <Grid item xs={12} key={idx}>
-                            <Paper sx={{ p: 2 }}>
-                              <Typography sx={{ fontWeight: 700 }}>{a.name ?? `Địa chỉ ${idx + 1}`}</Typography>
-                              <Typography variant="body2" color="text.secondary">
+                            <Paper sx={{ p: 2, borderRadius: 1 }}>
+                              <Typography sx={{ fontWeight: 700, mb: 0.5 }}>
+                                {a.name ?? `Địa chỉ ${idx + 1}`}
+                              </Typography>
+                              <Typography variant="body2">
                                 {a.address}
                               </Typography>
-                              <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                                <Chip label={a.phone} />
-                                <Chip label={a.city} />
-                              </Stack>
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                              >
+                                {a.city}
+                              </Typography>
+                              {a.phone && (
+                                <Typography
+                                  variant="body2"
+                                  color="text.secondary"
+                                >
+                                  {`Điện thoại: ${a.phone}`}
+                                </Typography>
+                              )}
                             </Paper>
                           </Grid>
                         ))}
@@ -529,13 +720,68 @@ export default function AccountPage() {
                     )}
                   </Box>
                 )}
+
+                {/* SECTION 3: NEWSLETTER */}
+                {section === 3 && (
+                  <Box id="account-panel-3">
+                    <Typography
+                      variant="h5"
+                      sx={{
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        mb: 3,
+                      }}
+                    >
+                      Đăng Ký Nhận Tin
+                    </Typography>
+
+                    <Typography sx={{ mb: 2 }}>
+                      Nhận email về sản phẩm mới, chương trình khuyến mãi và các
+                      tin tức mới nhất từ cửa hàng.
+                    </Typography>
+
+                    <Stack direction="row" spacing={2} sx={{ maxWidth: 400 }}>
+                      <TextField
+                        fullWidth
+                        placeholder="Nhập email của bạn"
+                        value={form.email}
+                        onChange={(e) =>
+                          setForm({ ...form, email: e.target.value })
+                        }
+                      />
+                      <Button
+                        variant="contained"
+                        onClick={() =>
+                          setSnack({
+                            severity: "success",
+                            message: "Đã đăng ký nhận tin (demo).",
+                          })
+                        }
+                      >
+                        Đăng ký
+                      </Button>
+                    </Stack>
+                  </Box>
+                )}
               </Paper>
             </Grid>
           </Grid>
         </Container>
 
-        <Snackbar open={!!snack} autoHideDuration={3000} onClose={() => setSnack(null)}>
-          {snack ? <Alert onClose={() => setSnack(null)} severity={snack.severity}>{snack.message}</Alert> : null}
+        <Snackbar
+          open={!!snack}
+          autoHideDuration={3000}
+          onClose={() => setSnack(null)}
+        >
+          {snack ? (
+            <Alert
+              onClose={() => setSnack(null)}
+              severity={snack.severity}
+              sx={{ width: "100%" }}
+            >
+              {snack.message}
+            </Alert>
+          ) : null}
         </Snackbar>
       </Box>
     </ThemeProvider>

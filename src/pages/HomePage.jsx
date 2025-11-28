@@ -1,16 +1,12 @@
 // src/pages/HomePage.jsx
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
-  AppBar,
-  Toolbar,
   Typography,
-  IconButton,
   Box,
   Container,
   Grid,
   Button,
   Paper,
-  Stack,
   CircularProgress,
   Pagination,
   Snackbar,
@@ -20,14 +16,11 @@ import {
   CardContent,
   CardActions,
 } from "@mui/material";
-import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
-import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
-import { useNavigate, createSearchParams } from "react-router-dom";
+import { useNavigate, createSearchParams, useSearchParams } from "react-router-dom";
 
 /**
- * HomePage (user-facing) — upload-related UI removed.
- * Replace API_BASE if your backend uses a different origin/port.
+ * HomePage (user-facing)
  */
 
 const API_BASE = "http://127.0.0.1:8000";
@@ -47,8 +40,16 @@ const theme = createTheme({
 export default function HomePage() {
   const navigate = useNavigate();
 
-  // UI / pagination state
-  const [query, setQuery] = useState("");
+  // URL search params
+  const [searchParams] = useSearchParams();
+
+  // query lấy từ URL ?q=
+  const query = useMemo(
+    () => (searchParams.get("q") || "").trim(),
+    [searchParams]
+  );
+
+  // pagination
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 9;
 
@@ -59,7 +60,11 @@ export default function HomePage() {
   const [loadingCategories, setLoadingCategories] = useState(false);
   const [error, setError] = useState(null);
   const [snack, setSnack] = useState(null);
-  const [cartCount, setCartCount] = useState(0);
+
+  // mỗi lần query đổi thì reset về trang 1
+  useEffect(() => {
+    setPage(1);
+  }, [query]);
 
   // ---------- Fetch categories ----------
   const fetchCategories = useCallback(async () => {
@@ -68,7 +73,6 @@ export default function HomePage() {
       const res = await fetch(`${API_BASE}/api/categories/`);
       if (!res.ok) throw new Error(`Categories fetch failed: ${res.status}`);
       const data = await res.json();
-      // Expecting an array; if backend wraps, adapt as needed
       setCategories(Array.isArray(data) ? data : data || []);
     } catch (err) {
       console.warn("Categories load:", err);
@@ -133,7 +137,7 @@ export default function HomePage() {
     fetchProducts();
   }, [fetchCategories, fetchProducts]);
 
-  // category tiles (no localStorage overrides, just use category data or static fallback)
+  // category tiles
   const categoryTiles = useMemo(() => {
     if (categories && categories.length > 0) {
       return categories.map((c, i) => {
@@ -143,13 +147,15 @@ export default function HomePage() {
           title: (c.name || "Danh mục").toUpperCase(),
           slug: slugOrName,
           img: c.image_url
-            ? (c.image_url.startsWith("http") ? c.image_url : `${API_BASE}/storage/${c.image_url}`)
+            ? c.image_url.startsWith("http")
+              ? c.image_url
+              : `${API_BASE}/storage/${c.image_url}`
             : `/images/cat-${slugOrName.toString().toLowerCase().replace(/\s+/g, "-")}.jpg`,
           to: `/collections?${createSearchParams({ category: c.slug ?? c.name })}`,
         };
       });
     }
-    // fallback static tiles (ensure these images exist in public/images)
+    // fallback static tiles
     return [
       { id: "c1", title: "CLOTHERS", img: "/images/quanxanh3.jpg", to: "/collections?category=clother" },
       { id: "c2", title: "T-SHIRT", img: "/images/quanxanh2.jpg", to: "/collections?category=tshirt" },
@@ -161,8 +167,8 @@ export default function HomePage() {
   // client-side filtering (search) + pagination
   const filtered = useMemo(() => {
     let list = products.slice();
-    if (query && query.trim()) {
-      const q = query.trim().toLowerCase();
+    if (query) {
+      const q = query.toLowerCase();
       list = list.filter(
         (p) =>
           (p.name && p.name.toLowerCase().includes(q)) ||
@@ -201,23 +207,22 @@ export default function HomePage() {
       if (idx >= 0) {
         cart[idx].quantity = (cart[idx].quantity || 1) + 1;
         if (unitPrice != null) cart[idx].unit_price = unitPrice;
-        cart[idx].line_total = cart[idx].unit_price != null ? cart[idx].unit_price * cart[idx].quantity : null;
+        cart[idx].line_total =
+          cart[idx].unit_price != null ? cart[idx].unit_price * cart[idx].quantity : null;
       } else {
         cart.push({
           id: p.id,
           name: p.name,
           unit_price: unitPrice,
           line_total: unitPrice != null ? unitPrice * 1 : null,
-          price_display: unitPrice != null ? unitPrice.toLocaleString("vi-VN") + "₫" : "Liên hệ",
+          price_display:
+            unitPrice != null ? unitPrice.toLocaleString("vi-VN") + "₫" : "Liên hệ",
           image_url: p.image_url ?? null,
           quantity: 1,
         });
       }
 
       localStorage.setItem("cart", JSON.stringify(cart));
-
-      const totalQty = cart.reduce((s, it) => s + (it.quantity || 0), 0);
-      setCartCount(totalQty);
 
       setSnack({ severity: "success", message: `${p.name} đã thêm vào giỏ.` });
     } catch (e) {
@@ -260,7 +265,6 @@ export default function HomePage() {
                       transition: "transform 0.4s ease",
                       "&:hover": { transform: "scale(1.03)" },
                     }}
-                    onClick={() => navigate(c.to)}
                   />
                   <Box
                     className="overlay"
@@ -275,9 +279,14 @@ export default function HomePage() {
                       opacity: 0.85,
                       transition: "opacity 0.25s ease",
                     }}
-                    onClick={() => navigate(c.to)}
                   >
-                    <Typography sx={{ fontWeight: 800, fontSize: { xs: 18, md: 26 }, letterSpacing: 1.2 }}>
+                    <Typography
+                      sx={{
+                        fontWeight: 800,
+                        fontSize: { xs: 18, md: 26 },
+                        letterSpacing: 1.2,
+                      }}
+                    >
                       {c.title}
                     </Typography>
                   </Box>
@@ -289,9 +298,12 @@ export default function HomePage() {
 
         {/* Products grid */}
         <Container maxWidth="lg" sx={{ mt: 8, mb: 8 }}>
-          <Typography variant="h5" sx={{ fontWeight: 800, mb: 3 }}>
-            New Arrivals
-          </Typography>
+          {/* Chỉ còn tiêu đề, không còn ô search trên HomePage */}
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="h5" sx={{ fontWeight: 800 }}>
+              New Arrivals
+            </Typography>
+          </Box>
 
           {loadingProducts ? (
             <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
@@ -306,29 +318,66 @@ export default function HomePage() {
               <Grid container spacing={3}>
                 {currentPageProducts.length === 0 ? (
                   <Grid item xs={12}>
-                    <Typography textAlign="center">Không tìm thấy sản phẩm.</Typography>
+                    <Typography textAlign="center">
+                      Không tìm thấy sản phẩm.
+                    </Typography>
                   </Grid>
                 ) : (
                   currentPageProducts.map((p) => (
                     <Grid item xs={12} sm={6} md={4} key={p.id}>
-                      <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-                        <CardMedia component="img" height="280" image={p.image_url || "/images/quanxanh2.jpg"} alt={p.name} sx={{ objectFit: "cover" }} />
+                      <Card
+                        sx={{
+                          height: "100%",
+                          display: "flex",
+                          flexDirection: "column",
+                        }}
+                      >
+                        <CardMedia
+                          component="img"
+                          height="280"
+                          image={p.image_url || "/images/quanxanh2.jpg"}
+                          alt={p.name}
+                          sx={{ objectFit: "cover" }}
+                        />
                         <CardContent sx={{ flexGrow: 1 }}>
-                          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                          <Typography
+                            variant="subtitle1"
+                            sx={{ fontWeight: 700 }}
+                          >
                             {p.name}
                           </Typography>
-                          <Typography variant="body2" sx={{ color: "#5C6F91", mt: 1 }}>
+                          <Typography
+                            variant="body2"
+                            sx={{ color: "#5C6F91", mt: 1 }}
+                          >
                             {(p.rating ?? 0).toFixed(1)} ⭐
                           </Typography>
-                          <Typography variant="h6" sx={{ mt: 1, color: "#162447", fontWeight: 800 }}>
+                          <Typography
+                            variant="h6"
+                            sx={{
+                              mt: 1,
+                              color: "#162447",
+                              fontWeight: 800,
+                            }}
+                          >
                             {safePrice(p.price)}
                           </Typography>
                         </CardContent>
-                        <CardActions sx={{ justifyContent: "space-between", px: 2, pb: 2 }}>
-                          <Button size="small" variant="outlined" onClick={() => navigate(`/product/${p.id}`)}>
+                        <CardActions
+                          sx={{ justifyContent: "space-between", px: 2, pb: 2 }}
+                        >
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => navigate(`/product/${p.id}`)}
+                          >
                             Xem
                           </Button>
-                          <Button size="small" variant="contained" onClick={() => handleAddToCart(p)}>
+                          <Button
+                            size="small"
+                            variant="contained"
+                            onClick={() => handleAddToCart(p)}
+                          >
                             Thêm giỏ
                           </Button>
                         </CardActions>
@@ -339,15 +388,28 @@ export default function HomePage() {
               </Grid>
 
               <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
-                <Pagination count={pageCount} page={page} onChange={(_, v) => setPage(v)} color="primary" />
+                <Pagination
+                  count={pageCount}
+                  page={page}
+                  onChange={(_, v) => setPage(v)}
+                  color="primary"
+                />
               </Box>
             </>
           )}
         </Container>
 
         {/* Snackbar */}
-        <Snackbar open={!!snack} autoHideDuration={2500} onClose={() => setSnack(null)}>
-          {snack ? <Alert onClose={() => setSnack(null)} severity={snack.severity}>{snack.message}</Alert> : null}
+        <Snackbar
+          open={!!snack}
+          autoHideDuration={2500}
+          onClose={() => setSnack(null)}
+        >
+          {snack ? (
+            <Alert onClose={() => setSnack(null)} severity={snack.severity}>
+              {snack.message}
+            </Alert>
+          ) : null}
         </Snackbar>
       </Box>
     </ThemeProvider>
