@@ -18,71 +18,104 @@ import {
     TextField,
     Pagination,
     Stack,
+    IconButton,
+    Divider,
+    Tooltip,
 } from "@mui/material";
+
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import VisibilityIcon from "@mui/icons-material/Visibility";
+import SearchIcon from "@mui/icons-material/Search";
 import { API_BASE } from "../AdminPanel";
+
+/* ------------------ DIALOG ------------------ */
 
 function SizeEditDialog({ open, onClose, item, onSave, slugify }) {
     const [form, setForm] = useState(item ?? null);
     const [manualSlug, setManualSlug] = useState(false);
+    const [saving, setSaving] = useState(false);
 
     useEffect(() => {
         setForm(item ?? null);
-        setManualSlug(!!(item && item.slug));
+        setManualSlug(!!item?.slug);
     }, [item]);
 
-    const onNameChange = (value) => {
-        const next = { ...(form || {}), name: value };
-        if (!manualSlug) {
-            next.slug = slugify(value);
-        }
+    const onNameChange = (v) => {
+        const next = { ...(form || {}), name: v };
+        if (!manualSlug) next.slug = slugify(v);
         setForm(next);
     };
 
-    const onSlugChange = (value) => {
+    const onSlugChange = (v) => {
         setManualSlug(true);
-        setForm({ ...(form || {}), slug: value });
+        setForm({ ...(form || {}), slug: v });
+    };
+
+    const handleSave = async () => {
+        if (!form.name?.trim()) {
+            alert("Tên size không được để trống");
+            return;
+        }
+        const payload = {
+            ...form,
+            name: form.name.trim(),
+            slug: form.slug?.trim() || slugify(form.name),
+        };
+
+        setSaving(true);
+        try {
+            await onSave(payload);
+        } finally {
+            setSaving(false);
+        }
     };
 
     if (!form) return null;
+
     return (
-        <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-            <DialogTitle>{form.id ? "Edit size" : "Create size"}</DialogTitle>
+        <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+            <DialogTitle>
+                {form.id ? "Edit size" : "Create size"}
+            </DialogTitle>
             <DialogContent>
-                <TextField
-                    label="Name"
-                    fullWidth
-                    value={form.name || ""}
-                    onChange={(e) => onNameChange(e.target.value)}
-                    sx={{ mt: 1 }}
-                />
-                <TextField
-                    label="Slug"
-                    fullWidth
-                    value={form.slug ?? ""}
-                    onChange={(e) => onSlugChange(e.target.value)}
-                    sx={{ mt: 1 }}
-                    helperText="Nếu muốn slug khác mặc định, chỉnh tay vào đây."
-                />
+                <Stack spacing={2} sx={{ mt: 1 }}>
+                    <TextField
+                        label="Name"
+                        fullWidth
+                        required
+                        value={form.name}
+                        onChange={(e) => onNameChange(e.target.value)}
+                    />
+                    <TextField
+                        label="Slug"
+                        fullWidth
+                        value={form.slug}
+                        onChange={(e) => onSlugChange(e.target.value)}
+                        helperText="Slug sẽ được tạo tự động, trừ khi bạn chỉnh tay."
+                    />
+                </Stack>
             </DialogContent>
             <DialogActions>
-                <Button onClick={onClose}>Cancel</Button>
-                <Button variant="contained" onClick={() => onSave(form)}>
-                    Save
+                <Button onClick={onClose} disabled={saving}>Cancel</Button>
+                <Button variant="contained" onClick={handleSave} disabled={saving}>
+                    {saving ? "Saving..." : "Save"}
                 </Button>
             </DialogActions>
         </Dialog>
     );
 }
 
+/* ------------------ MAIN PAGE ------------------ */
+
 export default function SizesPage({ setSnack }) {
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [search, setSearch] = useState("");
     const [editOpen, setEditOpen] = useState(false);
     const [editing, setEditing] = useState(null);
+
     const [page, setPage] = useState(1);
     const PAGE_SIZE = 12;
     const [totalPages, setTotalPages] = useState(1);
@@ -92,46 +125,63 @@ export default function SizesPage({ setSnack }) {
         return text
             .normalize("NFD")
             .replace(/[\u0300-\u036f]/g, "")
-            .toString()
             .toLowerCase()
             .trim()
             .replace(/[^a-z0-9\s-]/g, "")
             .replace(/\s+/g, "-")
-            .replace(/-+/g, "-")
-            .replace(/^-+|-+$/g, "");
+            .replace(/-+/g, "-");
     };
 
     const fetchSizes = useCallback(async () => {
         setLoading(true);
         try {
             const res = await fetch(`${API_BASE}/api/sizes`);
-            if (!res.ok) throw new Error("Sizes fetch failed");
+            if (!res.ok) throw new Error("Fetch failed");
             const data = await res.json();
-            const rawArr = Array.isArray(data) ? data : data.data ?? data.items ?? [];
-            const arr = (rawArr || []).map((it) => {
-                const name = it.name ?? it.title ?? "";
-                const slug = it.slug ?? (name ? slugify(name) : "");
-                return { ...it, name, slug };
-            });
+            const raw = Array.isArray(data) ? data : data.data ?? [];
+
+            const arr = raw.map((s) => ({
+                ...s,
+                name: s.name,
+                slug: s.slug ?? slugify(s.name),
+            }));
+
             setItems(arr);
-            setTotalPages(Math.max(1, Math.ceil(arr.length / PAGE_SIZE)));
         } catch (err) {
-            console.error("fetchSizes", err);
+            console.error(err);
             setSnack({ severity: "error", message: "Không tải được sizes." });
-            setItems([]);
         } finally {
             setLoading(false);
         }
-    }, [setSnack]);
+    }, []);
 
     useEffect(() => {
         fetchSizes();
-    }, [fetchSizes]);
+    }, []);
+
+    /* Lọc search */
+    const filtered = items.filter((s) => {
+        const q = search.trim().toLowerCase();
+        if (!q) return true;
+        return (
+            s.name?.toLowerCase().includes(q) ||
+            s.slug?.toLowerCase().includes(q)
+        );
+    });
+
+    useEffect(() => {
+        const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+        setTotalPages(pages);
+        if (page > pages) setPage(1);
+    }, [filtered.length]);
+
+    const visible = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
     const onEdit = (item) => {
         setEditing(item);
         setEditOpen(true);
     };
+
     const onCreate = () => {
         setEditing({ name: "", slug: "" });
         setEditOpen(true);
@@ -139,132 +189,207 @@ export default function SizesPage({ setSnack }) {
 
     const handleSave = async (obj) => {
         const token = localStorage.getItem("access_token");
+
         try {
             const method = obj.id ? "PUT" : "POST";
             const url = obj.id
                 ? `${API_BASE}/api/sizes/${obj.id}`
                 : `${API_BASE}/api/sizes`;
-            const payload = { name: obj.name, slug: obj.slug };
+
             const res = await fetch(url, {
                 method,
                 headers: {
                     "Content-Type": "application/json",
-                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                    Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify(payload),
+                body: JSON.stringify(obj),
             });
-            if (!res.ok) {
-                const txt = await res.text().catch(() => "");
-                throw new Error(txt || "Save failed");
-            }
+
+            if (!res.ok) throw new Error("Save failed");
+
             setSnack({ severity: "success", message: "Lưu size thành công" });
             setEditOpen(false);
             fetchSizes();
         } catch (err) {
-            console.error("save size", err);
             setSnack({ severity: "error", message: "Lưu size thất bại" });
         }
     };
 
     const handleDelete = async (id) => {
+        if (!window.confirm("Xóa size này?")) return;
+
         const token = localStorage.getItem("access_token");
-        if (!window.confirm("Xóa size?")) return;
+
         try {
             const res = await fetch(`${API_BASE}/api/sizes/${id}`, {
                 method: "DELETE",
-                headers: { Authorization: `Bearer ${token}` },
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
             });
+
             if (!res.ok) throw new Error("Delete failed");
+
             setSnack({ severity: "success", message: "Đã xóa size" });
             fetchSizes();
         } catch (err) {
-            console.error(err);
             setSnack({ severity: "error", message: "Xóa thất bại" });
         }
     };
 
-    const visible = items.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
     return (
         <Box>
+
+            {/* HEADER */}
             <Stack
                 direction="row"
                 justifyContent="space-between"
-                alignItems="center"
+                alignItems="flex-start"
                 sx={{ mb: 2 }}
             >
-                <Typography variant="h6">Sizes</Typography>
+                <Box>
+                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                        Sizes
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                        Quản lý kích cỡ sản phẩm.
+                    </Typography>
+                </Box>
+
                 <Button variant="contained" startIcon={<AddIcon />} onClick={onCreate}>
                     Create size
                 </Button>
             </Stack>
 
-            <Paper>
-                {loading ? (
-                    <Box sx={{ p: 3, display: "flex", justifyContent: "center" }}>
+            {/* SEARCH BAR */}
+            <Paper sx={{ mb: 2, p: 2 }}>
+                <Stack
+                    direction={{ xs: "column", sm: "row" }}
+                    spacing={2}
+                    alignItems="center"
+                    justifyContent="space-between"
+                >
+                    <Stack direction="row" spacing={1} alignItems="center" sx={{ flex: 1 }}>
+                        <SearchIcon fontSize="small" />
+                        <TextField
+                            size="small"
+                            fullWidth
+                            placeholder="Tìm theo tên hoặc slug…"
+                            value={search}
+                            onChange={(e) => {
+                                setSearch(e.target.value);
+                                setPage(1);
+                            }}
+                        />
+                    </Stack>
+
+                    <Typography variant="body2" color="text.secondary">
+                        Tổng: {items.length} size
+                    </Typography>
+                </Stack>
+            </Paper>
+
+            {/* TABLE */}
+            <Paper sx={{ position: "relative" }}>
+                {loading && (
+                    <Box
+                        sx={{
+                            position: "absolute",
+                            inset: 0,
+                            bgcolor: "rgba(255,255,255,0.6)",
+                            display: "flex",
+                            justifyContent: "center",
+                            alignItems: "center",
+                            zIndex: 2,
+                        }}
+                    >
                         <CircularProgress />
                     </Box>
-                ) : (
-                    <TableContainer>
-                        <Table>
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell>#</TableCell>
-                                    <TableCell>Name</TableCell>
-                                    <TableCell>Slug</TableCell>
-                                    <TableCell>Actions</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {visible.map((c) => (
-                                    <TableRow key={c.id}>
-                                        <TableCell>{c.id}</TableCell>
-                                        <TableCell>{c.name}</TableCell>
-                                        <TableCell>{c.slug ?? "-"}</TableCell>
-                                        <TableCell>
-                                            <Button
+                )}
+
+                <TableContainer>
+                    <Table size="small">
+                        <TableHead>
+                            <TableRow>
+                                <TableCell align="right" sx={{ width: 60 }}>#</TableCell>
+                                <TableCell>Name</TableCell>
+                                <TableCell align="right" sx={{ width: 160 }}>
+                                    Actions
+                                </TableCell>
+                            </TableRow>
+                        </TableHead>
+
+                        <TableBody>
+                            {visible.map((s) => (
+                                <TableRow hover key={s.id}>
+                                    <TableCell align="right">{s.id}</TableCell>
+                                    <TableCell>
+                                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                            {s.name}
+                                        </Typography>
+                                    </TableCell>
+
+                                    <TableCell align="right">
+                                        <Stack direction="row" justifyContent="flex-end" spacing={0.5}>
+                                            <IconButton
                                                 size="small"
-                                                startIcon={<VisibilityIcon />}
                                                 onClick={() =>
                                                     window.open(
-                                                        `/collections?size=${c.slug || c.name}`,
+                                                        `/collections?size=${s.slug}`,
                                                         "_blank"
                                                     )
                                                 }
                                             >
-                                                View
-                                            </Button>
-                                            <Button
+                                                <VisibilityIcon fontSize="small" />
+                                            </IconButton>
+
+                                            <IconButton
                                                 size="small"
-                                                startIcon={<EditIcon />}
-                                                onClick={() => onEdit(c)}
+                                                onClick={() => onEdit(s)}
                                             >
-                                                Edit
-                                            </Button>
-                                            <Button
+                                                <EditIcon fontSize="small" />
+                                            </IconButton>
+
+                                            <IconButton
                                                 size="small"
                                                 color="error"
-                                                startIcon={<DeleteIcon />}
-                                                onClick={() => handleDelete(c.id)}
+                                                onClick={() => handleDelete(s.id)}
                                             >
-                                                Delete
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                        <Box sx={{ display: "flex", justifyContent: "center", p: 2 }}>
-                            <Pagination
-                                count={totalPages}
-                                page={page}
-                                onChange={(_, v) => setPage(v)}
-                            />
-                        </Box>
-                    </TableContainer>
-                )}
+                                                <DeleteIcon fontSize="small" />
+                                            </IconButton>
+                                        </Stack>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+
+                            {/* EMPTY STATE */}
+                            {visible.length === 0 && !loading && (
+                                <TableRow>
+                                    <TableCell colSpan={3} align="center">
+                                        <Box sx={{ py: 3 }}>
+                                            <Typography variant="body2" color="text.secondary">
+                                                Không có size nào.
+                                            </Typography>
+                                        </Box>
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </TableContainer>
+
+                <Divider />
+                <Box sx={{ display: "flex", justifyContent: "flex-end", p: 1.5 }}>
+                    <Pagination
+                        size="small"
+                        count={totalPages}
+                        page={page}
+                        onChange={(_, v) => setPage(v)}
+                    />
+                </Box>
             </Paper>
 
+            {/* DIALOG */}
             <SizeEditDialog
                 open={editOpen}
                 onClose={() => setEditOpen(false)}

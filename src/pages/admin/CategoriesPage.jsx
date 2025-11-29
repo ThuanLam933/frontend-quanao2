@@ -18,16 +18,23 @@ import {
     TextField,
     Pagination,
     Stack,
+    IconButton,
+    Divider,
+    Tooltip,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import VisibilityIcon from "@mui/icons-material/Visibility";
+import SearchIcon from "@mui/icons-material/Search";
 import { API_BASE } from "../AdminPanel";
+
+/* -------------------- EDIT / CREATE DIALOG -------------------- */
 
 function CategoryEditDialog({ open, onClose, item, onSave, slugify }) {
     const [form, setForm] = useState(item ?? null);
     const [manualSlug, setManualSlug] = useState(false);
+    const [saving, setSaving] = useState(false);
 
     useEffect(() => {
         setForm(item ?? null);
@@ -47,45 +54,77 @@ function CategoryEditDialog({ open, onClose, item, onSave, slugify }) {
         setForm({ ...(form || {}), slug: value });
     };
 
+    const handleSaveClick = async () => {
+        if (!form) return;
+        if (!form.name || !form.name.trim()) {
+            alert("Tên danh mục không được để trống");
+            return;
+        }
+        const payload = {
+            ...form,
+            name: form.name.trim(),
+            slug: (form.slug || slugify(form.name)).trim(),
+        };
+        setSaving(true);
+        try {
+            await onSave(payload);
+        } finally {
+            setSaving(false);
+        }
+    };
+
     if (!form) return null;
+
     return (
         <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-            <DialogTitle>{form.id ? "Edit category" : "Create category"}</DialogTitle>
+            <DialogTitle>
+                {form.id ? "Edit category" : "Create category"}
+            </DialogTitle>
             <DialogContent>
-                <TextField
-                    label="Name"
-                    fullWidth
-                    value={form.name || ""}
-                    onChange={(e) => onNameChange(e.target.value)}
-                    sx={{ mt: 1 }}
-                />
-                <TextField
-                    label="Slug"
-                    fullWidth
-                    value={form.slug ?? ""}
-                    onChange={(e) => onSlugChange(e.target.value)}
-                    sx={{ mt: 1 }}
-                    helperText="Nếu muốn slug khác mặc định, chỉnh tay vào đây."
-                />
-                <TextField
-                    label="Description"
-                    fullWidth
-                    multiline
-                    minRows={3}
-                    value={form.description ?? ""}
-                    onChange={(e) => setForm({ ...form, description: e.target.value })}
-                    sx={{ mt: 1 }}
-                />
+                <Stack spacing={2} sx={{ mt: 1 }}>
+                    <TextField
+                        label="Name"
+                        fullWidth
+                        required
+                        value={form.name || ""}
+                        onChange={(e) => onNameChange(e.target.value)}
+                    />
+                    <TextField
+                        label="Slug"
+                        fullWidth
+                        value={form.slug ?? ""}
+                        onChange={(e) => onSlugChange(e.target.value)}
+                        helperText="Nếu muốn slug khác mặc định, chỉnh tay vào đây."
+                    />
+                    <TextField
+                        label="Description"
+                        fullWidth
+                        multiline
+                        minRows={3}
+                        value={form.description ?? ""}
+                        onChange={(e) =>
+                            setForm({ ...form, description: e.target.value })
+                        }
+                    />
+                </Stack>
             </DialogContent>
             <DialogActions>
-                <Button onClick={onClose}>Cancel</Button>
-                <Button variant="contained" onClick={() => onSave(form)}>
-                    Save
+                <Button onClick={onClose} disabled={saving}>
+                    Cancel
+                </Button>
+                <Button
+                    variant="contained"
+                    onClick={handleSaveClick}
+                    disabled={saving}
+                >
+                    {saving ? "Saving..." : "Save"}
                 </Button>
             </DialogActions>
         </Dialog>
     );
 }
+
+/* -------------------- MAIN PAGE -------------------- */
 
 export default function CategoriesPage({ setSnack }) {
     const [items, setItems] = useState([]);
@@ -95,6 +134,7 @@ export default function CategoriesPage({ setSnack }) {
     const [page, setPage] = useState(1);
     const PAGE_SIZE = 12;
     const [totalPages, setTotalPages] = useState(1);
+    const [search, setSearch] = useState("");
 
     const slugify = (text) => {
         if (!text) return "";
@@ -118,7 +158,6 @@ export default function CategoriesPage({ setSnack }) {
             const data = await res.json();
             const arr = Array.isArray(data) ? data : data.data ?? data.items ?? [];
             setItems(arr);
-            setTotalPages(Math.max(1, Math.ceil(arr.length / PAGE_SIZE)));
         } catch (err) {
             console.error("fetchCategories", err);
             setSnack({ severity: "error", message: "Không tải được categories." });
@@ -131,6 +170,26 @@ export default function CategoriesPage({ setSnack }) {
     useEffect(() => {
         fetchCategories();
     }, [fetchCategories]);
+
+    // Lọc theo search
+    const filtered = items.filter((c) => {
+        const q = search.trim().toLowerCase();
+        if (!q) return true;
+        return (
+            c.name?.toLowerCase().includes(q) ||
+            c.slug?.toLowerCase().includes(q) ||
+            c.description?.toLowerCase().includes(q)
+        );
+    });
+
+    useEffect(() => {
+        setTotalPages(Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)));
+        if (page > Math.ceil(filtered.length / PAGE_SIZE) && filtered.length > 0) {
+            setPage(1);
+        }
+    }, [filtered.length, page]);
+
+    const visible = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
     const onEdit = (item) => {
         setEditing(item);
@@ -186,90 +245,177 @@ export default function CategoriesPage({ setSnack }) {
         }
     };
 
-    const visible = items.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
     return (
         <Box>
+            {/* HEADER */}
             <Stack
                 direction="row"
                 justifyContent="space-between"
                 alignItems="center"
                 sx={{ mb: 2 }}
             >
-                <Typography variant="h6">Categories</Typography>
-                <Button variant="contained" startIcon={<AddIcon />} onClick={onCreate}>
+                <Box>
+                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                        Categories
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                        Quản lý nhóm sản phẩm / loại sản phẩm trên website.
+                    </Typography>
+                </Box>
+                <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={onCreate}
+                >
                     Create category
                 </Button>
             </Stack>
 
-            <Paper>
-                {loading ? (
-                    <Box sx={{ p: 3, display: "flex", justifyContent: "center" }}>
-                        <CircularProgress />
-                    </Box>
-                ) : (
-                    <TableContainer>
-                        <Table>
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell>#</TableCell>
-                                    <TableCell>Name</TableCell>
-                                    <TableCell>Slug</TableCell>
-                                    <TableCell>Description</TableCell>
-                                    <TableCell>Actions</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {visible.map((c) => (
-                                    <TableRow key={c.id}>
-                                        <TableCell>{c.id}</TableCell>
-                                        <TableCell>{c.name}</TableCell>
-                                        <TableCell>{c.slug ?? "-"}</TableCell>
-                                        <TableCell>{c.description ?? "-"}</TableCell>
-                                        <TableCell>
-                                            <Button
-                                                size="small"
-                                                startIcon={<VisibilityIcon />}
-                                                onClick={() =>
-                                                    window.open(
-                                                        `/collections?category=${c.slug || c.name}`,
-                                                        "_blank"
-                                                    )
-                                                }
-                                            >
-                                                View
-                                            </Button>
-                                            <Button
-                                                size="small"
-                                                startIcon={<EditIcon />}
-                                                onClick={() => onEdit(c)}
-                                            >
-                                                Edit
-                                            </Button>
-                                            <Button
-                                                size="small"
-                                                color="error"
-                                                startIcon={<DeleteIcon />}
-                                                onClick={() => handleDelete(c.id)}
-                                            >
-                                                Delete
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                        <Box sx={{ display: "flex", justifyContent: "center", p: 2 }}>
-                            <Pagination
-                                count={totalPages}
-                                page={page}
-                                onChange={(_, v) => setPage(v)}
-                            />
-                        </Box>
-                    </TableContainer>
-                )}
+            {/* SEARCH BAR */}
+            <Paper sx={{ mb: 2, p: 2 }}>
+                <Stack
+                    direction={{ xs: "column", sm: "row" }}
+                    spacing={2}
+                    alignItems={{ xs: "stretch", sm: "center" }}
+                    justifyContent="space-between"
+                >
+                    <Stack
+                        direction="row"
+                        spacing={1}
+                        alignItems="center"
+                        sx={{ flex: 1 }}
+                    >
+                        <SearchIcon fontSize="small" />
+                        <TextField
+                            size="small"
+                            fullWidth
+                            placeholder="Tìm theo tên, slug hoặc mô tả..."
+                            value={search}
+                            onChange={(e) => {
+                                setSearch(e.target.value);
+                                setPage(1);
+                            }}
+                        />
+                    </Stack>
+                    <Typography variant="body2" color="text.secondary">
+                        Tổng: {items.length} danh mục
+                    </Typography>
+                </Stack>
             </Paper>
 
+            {/* TABLE */}
+            <Paper sx={{ position: "relative" }}>
+                {loading && (
+                    <Box
+                        sx={{
+                            position: "absolute",
+                            inset: 0,
+                            bgcolor: "rgba(255,255,255,0.6)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            zIndex: 1,
+                        }}
+                    >
+                        <CircularProgress />
+                    </Box>
+                )}
+
+                <TableContainer>
+                    <Table size="small">
+                        <TableHead>
+                            <TableRow>
+                                <TableCell width={60}>#</TableCell>
+                                <TableCell>Name</TableCell>
+                                <TableCell>Description</TableCell>
+                                <TableCell align="right" width={160}>
+                                    Actions
+                                </TableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {visible.map((c) => (
+                                <TableRow hover key={c.id}>
+                                    <TableCell>{c.id}</TableCell>
+                                    <TableCell>
+                                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                            {c.name}
+                                        </Typography>
+                                    </TableCell>
+                                    
+                                    <TableCell>
+                                        <Typography
+                                            variant="body2"
+                                            color="text.secondary"
+                                            sx={{ whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden", maxWidth: 320 }}
+                                        >
+                                            {c.description ?? "-"}
+                                        </Typography>
+                                    </TableCell>
+                                    <TableCell align="right">
+                                        <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                                            <Tooltip title="View on site">
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={() =>
+                                                        window.open(
+                                                            `/collections?category=${c.slug || c.name}`,
+                                                            "_blank"
+                                                        )
+                                                    }
+                                                >
+                                                    <VisibilityIcon fontSize="small" />
+                                                </IconButton>
+                                            </Tooltip>
+                                            <Tooltip title="Edit">
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={() => onEdit(c)}
+                                                >
+                                                    <EditIcon fontSize="small" />
+                                                </IconButton>
+                                            </Tooltip>
+                                            <Tooltip title="Delete">
+                                                <IconButton
+                                                    size="small"
+                                                    color="error"
+                                                    onClick={() => handleDelete(c.id)}
+                                                >
+                                                    <DeleteIcon fontSize="small" />
+                                                </IconButton>
+                                            </Tooltip>
+                                        </Stack>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+
+                            {visible.length === 0 && !loading && (
+                                <TableRow>
+                                    <TableCell colSpan={5} align="center">
+                                        <Box sx={{ py: 3 }}>
+                                            <Typography variant="body2" color="text.secondary">
+                                                Không có danh mục nào.
+                                            </Typography>
+                                        </Box>
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </TableContainer>
+
+                <Divider />
+                <Box sx={{ display: "flex", justifyContent: "center", p: 1.5 }}>
+                    <Pagination
+                        count={totalPages}
+                        page={page}
+                        onChange={(_, v) => setPage(v)}
+                        size="small"
+                    />
+                </Box>
+            </Paper>
+
+            {/* DIALOG */}
             <CategoryEditDialog
                 open={editOpen}
                 onClose={() => setEditOpen(false)}

@@ -16,16 +16,40 @@ import {
     DialogTitle,
     DialogContent,
     DialogActions,
+    TextField,
+    Stack,
+    IconButton,
+    Chip,
+    Tooltip,
+    Divider,
+    Pagination,
+    Grid,
 } from "@mui/material";
+
 import VisibilityIcon from "@mui/icons-material/Visibility";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import CancelIcon from "@mui/icons-material/Cancel";
+import SearchIcon from "@mui/icons-material/Search";
 
 // Tránh import vòng lặp từ AdminPanel, khai báo API_BASE cục bộ
 const API_BASE = "http://127.0.0.1:8000";
+
+const STATUS_COLOR = {
+    pending: "warning",
+    confirmed: "success",
+    cancelled: "error",
+    canceled: "error",
+};
+
+const PAGE_SIZE = 12;
 
 export default function OrdersPage({ setSnack }) {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(false);
     const [sel, setSel] = useState(null);
+    const [search, setSearch] = useState("");
+    const [page, setPage] = useState(1);
 
     const fetchOrders = useCallback(async () => {
         setLoading(true);
@@ -34,8 +58,8 @@ export default function OrdersPage({ setSnack }) {
             const res = await fetch(`${API_BASE}/api/orders-all`, {
                 headers: {
                     "Content-Type": "application/json",
-                    ...(token ? { Authorization: `Bearer ${token}` } : {})
-                }
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
             });
             if (!res.ok) throw new Error("Orders fetch failed");
             const data = await res.json();
@@ -43,7 +67,10 @@ export default function OrdersPage({ setSnack }) {
             setOrders(arr);
         } catch (err) {
             console.error(err);
-            setSnack({ severity: "error", message: "Không tải danh sách đơn hàng!" });
+            setSnack({
+                severity: "error",
+                message: "Không tải danh sách đơn hàng!",
+            });
             setOrders([]);
         } finally {
             setLoading(false);
@@ -63,12 +90,15 @@ export default function OrdersPage({ setSnack }) {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
-                    ...(token ? { Authorization: `Bearer ${token}` } : {})
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 },
-                body: JSON.stringify({ status })
+                body: JSON.stringify({ status }),
             });
             if (!res.ok) throw new Error("Status update failed");
-            setSnack({ severity: "success", message: "Cập nhật trạng thái thành công!" });
+            setSnack({
+                severity: "success",
+                message: "Cập nhật trạng thái thành công!",
+            });
             fetchOrders();
         } catch (err) {
             console.error(err);
@@ -76,76 +106,470 @@ export default function OrdersPage({ setSnack }) {
         }
     };
 
+    // Lọc search theo id, email, tên, status, payment
+    const filtered = orders.filter((o) => {
+        const q = search.trim().toLowerCase();
+        if (!q) return true;
+        return (
+            String(o.id).includes(q) ||
+            o.user?.email?.toLowerCase().includes(q) ||
+            o.email?.toLowerCase().includes(q) ||
+            o.name?.toLowerCase().includes(q) ||
+            o.status?.toLowerCase().includes(q) ||
+            o.payment_method?.toLowerCase().includes(q)
+        );
+    });
+
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const currentPage = Math.min(page, totalPages);
+    const visible = filtered.slice(
+        (currentPage - 1) * PAGE_SIZE,
+        currentPage * PAGE_SIZE
+    );
+
     return (
         <Box>
-            <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
-                <Typography variant="h6">Orders (Admin)</Typography>
-                <Button onClick={fetchOrders}>Refresh</Button>
-            </Box>
+            {/* HEADER */}
+            <Stack
+                direction="row"
+                justifyContent="space-between"
+                alignItems="flex-start"
+                sx={{ mb: 2 }}
+            >
+                <Box>
+                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                        Orders (Admin)
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                        Quản lý các đơn hàng của khách trong hệ thống.
+                    </Typography>
+                </Box>
 
-            <Paper>
-                {loading ? (
-                    <Box sx={{ p: 3, display: "flex", justifyContent: "center" }}>
-                        <CircularProgress />
-                    </Box>
-                ) : (
-                    <TableContainer>
-                        <Table>
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell>#</TableCell>
-                                    <TableCell>User</TableCell>
-                                    <TableCell>Customer Name</TableCell>
-                                    <TableCell>Total</TableCell>
-                                    <TableCell>Payment</TableCell>
-                                    <TableCell>Status</TableCell>
-                                    <TableCell>Actions</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {orders.map((o) => (
-                                    <TableRow key={o.id}>
-                                        <TableCell>{o.id}</TableCell>
-                                        <TableCell>{o.user?.email ?? "—"}</TableCell>
-                                        <TableCell>{o.name ?? "—"}</TableCell>
-                                        <TableCell>
-                                            {o.total_price ? Number(o.total_price).toLocaleString("vi-VN") + "₫" : "—"}
-                                        </TableCell>
-                                        <TableCell>{o.payment_method ?? "—"}</TableCell>
-                                        <TableCell>{o.status ?? "—"}</TableCell>
-                                        <TableCell>
-                                            <Button size="small" startIcon={<VisibilityIcon />} onClick={() => handleView(o)}>
-                                                View
-                                            </Button>
-                                            <Button size="small" onClick={() => changeStatus(o.id, "confirmed")}>
-                                                Confirm
-                                            </Button>
-                                            <Button size="small" color="error" onClick={() => changeStatus(o.id, "cancelled")}>
-                                                Cancel
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </TableContainer>
-                )}
+                <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<RefreshIcon />}
+                    onClick={fetchOrders}
+                >
+                    Refresh
+                </Button>
+            </Stack>
+
+            {/* SEARCH BAR */}
+            <Paper sx={{ mb: 2, p: 2 }}>
+                <Stack
+                    direction={{ xs: "column", sm: "row" }}
+                    spacing={2}
+                    alignItems={{ xs: "stretch", sm: "center" }}
+                    justifyContent="space-between"
+                >
+                    <Stack
+                        direction="row"
+                        spacing={1}
+                        alignItems="center"
+                        sx={{ flex: 1 }}
+                    >
+                        <SearchIcon fontSize="small" />
+                        <TextField
+                            size="small"
+                            fullWidth
+                            placeholder="Tìm theo ID, email, tên khách, trạng thái, phương thức thanh toán..."
+                            value={search}
+                            onChange={(e) => {
+                                setSearch(e.target.value);
+                                setPage(1);
+                            }}
+                        />
+                    </Stack>
+                    <Typography variant="body2" color="text.secondary">
+                        Tổng: {orders.length} đơn hàng
+                    </Typography>
+                </Stack>
             </Paper>
 
-            <Dialog open={!!sel} onClose={() => setSel(null)} maxWidth="md" fullWidth>
-                <DialogTitle>Order #{sel?.id}</DialogTitle>
-                <DialogContent>
-                    <Typography>Email: {sel?.email}</Typography>
-                    <Typography>Phone: {sel?.phone}</Typography>
-                    <Typography>Address: {sel?.address}</Typography>
-                    <Typography sx={{ mt: 2 }}>
-                        Total Price: {sel?.total_price ? Number(sel.total_price).toLocaleString("vi-VN") + "₫" : "—"}
-                    </Typography>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setSel(null)}>Close</Button>
-                </DialogActions>
-            </Dialog>
+            {/* TABLE */}
+            <Paper sx={{ position: "relative" }}>
+                {loading && (
+                    <Box
+                        sx={{
+                            position: "absolute",
+                            inset: 0,
+                            bgcolor: "rgba(255,255,255,0.6)",
+                            display: "flex",
+                            justifyContent: "center",
+                            alignItems: "center",
+                            zIndex: 2,
+                        }}
+                    >
+                        <CircularProgress />
+                    </Box>
+                )}
+
+                <TableContainer>
+                    <Table size="small">
+                        <TableHead>
+                            <TableRow>
+                                <TableCell align="right" sx={{ width: 60 }}>
+                                    #
+                                </TableCell>
+                                <TableCell>User</TableCell>
+                                <TableCell>Customer Name</TableCell>
+                                <TableCell align="right">Total</TableCell>
+                                <TableCell>Payment</TableCell>
+                                <TableCell>Status</TableCell>
+                                <TableCell align="right" sx={{ width: 160 }}>
+                                    Actions
+                                </TableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {visible.map((o) => (
+                                <TableRow hover key={o.id}>
+                                    <TableCell align="right">{o.id}</TableCell>
+                                    <TableCell>
+                                        {o.user?.email ?? o.email ?? "—"}
+                                    </TableCell>
+                                    <TableCell>{o.name ?? "—"}</TableCell>
+                                    <TableCell align="right">
+                                        {o.total_price
+                                            ? Number(
+                                                  o.total_price
+                                              ).toLocaleString("vi-VN") + "₫"
+                                            : "—"}
+                                    </TableCell>
+                                    <TableCell>
+                                        <Chip
+                                            size="small"
+                                            variant="outlined"
+                                            label={o.payment_method ?? "—"}
+                                        />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Chip
+                                            size="small"
+                                            label={o.status ?? "—"}
+                                            color={
+                                                STATUS_COLOR[
+                                                    (o.status || "")
+                                                        .toLowerCase()
+                                                ] || "default"
+                                            }
+                                        />
+                                    </TableCell>
+                                    <TableCell align="right">
+                                        <Stack
+                                            direction="row"
+                                            spacing={0.5}
+                                            justifyContent="flex-end"
+                                        >
+                                            <Tooltip title="Xem chi tiết">
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={() => handleView(o)}
+                                                >
+                                                    <VisibilityIcon fontSize="small" />
+                                                </IconButton>
+                                            </Tooltip>
+                                            <Tooltip title="Xác nhận đơn">
+                                                <span>
+                                                    <IconButton
+                                                        size="small"
+                                                        color="success"
+                                                        onClick={() =>
+                                                            changeStatus(
+                                                                o.id,
+                                                                "confirmed"
+                                                            )
+                                                        }
+                                                        disabled={
+                                                            (o.status || "")
+                                                                .toLowerCase() ===
+                                                            "confirmed"
+                                                        }
+                                                    >
+                                                        <CheckCircleIcon fontSize="small" />
+                                                    </IconButton>
+                                                </span>
+                                            </Tooltip>
+                                            <Tooltip title="Hủy đơn">
+                                                <span>
+                                                    <IconButton
+                                                        size="small"
+                                                        color="error"
+                                                        onClick={() =>
+                                                            changeStatus(
+                                                                o.id,
+                                                                "cancelled"
+                                                            )
+                                                        }
+                                                        disabled={
+                                                            (o.status || "")
+                                                                .toLowerCase() ===
+                                                                "cancelled" ||
+                                                            (o.status || "")
+                                                                .toLowerCase() ===
+                                                                "canceled"
+                                                        }
+                                                    >
+                                                        <CancelIcon fontSize="small" />
+                                                    </IconButton>
+                                                </span>
+                                            </Tooltip>
+                                        </Stack>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+
+                            {!loading && visible.length === 0 && (
+                                <TableRow>
+                                    <TableCell colSpan={7} align="center">
+                                        <Box sx={{ py: 3 }}>
+                                            <Typography
+                                                variant="body2"
+                                                color="text.secondary"
+                                            >
+                                                Không có đơn hàng nào.
+                                            </Typography>
+                                        </Box>
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </TableContainer>
+
+                <Divider />
+                <Box
+                    sx={{
+                        display: "flex",
+                        justifyContent: "flex-end",
+                        p: 1.5,
+                    }}
+                >
+                    <Pagination
+                        size="small"
+                        count={totalPages}
+                        page={currentPage}
+                        onChange={(_, v) => setPage(v)}
+                    />
+                </Box>
+            </Paper>
+
+            {/* DIALOG VIEW ORDER – ĐÃ THIẾT KẾ LẠI */}
+            <OrderDetailDialog sel={sel} onClose={() => setSel(null)} />
         </Box>
+    );
+}
+
+/* ------- Dialog chi tiết đơn hàng: hiển thị customer + sản phẩm ------- */
+
+function OrderDetailDialog({ sel, onClose }) {
+    const open = !!sel;
+    if (!open) return null;
+
+    // Đoạn này xử lý mềm để tương thích nhiều kiểu dữ liệu backend
+    const itemsRaw =
+        sel.items ||
+        sel.order_items ||
+        sel.details ||
+        sel.products ||
+        [];
+
+    const items = Array.isArray(itemsRaw) ? itemsRaw : [];
+
+    const formatCurrency = (v) =>
+        typeof v === "number" || (typeof v === "string" && v !== "")
+            ? Number(v).toLocaleString("vi-VN") + "₫"
+            : "—";
+
+    const statusColor =
+        STATUS_COLOR[(sel?.status || "").toLowerCase()] || "default";
+
+    return (
+        <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+            <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <Typography variant="h6" sx={{ flexGrow: 1 }}>
+                    Order #{sel?.id}
+                </Typography>
+                {sel?.status && (
+                    <Chip
+                        label={sel.status}
+                        color={statusColor}
+                        size="small"
+                        sx={{ textTransform: "capitalize" }}
+                    />
+                )}
+            </DialogTitle>
+            <DialogContent dividers>
+                {/* Thông tin khách + thanh toán */}
+                <Grid container spacing={2} sx={{ mb: 2 }}>
+                    <Grid item xs={12} md={6}>
+                        <Typography variant="subtitle2" gutterBottom>
+                            Customer info
+                        </Typography>
+                        <Typography variant="body2">
+                            Email: {sel?.user?.email ?? sel?.email ?? "—"}
+                        </Typography>
+                        <Typography variant="body2">
+                            Phone: {sel?.phone ?? "—"}
+                        </Typography>
+                        <Typography variant="body2">
+                            Address: {sel?.address ?? "—"}
+                        </Typography>
+                        {sel?.name && (
+                            <Typography variant="body2">
+                                Customer name: {sel.name}
+                            </Typography>
+                        )}
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                        <Typography variant="subtitle2" gutterBottom>
+                            Payment
+                        </Typography>
+                        <Typography variant="body2">
+                            Method: {sel?.payment_method ?? "—"}
+                        </Typography>
+                        {sel?.created_at && (
+                            <Typography variant="body2">
+                                Created at:{" "}
+                                {new Date(sel.created_at).toLocaleString(
+                                    "vi-VN"
+                                )}
+                            </Typography>
+                        )}
+                        <Typography variant="body2" sx={{ mt: 1 }}>
+                            Total price:{" "}
+                            <strong>{formatCurrency(sel?.total_price)}</strong>
+                        </Typography>
+                    </Grid>
+                </Grid>
+
+                <Divider sx={{ my: 2 }} />
+
+                {/* Danh sách sản phẩm */}
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                    Items
+                </Typography>
+
+                {items.length === 0 ? (
+                    <Typography variant="body2" color="text.secondary">
+                        Đơn hàng này không có dòng sản phẩm hoặc API chưa trả
+                        về chi tiết.
+                    </Typography>
+                ) : (
+                    <Table size="small">
+                        <TableHead>
+                            <TableRow>
+                                <TableCell>Product</TableCell>
+                                <TableCell>Variant</TableCell>
+                                <TableCell align="right">Qty</TableCell>
+                                <TableCell align="right">Price</TableCell>
+                                <TableCell align="right">Total</TableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {items.map((it, idx) => {
+                                const product =
+                                    it.product ??
+                                    it.product_detail?.product ??
+                                    {};
+                                const name =
+                                    product.name ??
+                                    it.name ??
+                                    it.title ??
+                                    "—";
+
+                                const colorName =
+                                    it.color?.name ??
+                                    it.product_detail?.color?.name ??
+                                    it.color_name ??
+                                    it.color ??
+                                    null;
+
+                                const sizeName =
+                                    it.size?.name ??
+                                    it.product_detail?.size?.name ??
+                                    it.size_name ??
+                                    it.size ??
+                                    null;
+
+                                const qty =
+                                    it.quantity ??
+                                    it.qty ??
+                                    it.qty_order ??
+                                    1;
+
+                                const price = it.price ?? it.unit_price;
+                                const lineTotal =
+                                    it.total ??
+                                    (price && qty
+                                        ? Number(price) * Number(qty)
+                                        : null);
+
+                                const thumb =
+                                    it.product_detail?.image ??
+                                    product.image ??
+                                    product.thumbnail ??
+                                    it.image_url ??
+                                    null;
+
+                                return (
+                                    <TableRow key={it.id ?? idx}>
+                                        <TableCell>
+                                            <Stack direction="row" spacing={1}>
+                                                {thumb && (
+                                                    <Box
+                                                        component="img"
+                                                        src={thumb}
+                                                        alt={name}
+                                                        sx={{
+                                                            width: 40,
+                                                            height: 40,
+                                                            borderRadius: 1,
+                                                            objectFit:
+                                                                "cover",
+                                                        }}
+                                                    />
+                                                )}
+                                                <Typography variant="body2">
+                                                    {name}
+                                                </Typography>
+                                            </Stack>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Typography
+                                                variant="body2"
+                                                color="text.secondary"
+                                            >
+                                                {[
+                                                    colorName &&
+                                                        `Color: ${colorName}`,
+                                                    sizeName &&
+                                                        `Size: ${sizeName}`,
+                                                ]
+                                                    .filter(Boolean)
+                                                    .join(" • ") || "—"}
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell align="right">
+                                            {qty}
+                                        </TableCell>
+                                        <TableCell align="right">
+                                            {formatCurrency(price)}
+                                        </TableCell>
+                                        <TableCell align="right">
+                                            {formatCurrency(lineTotal)}
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            })}
+                        </TableBody>
+                    </Table>
+                )}
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={onClose}>Close</Button>
+            </DialogActions>
+        </Dialog>
     );
 }
