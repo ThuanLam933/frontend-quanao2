@@ -111,7 +111,7 @@ export default function AccountPage() {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       };
-      const url = `${API_BASE}/api/orders`;
+      const url = `${API_BASE}/api/my-orders`;
       const res = await fetch(url, { headers });
 
       const text = await res.text().catch(() => "");

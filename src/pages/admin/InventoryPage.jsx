@@ -22,8 +22,8 @@ import {
     MenuItem,
     Divider
 } from "@mui/material";
+
 import RefreshIcon from "@mui/icons-material/Refresh";
-import HistoryIcon from "@mui/icons-material/History";
 import AddIcon from "@mui/icons-material/Add";
 import FilterAltIcon from "@mui/icons-material/FilterAlt";
 
@@ -66,7 +66,6 @@ export default function InventoryPage({ setSnack }) {
     });
 
     const [adjustOpen, setAdjustOpen] = React.useState(false);
-    const [logOnlyOpen, setLogOnlyOpen] = React.useState(false);
     const token = localStorage.getItem("access_token");
 
     const fetchLogs = React.useCallback(
@@ -118,9 +117,7 @@ export default function InventoryPage({ setSnack }) {
         setFilters(prev => ({ ...prev, [field]: value }));
     };
 
-    const applyFilters = () => {
-        fetchLogs(1);
-    };
+    const applyFilters = () => fetchLogs(1);
 
     const resetFilters = () => {
         setFilters({
@@ -130,7 +127,6 @@ export default function InventoryPage({ setSnack }) {
             dateTo: "",
             q: ""
         });
-        // gọi lại trang 1 với filter rỗng
         setTimeout(() => fetchLogs(1), 0);
     };
 
@@ -189,34 +185,8 @@ export default function InventoryPage({ setSnack }) {
         }
     };
 
-    const handleLogOnlySubmit = async (payload) => {
-        const endpoint = `${API_BASE}/api/admin/inventory/logs`;
-        try {
-            const res = await fetch(endpoint, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    ...(token ? { Authorization: `Bearer ${token}` } : {})
-                },
-                body: JSON.stringify(payload)
-            });
-            if (!res.ok) {
-                const txt = await res.text().catch(() => "");
-                setSnack({ severity: "error", message: txt || `Tạo log tồn kho thất bại (${res.status})` });
-                return;
-            }
-            setSnack({ severity: "success", message: "Đã tạo log tồn kho (không đổi số lượng)." });
-            setLogOnlyOpen(false);
-            fetchLogs(page);
-        } catch (err) {
-            console.error("handleLogOnlySubmit error", err);
-            setSnack({ severity: "error", message: "Lỗi khi tạo log tồn kho." });
-        }
-    };
-
     return (
         <Box>
-            {/* HEADER */}
             <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
                 <Box>
                     <Typography variant="h6" sx={{ fontWeight: 600 }}>
@@ -226,6 +196,7 @@ export default function InventoryPage({ setSnack }) {
                         Theo dõi mọi thay đổi tồn kho theo thời gian.
                     </Typography>
                 </Box>
+
                 <Stack direction="row" spacing={1}>
                     <Button
                         variant="outlined"
@@ -235,14 +206,7 @@ export default function InventoryPage({ setSnack }) {
                     >
                         Refresh
                     </Button>
-                    <Button
-                        variant="outlined"
-                        size="small"
-                        startIcon={<HistoryIcon />}
-                        onClick={() => setLogOnlyOpen(true)}
-                    >
-                        Log only
-                    </Button>
+
                     <Button
                         variant="contained"
                         size="small"
@@ -263,11 +227,7 @@ export default function InventoryPage({ setSnack }) {
                     </Typography>
                 </Stack>
 
-                <Stack
-                    direction={{ xs: "column", md: "row" }}
-                    spacing={2}
-                    sx={{ mb: 1 }}
-                >
+                <Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ mb: 1 }}>
                     <TextField
                         size="small"
                         label="Tìm kiếm (ID / tên SP / ghi chú...)"
@@ -329,11 +289,7 @@ export default function InventoryPage({ setSnack }) {
                         <Button size="small" onClick={resetFilters}>
                             Reset
                         </Button>
-                        <Button
-                            size="small"
-                            variant="contained"
-                            onClick={applyFilters}
-                        >
+                        <Button size="small" variant="contained" onClick={applyFilters}>
                             Áp dụng
                         </Button>
                     </Stack>
@@ -363,7 +319,7 @@ export default function InventoryPage({ setSnack }) {
                         <TableHead>
                             <TableRow>
                                 <TableCell width={60}>#</TableCell>
-                                <TableCell>ProductDetail</TableCell>
+                                <TableCell>Tên sản phẩm</TableCell>
                                 <TableCell>Nguồn</TableCell>
                                 <TableCell align="right">Cập nhật</TableCell>
                                 <TableCell align="right">Số lượng ban đầu</TableCell>
@@ -375,23 +331,32 @@ export default function InventoryPage({ setSnack }) {
                                 </TableCell>
                             </TableRow>
                         </TableHead>
+
                         <TableBody>
                             {logs.map((row) => (
                                 <TableRow hover key={row.id}>
                                     <TableCell>{row.id}</TableCell>
+
                                     <TableCell>
-                                        <Typography variant="body2">
-                                            {row.product_detail_id}
-                                            {row.product_detail?.product?.name
-                                                ? ` - ${row.product_detail.product.name}`
-                                                : ""}
+                                        {/* Tên sản phẩm */}
+                                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                            {row.product_detail?.product?.name ?? "Không có tên sản phẩm"}
                                         </Typography>
+
+                                        {/* Màu + Size */}
+                                        <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                                            {row.product_detail?.color?.name ?? "Không màu"} /{" "}
+                                            {row.product_detail?.size?.name ?? "Không size"}
+                                        </Typography>
+
+                                        {/* Note */}
                                         {row.note && (
-                                            <Typography variant="caption" color="text.secondary">
+                                            <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
                                                 {row.note}
                                             </Typography>
                                         )}
                                     </TableCell>
+
                                     <TableCell>
                                         <Chip
                                             size="small"
@@ -399,6 +364,7 @@ export default function InventoryPage({ setSnack }) {
                                             color={TYPE_COLOR[row.type] || "default"}
                                         />
                                     </TableCell>
+
                                     <TableCell align="right">
                                         <Typography
                                             variant="body2"
@@ -408,19 +374,20 @@ export default function InventoryPage({ setSnack }) {
                                                     Number(row.change) > 0
                                                         ? "success.main"
                                                         : Number(row.change) < 0
-                                                            ? "error.main"
-                                                            : "text.primary"
+                                                        ? "error.main"
+                                                        : "text.primary"
                                             }}
                                         >
                                             {Number(row.change) > 0 ? `+${row.change}` : row.change}
                                         </Typography>
                                     </TableCell>
+
                                     <TableCell align="right">{row.quantity_before}</TableCell>
                                     <TableCell align="right">{row.quantity_after}</TableCell>
                                     <TableCell align="right">{row.related_id ?? "-"}</TableCell>
-                                    <TableCell>
-                                        {row.user?.name ?? row.user_id ?? "-"}
-                                    </TableCell>
+
+                                    <TableCell>{row.user?.name ?? row.user_id ?? "-"}</TableCell>
+
                                     <TableCell align="center">
                                         {row.type === "receipt" && row.related_id ? (
                                             <Button
@@ -439,7 +406,7 @@ export default function InventoryPage({ setSnack }) {
                                 </TableRow>
                             ))}
 
-                            {logs.length === 0 && !loading && (
+                            {!loading && logs.length === 0 && (
                                 <TableRow>
                                     <TableCell colSpan={9} align="center">
                                         <Box sx={{ py: 3 }}>
@@ -465,53 +432,71 @@ export default function InventoryPage({ setSnack }) {
                 </Box>
             </Paper>
 
-            {/* DIALOGS */}
+            {/* DIALOG: ADJUST */}
             <InventoryAdjustDialog
                 open={adjustOpen}
                 onClose={() => setAdjustOpen(false)}
                 onSubmit={handleAdjustSubmit}
             />
-
-            <InventoryLogOnlyDialog
-                open={logOnlyOpen}
-                onClose={() => setLogOnlyOpen(false)}
-                onSubmit={handleLogOnlySubmit}
-            />
         </Box>
     );
 }
 
-// =================== DIALOG: MANUAL ADJUST ===================
+/* ================================
+   DIALOG: MANUAL ADJUST
+==================================*/
 function InventoryAdjustDialog({ open, onClose, onSubmit }) {
     const [form, setForm] = React.useState({
         product_detail_id: "",
         change: 0,
-        type: "adjustment",
         note: ""
     });
-    const [saving, setSaving] = React.useState(false);
 
+    const [saving, setSaving] = React.useState(false);
+    const [productDetails, setProductDetails] = React.useState([]);
+    const token = localStorage.getItem("access_token");
+
+    // Load product details khi mở dialog
     React.useEffect(() => {
         if (open) {
-            setForm({ product_detail_id: "", change: 0, type: "adjustment", note: "" });
+            setForm({ product_detail_id: "", change: 0, note: "" });
+            fetchProductDetails();
         }
     }, [open]);
 
+    const fetchProductDetails = async () => {
+        try {
+            const res = await fetch(`${API_BASE}/api/product-details`, {
+                headers: {
+                    ...(token ? { Authorization: `Bearer ${token}` } : {})
+                }
+            });
+
+            if (!res.ok) throw new Error("Failed to load product-details");
+
+            const data = await res.json();
+            setProductDetails(data);
+        } catch (err) {
+            console.error("fetchProductDetails error:", err);
+        }
+    };
+
     const handleSaveClick = async () => {
         if (!form.product_detail_id) {
-            alert("product_detail_id không được để trống");
+            alert("Vui lòng chọn Product Detail");
             return;
         }
         if (!form.change || Number(form.change) === 0 || Number.isNaN(Number(form.change))) {
             alert("Change phải là số khác 0");
             return;
         }
+
         setSaving(true);
         try {
             const payload = {
                 product_detail_id: form.product_detail_id,
                 change: Number(form.change),
-                type: form.type || "adjustment",
+                type: "adjustment", // mặc định
                 note: form.note || ""
             };
             await onSubmit(payload);
@@ -523,16 +508,32 @@ function InventoryAdjustDialog({ open, onClose, onSubmit }) {
     return (
         <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
             <DialogTitle>Manual stock adjust</DialogTitle>
+
             <DialogContent>
                 <Stack spacing={2} sx={{ mt: 1 }}>
+
+                    {/* PRODUCT DETAIL SELECT */}
                     <TextField
-                        label="Product detail ID"
+                        select
+                        label="Product detail"
                         fullWidth
                         value={form.product_detail_id}
                         onChange={(e) =>
                             setForm({ ...form, product_detail_id: e.target.value })
                         }
-                    />
+                    >
+                        {productDetails.map((pd) => (
+                            <MenuItem key={pd.id} value={pd.id}>
+                                {pd.product?.name ?? "Tên SP?"}
+                                {" – "}
+                                {pd.color?.name ?? "Không màu"}
+                                {" / "}
+                                {pd.size?.name ?? "Không size"}
+                                {"  (ID: " + pd.id + ")"}
+                            </MenuItem>
+                        ))}
+                    </TextField>
+
                     <TextField
                         label="Change (+ tăng, - giảm)"
                         type="number"
@@ -540,18 +541,7 @@ function InventoryAdjustDialog({ open, onClose, onSubmit }) {
                         value={form.change}
                         onChange={(e) => setForm({ ...form, change: e.target.value })}
                     />
-                    <TextField
-                        select
-                        label="Type"
-                        fullWidth
-                        value={form.type}
-                        onChange={(e) => setForm({ ...form, type: e.target.value })}
-                    >
-                        <MenuItem value="adjustment">Adjustment</MenuItem>
-                        <MenuItem value="receipt">Receipt</MenuItem>
-                        <MenuItem value="sale">Sale</MenuItem>
-                        <MenuItem value="other">Other</MenuItem>
-                    </TextField>
+
                     <TextField
                         label="Note"
                         fullWidth
@@ -562,99 +552,7 @@ function InventoryAdjustDialog({ open, onClose, onSubmit }) {
                     />
                 </Stack>
             </DialogContent>
-            <DialogActions>
-                <Button onClick={onClose} disabled={saving}>
-                    Cancel
-                </Button>
-                <Button onClick={handleSaveClick} variant="contained" disabled={saving}>
-                    {saving ? "Saving..." : "Save"}
-                </Button>
-            </DialogActions>
-        </Dialog>
-    );
-}
 
-// =================== DIALOG: LOG ONLY ===================
-function InventoryLogOnlyDialog({ open, onClose, onSubmit }) {
-    const [form, setForm] = React.useState({
-        product_detail_id: "",
-        change: 0,
-        type: "import",
-        related_id: "",
-        note: ""
-    });
-    const [saving, setSaving] = React.useState(false);
-
-    React.useEffect(() => {
-        if (open) {
-            setForm({ product_detail_id: "", change: 0, type: "import", related_id: "", note: "" });
-        }
-    }, [open]);
-
-    const handleSaveClick = async () => {
-        if (!form.product_detail_id) {
-            alert("product_detail_id không được để trống");
-            return;
-        }
-        setSaving(true);
-        try {
-            const payload = {
-                product_detail_id: form.product_detail_id,
-                change: form.change ? Number(form.change) : 0,
-                type: form.type || "import",
-                related_id: form.related_id || null,
-                note: form.note || ""
-            };
-            await onSubmit(payload);
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    return (
-        <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-            <DialogTitle>Create inventory log (only)</DialogTitle>
-            <DialogContent>
-                <Stack spacing={2} sx={{ mt: 1 }}>
-                    <TextField
-                        label="Product detail ID"
-                        fullWidth
-                        value={form.product_detail_id}
-                        onChange={(e) =>
-                            setForm({ ...form, product_detail_id: e.target.value })
-                        }
-                    />
-                    <TextField
-                        label="Change (optional, không đổi quantity)"
-                        type="number"
-                        fullWidth
-                        value={form.change}
-                        onChange={(e) => setForm({ ...form, change: e.target.value })}
-                        helperText="Có thể 0 nếu chỉ lưu note."
-                    />
-                    <TextField
-                        label="Type"
-                        fullWidth
-                        value={form.type}
-                        onChange={(e) => setForm({ ...form, type: e.target.value })}
-                    />
-                    <TextField
-                        label="Related ID (optional)"
-                        fullWidth
-                        value={form.related_id}
-                        onChange={(e) => setForm({ ...form, related_id: e.target.value })}
-                        helperText="Ví dụ: id phiếu nhập cũ, chứng từ, v.v."
-                    />
-                    <TextField
-                        label="Note"
-                        fullWidth
-                        multiline
-                        minRows={2}
-                        value={form.note}
-                        onChange={(e) => setForm({ ...form, note: e.target.value })}
-                    />
-                </Stack>
-            </DialogContent>
             <DialogActions>
                 <Button onClick={onClose} disabled={saving}>
                     Cancel

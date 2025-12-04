@@ -152,10 +152,12 @@ export default function PaymentPage() {
         address: address.trim(),
       },
       items: cart.map((it) => ({
-        product_id: it.id,
-        quantity: it.quantity || 1,
-        unit_price: it.unit_price || null,
-      })),
+    product_detail_id: it.product_detail_id,  // đúng!
+    product_id: it.product_id ?? null,  // nếu cần
+    quantity: it.quantity || 1,
+    unit_price: it.unit_price || null,
+})),
+
       payment: {
         method: paymentMethod, // 'cod' or 'card'
         // for 'card' we send minimal info (in real app use gateway tokenization)
@@ -301,9 +303,22 @@ export default function PaymentPage() {
                     {cart.map((it) => (
                       <Card key={it.id} variant="outlined" sx={{ display: "flex" }}>
                         <CardContent sx={{ flex: 1 }}>
-                          <Typography sx={{ fontWeight: 700 }}>{it.name}</Typography>
-                          <Typography variant="body2" color="text.secondary">Số lượng: {it.quantity}</Typography>
-                        </CardContent>
+    {/* TÊN SẢN PHẨM */}
+    <Typography sx={{ fontWeight: 700, fontSize: "1rem", mb: 0.5 }}>
+        {it.name}
+    </Typography>
+
+    {/* SIZE + MÀU */}
+    <Typography sx={{ fontSize: "0.85rem", color: "#666", mb: 0.5 }}>
+        Size: {it.size_name || it.size} — Màu: {it.color_name || it.color}
+    </Typography>
+
+    {/* QUANTITY */}
+    <Typography variant="body2" color="text.secondary">
+        Số lượng: {it.quantity}
+    </Typography>
+</CardContent>
+
                         <CardActions sx={{ alignItems: "center", px: 2 }}>
                           <Typography sx={{ fontWeight: 800 }}>{formatVND(it.unit_price != null ? it.unit_price * (it.quantity || 1) : null)}</Typography>
                         </CardActions>

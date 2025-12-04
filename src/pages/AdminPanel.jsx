@@ -24,6 +24,7 @@ import { useNavigate } from "react-router-dom";
 import DashboardPage from "./admin/DashboardPage";
 import ProductsPage from "./admin/ProductsPage";
 import CategoriesPage from "./admin/CategoriesPage";
+import VariantPage from "./admin/VariantPage";
 import ColorsPage from "./admin/ColorsPage";
 import SizesPage from "./admin/SizesPage";
 import InventoryPage from "./admin/InventoryPage";
@@ -49,6 +50,7 @@ const theme = createTheme({
 const SIDEBAR_ITEMS = [
   { key: "dashboard", title: "Dashboard" },
   { key: "products", title: "Sản phẩm" },
+  { key: "variants", title: "Biến thể" },
   { key: "inventory", title: "Kho" },
   { key: "categories", title: "Loại" },
   { key: "colors", title: "Màu" },
@@ -136,6 +138,7 @@ export default function AdminPanel() {
             {page === "colors" && <ColorsPage setSnack={setSnack} />}
             {page === "sizes" && <SizesPage setSnack={setSnack} />}
             {page === "inventory" && <InventoryPage setSnack={setSnack} />}
+            {page === "variants" && <VariantPage setSnack={setSnack} />}
             {page === "orders" && <OrdersPage setSnack={setSnack} />}
             {page === "users" && <UsersPage setSnack={setSnack} />}
             {page === "returns" && <ReturnsPage setSnack={setSnack} />}

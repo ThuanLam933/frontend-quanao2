@@ -17,7 +17,7 @@ import {
   CardActions,
 } from "@mui/material";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
-import { useNavigate, createSearchParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 /**
  * HomePage (user-facing)
@@ -28,13 +28,21 @@ const API_BASE = "http://127.0.0.1:8000";
 const theme = createTheme({
   palette: {
     mode: "light",
-    background: { default: "#F7FAFC", paper: "#fff" },
-    primary: { main: "#162447", contrastText: "#fff" },
-    secondary: { main: "#42A5F5" },
-    text: { primary: "#0D1B2A", secondary: "#5C6F91" },
+    primary: { main: "#111" },
+    text: {
+      primary: "#111",
+      secondary: "#555",
+    },
+    background: {
+      default: "#fff",
+      paper: "#fff",
+    },
   },
-  shape: { borderRadius: 8 },
-  typography: { fontFamily: "Poppins, Roboto, sans-serif" },
+  typography: {
+    fontFamily: "Helvetica, Arial, sans-serif",
+    subtitle1: { fontWeight: 500 },
+  },
+  shape: { borderRadius: 4 }, // rất ít bo góc
 });
 
 export default function HomePage() {
@@ -60,6 +68,9 @@ export default function HomePage() {
   const [loadingCategories, setLoadingCategories] = useState(false);
   const [error, setError] = useState(null);
   const [snack, setSnack] = useState(null);
+
+  // category đang chọn (id), null = tất cả
+  const [selectedCategory, setSelectedCategory] = useState(null);
 
   // mỗi lần query đổi thì reset về trang 1
   useEffect(() => {
@@ -96,7 +107,8 @@ export default function HomePage() {
       const normalized = (Array.isArray(data) ? data : data || []).map((p) => {
         const firstDetail = p.details?.[0] ?? {};
         const price =
-          typeof firstDetail.price === "string" || typeof firstDetail.price === "number"
+          typeof firstDetail.price === "string" ||
+          typeof firstDetail.price === "number"
             ? parseFloat(firstDetail.price)
             : null;
 
@@ -112,6 +124,7 @@ export default function HomePage() {
           color: colorName,
           size: sizeName,
           rating: typeof p.rating === "number" ? p.rating : 0,
+          // quan trọng: categories_id dùng để filter
           categories_id: p.categories_id ?? p.category_id ?? null,
           image_url:
             p.image_url && typeof p.image_url === "string"
@@ -141,43 +154,74 @@ export default function HomePage() {
   const categoryTiles = useMemo(() => {
     if (categories && categories.length > 0) {
       return categories.map((c, i) => {
-        const slugOrName = c.slug ?? c.name ?? `cat-${i}`;
         return {
           id: c.id ?? i,
           title: (c.name || "Danh mục").toUpperCase(),
-          slug: slugOrName,
+          categoryId: c.id ?? null, // dùng id để filter
           img: c.image_url
             ? c.image_url.startsWith("http")
               ? c.image_url
               : `${API_BASE}/storage/${c.image_url}`
-            : `/images/cat-${slugOrName.toString().toLowerCase().replace(/\s+/g, "-")}.jpg`,
-          to: `/collections?${createSearchParams({ category: c.slug ?? c.name })}`,
+            : `/images/cat-${(c.slug ?? c.name ?? `cat-${i}`)
+                .toString()
+                .toLowerCase()
+                .replace(/\s+/g, "-")}.jpg`,
         };
       });
     }
-    // fallback static tiles
+    // fallback static tiles (không map được vào categories_id, chỉ để trang cho đẹp)
     return [
-      { id: "c1", title: "CLOTHERS", img: "/images/quanxanh3.jpg", to: "/collections?category=clother" },
-      { id: "c2", title: "T-SHIRT", img: "/images/quanxanh2.jpg", to: "/collections?category=tshirt" },
-      { id: "c3", title: "JEANS", img: "/images/quanxanh2.jpg", to: "/collections?category=jeans" },
-      { id: "c4", title: "SHORTS", img: "/images/quanxanh3.jpg", to: "/collections?category=shorts" },
+      {
+        id: "c1",
+        title: "CLOTHERS",
+        img: "/images/quanxanh3.jpg",
+        categoryId: null,
+      },
+      {
+        id: "c2",
+        title: "T-SHIRT",
+        img: "/images/quanxanh2.jpg",
+        categoryId: null,
+      },
+      {
+        id: "c3",
+        title: "JEANS",
+        img: "/images/quanxanh2.jpg",
+        categoryId: null,
+      },
+      {
+        id: "c4",
+        title: "SHORTS",
+        img: "/images/quanxanh3.jpg",
+        categoryId: null,
+      },
     ];
   }, [categories]);
 
-  // client-side filtering (search) + pagination
+  // client-side filtering (category + search) + pagination
   const filtered = useMemo(() => {
     let list = products.slice();
+
+    // FILTER THEO CATEGORY (bằng categories_id)
+    if (selectedCategory != null) {
+      list = list.filter(
+        (p) => Number(p.categories_id) === Number(selectedCategory)
+      );
+    }
+
+    // FILTER THEO SEARCH
     if (query) {
       const q = query.toLowerCase();
       list = list.filter(
         (p) =>
-          (p.name && p.name.toLowerCase().includes(q)) ||
-          (p.description && p.description.toLowerCase().includes(q)) ||
-          (p.slug && p.slug.toLowerCase().includes(q))
+          p.name?.toLowerCase().includes(q) ||
+          p.description?.toLowerCase().includes(q) ||
+          p.slug?.toLowerCase().includes(q)
       );
     }
+
     return list;
-  }, [products, query]);
+  }, [products, query, selectedCategory]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPageProducts = useMemo(() => {
@@ -187,48 +231,118 @@ export default function HomePage() {
 
   // util
   const safePrice = (price) => {
-    if (price == null || typeof price !== "number" || price <= 0) return "Liên hệ";
+    if (price == null || typeof price !== "number" || price <= 0)
+      return "Liên hệ";
     return price.toLocaleString("vi-VN") + "₫";
   };
 
-  const handleAddToCart = (p) => {
-    try {
-      const raw = localStorage.getItem("cart");
-      const cart = raw ? JSON.parse(raw) : [];
-
-      const unitPrice =
-        typeof p.price === "number"
-          ? p.price
-          : p.price && !isNaN(parseFloat(p.price))
-          ? parseFloat(p.price)
-          : null;
-
-      const idx = cart.findIndex((it) => it.id === p.id);
-      if (idx >= 0) {
-        cart[idx].quantity = (cart[idx].quantity || 1) + 1;
-        if (unitPrice != null) cart[idx].unit_price = unitPrice;
-        cart[idx].line_total =
-          cart[idx].unit_price != null ? cart[idx].unit_price * cart[idx].quantity : null;
-      } else {
-        cart.push({
-          id: p.id,
-          name: p.name,
-          unit_price: unitPrice,
-          line_total: unitPrice != null ? unitPrice * 1 : null,
-          price_display:
-            unitPrice != null ? unitPrice.toLocaleString("vi-VN") + "₫" : "Liên hệ",
-          image_url: p.image_url ?? null,
-          quantity: 1,
-        });
-      }
-
-      localStorage.setItem("cart", JSON.stringify(cart));
-
-      setSnack({ severity: "success", message: `${p.name} đã thêm vào giỏ.` });
-    } catch (e) {
-      console.warn("Cannot update cart in localStorage", e);
-      setSnack({ severity: "error", message: "Không thể lưu giỏ hàng." });
+  const handleAddToCart = async (p) => {
+  try {
+    // 1. Lấy danh sách biến thể của product
+    const res = await fetch(
+      `${API_BASE}/api/product-details?product_id=${p.id}`
+    );
+    if (!res.ok) {
+      throw new Error(`Fetch product details failed: ${res.status}`);
     }
+
+    const data = await res.json();
+    const variantsRaw = Array.isArray(data) ? data : [];
+
+    // 2. Chuẩn hóa + lọc ra những variant còn hàng
+    const variants = variantsRaw
+      .map((d) => ({
+        id: d.id,
+        product_id: d.product_id,
+        price:
+          typeof d.price === "number"
+            ? d.price
+            : d.price
+            ? Number(d.price)
+            : 0,
+        quantity: d.quantity ?? 0,
+        size: d.size?.name ?? null,
+        color: d.color?.name ?? null,
+        image_url:
+          (Array.isArray(d.images) && d.images[0]?.full_url) ||
+          d.product?.image_url ||
+          p.image_url ||
+          null,
+      }))
+      .filter((v) => v.quantity > 0); // chỉ lấy variant còn hàng
+
+    if (!variants.length) {
+      setSnack({
+        severity: "warning",
+        message: "Sản phẩm này hiện tạm hết hàng.",
+      });
+      return;
+    }
+
+    // 3. Chọn biến thể đầu tiên còn hàng
+    const v = variants[0];
+
+    // 4. Đọc giỏ hiện tại từ localStorage
+    const raw = localStorage.getItem("cart") || "[]";
+    const cart = Array.isArray(JSON.parse(raw)) ? JSON.parse(raw) : [];
+
+    // 5. Nếu đã có dòng cùng product_detail_id thì cộng số lượng
+    const idx = cart.findIndex(
+      (it) =>
+        it.product_detail_id === v.id ||
+        (it.product_id === v.product_id &&
+          it.size === v.size &&
+          it.color === v.color)
+    );
+
+    if (idx >= 0) {
+      cart[idx].quantity = (cart[idx].quantity || 1) + 1;
+      cart[idx].unit_price = v.price;
+    } else {
+      cart.push({
+        // id là id của dòng cart, dùng random / timestamp để không bị trùng
+        id: Date.now(),
+        product_id: v.product_id,
+        product_detail_id: v.id,
+        name: p.name,          // chỉ tên sản phẩm
+        size: v.size,          // size tách riêng
+        color: v.color,        // màu tách riêng
+        unit_price: v.price,
+        image_url: v.image_url,
+        quantity: 1,
+      });
+    }
+
+    // 6. Lưu lại localStorage
+    localStorage.setItem("cart", JSON.stringify(cart));
+
+    setSnack({
+      severity: "success",
+      message: `${p.name} đã được thêm vào giỏ.`,
+    });
+  } catch (e) {
+    console.warn("Cannot update cart in localStorage", e);
+    setSnack({
+      severity: "error",
+      message: "Không thể thêm sản phẩm vào giỏ.",
+    });
+  }
+};
+
+
+  // click vào category tile
+  const handleCategoryClick = (tile) => {
+    // nếu categoryId null thì reset filter
+    if (!tile.categoryId) {
+      setSelectedCategory(null);
+      setPage(1);
+      return;
+    }
+
+    setPage(1);
+    setSelectedCategory((prev) =>
+      Number(prev) === Number(tile.categoryId) ? null : tile.categoryId
+    );
   };
 
   return (
@@ -237,62 +351,75 @@ export default function HomePage() {
         {/* Category tiles */}
         <Container maxWidth="lg" sx={{ mt: 6 }}>
           <Grid container spacing={3}>
-            {categoryTiles.map((c) => (
-              <Grid item xs={12} sm={6} md={3} key={c.id}>
-                <Paper
-                  elevation={0}
-                  sx={{
-                    position: "relative",
-                    overflow: "hidden",
-                    cursor: "pointer",
-                    height: { xs: 160, md: 220 },
-                    borderRadius: 1,
-                    "&:hover .overlay": { opacity: 0.95 },
-                  }}
-                  onClick={() => navigate(c.to)}
-                >
-                  <Box
-                    component="img"
-                    src={c.img}
-                    alt={c.title}
-                    onError={(e) => (e.currentTarget.src = "/images/quanxanh2.jpg")}
+            {categoryTiles.map((c) => {
+              const isActive =
+                selectedCategory != null &&
+                c.categoryId != null &&
+                Number(selectedCategory) === Number(c.categoryId);
+
+              return (
+                <Grid item xs={12} sm={6} md={3} key={c.id}>
+                  <Paper
+                    elevation={0}
                     sx={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      display: "block",
-                      filter: "brightness(0.95)",
-                      transition: "transform 0.4s ease",
-                      "&:hover": { transform: "scale(1.03)" },
+                      position: "relative",
+                      overflow: "hidden",
+                      cursor: "pointer",
+                      height: { xs: 160, md: 220 },
+                      borderRadius: 1,
+                      border: isActive ? "2px solid #111" : "1px solid transparent",
+                      opacity:
+                        selectedCategory != null && !isActive ? 0.5 : 1,
+                      transition: "opacity 0.25s ease, border 0.25s ease",
+                      "&:hover .overlay": { opacity: 0.95 },
                     }}
-                  />
-                  <Box
-                    className="overlay"
-                    sx={{
-                      position: "absolute",
-                      inset: 0,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      background: "rgba(0,0,0,0.28)",
-                      color: "#fff",
-                      opacity: 0.85,
-                      transition: "opacity 0.25s ease",
-                    }}
+                    onClick={() => handleCategoryClick(c)}
                   >
-                    <Typography
+                    <Box
+                      component="img"
+                      src={c.img}
+                      alt={c.title}
+                      onError={(e) =>
+                        (e.currentTarget.src = "/images/quanxanh2.jpg")
+                      }
                       sx={{
-                        fontWeight: 800,
-                        fontSize: { xs: 18, md: 26 },
-                        letterSpacing: 1.2,
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        display: "block",
+                        filter: "brightness(0.95)",
+                        transition: "transform 0.4s ease",
+                        "&:hover": { transform: "scale(1.03)" },
+                      }}
+                    />
+                    <Box
+                      className="overlay"
+                      sx={{
+                        position: "absolute",
+                        inset: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background: "rgba(0,0,0,0.28)",
+                        color: "#fff",
+                        opacity: 0.85,
+                        transition: "opacity 0.25s ease",
                       }}
                     >
-                      {c.title}
-                    </Typography>
-                  </Box>
-                </Paper>
-              </Grid>
-            ))}
+                      <Typography
+                        sx={{
+                          fontWeight: 800,
+                          fontSize: { xs: 18, md: 26 },
+                          letterSpacing: 1.2,
+                        }}
+                      >
+                        {c.title}
+                      </Typography>
+                    </Box>
+                  </Paper>
+                </Grid>
+              );
+            })}
           </Grid>
         </Container>
 
@@ -326,56 +453,84 @@ export default function HomePage() {
                   currentPageProducts.map((p) => (
                     <Grid item xs={12} sm={6} md={4} key={p.id}>
                       <Card
+                        elevation={0}
                         sx={{
-                          height: "100%",
-                          display: "flex",
-                          flexDirection: "column",
+                          border: "1px solid #eee",
+                          boxShadow: "none",
+                          transition: "0.25s ease",
+                          "&:hover": {
+                            transform: "translateY(-3px)",
+                          },
                         }}
                       >
                         <CardMedia
                           component="img"
-                          height="280"
-                          image={p.image_url || "/images/quanxanh2.jpg"}
-                          alt={p.name}
-                          sx={{ objectFit: "cover" }}
+                          image={p.image_url || "/images/placeholder.jpg"}
+                          sx={{
+                            height: 320,
+                            objectFit: "cover",
+                            transition: "transform 0.35s ease",
+                            "&:hover": {
+                              transform: "scale(1.02)",
+                            },
+                          }}
                         />
-                        <CardContent sx={{ flexGrow: 1 }}>
+
+                        <CardContent>
                           <Typography
                             variant="subtitle1"
-                            sx={{ fontWeight: 700 }}
+                            sx={{
+                              fontWeight: 500,
+                              textTransform: "uppercase",
+                              letterSpacing: 0.5,
+                            }}
                           >
                             {p.name}
                           </Typography>
+
                           <Typography
                             variant="body2"
-                            sx={{ color: "#5C6F91", mt: 1 }}
+                            sx={{ color: "#777", mt: 1 }}
                           >
-                            {(p.rating ?? 0).toFixed(1)} ⭐
+                            {(p.rating ?? 0).toFixed(1)} ★
                           </Typography>
+
                           <Typography
                             variant="h6"
                             sx={{
                               mt: 1,
-                              color: "#162447",
-                              fontWeight: 800,
+                              fontWeight: 700,
+                              letterSpacing: 0.5,
                             }}
                           >
                             {safePrice(p.price)}
                           </Typography>
                         </CardContent>
-                        <CardActions
-                          sx={{ justifyContent: "space-between", px: 2, pb: 2 }}
-                        >
+
+                        <CardActions sx={{ px: 2, pb: 2 }}>
                           <Button
                             size="small"
                             variant="outlined"
+                            sx={{
+                              borderRadius: 0,
+                              borderColor: "#111",
+                              textTransform: "none",
+                            }}
                             onClick={() => navigate(`/product/${p.id}`)}
                           >
                             Xem
                           </Button>
+
                           <Button
                             size="small"
                             variant="contained"
+                            sx={{
+                              bgcolor: "#111",
+                              color: "#fff",
+                              borderRadius: 0,
+                              textTransform: "none",
+                              "&:hover": { bgcolor: "#000" },
+                            }}
                             onClick={() => handleAddToCart(p)}
                           >
                             Thêm giỏ
