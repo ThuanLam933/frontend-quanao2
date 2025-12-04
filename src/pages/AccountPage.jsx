@@ -58,6 +58,29 @@ function a11yProps(index) {
   };
 }
 
+// HÀM XỬ LÝ ẢNH CHUẨN CHO ORDER DETAIL
+const getProductImage = (product, images) => {
+  const base = "http://127.0.0.1:8000/storage/";
+
+  // 1) Ưu tiên ảnh chi tiết full_url từ backend
+  if (images && images[0] && images[0].full_url) return images[0].full_url;
+
+  // 2) Nếu backend trả url_image (chưa phải full URL)
+  if (images && images[0] && images[0].url_image) {
+    return base + images[0].url_image;
+  }
+
+  // 3) Nếu product có ảnh đại diện → fallback
+  if (product && product.image_url) {
+    return product.image_url.startsWith("http")
+      ? product.image_url
+      : base + product.image_url;
+  }
+
+  // 4) Không có ảnh → trả rỗng
+  return "";
+};
+
 export default function AccountPage() {
   const navigate = useNavigate();
 
@@ -762,7 +785,9 @@ export default function AccountPage() {
           fullWidth
         >
           <DialogTitle sx={{ fontWeight: 700 }}>
-            {orderDetail ? `Chi tiết đơn hàng #${orderDetail.id}` : "Chi tiết đơn hàng"}
+            {orderDetail
+              ? `Chi tiết đơn hàng #${orderDetail.id}`
+              : "Chi tiết đơn hàng"}
           </DialogTitle>
           <DialogContent dividers>
             {loadingOrderDetail && (
@@ -793,12 +818,15 @@ export default function AccountPage() {
                     <strong>Địa chỉ:</strong> {orderDetail.address}
                   </Typography>
                   <Typography sx={{ mb: 0.5 }}>
-                    <strong>Thanh toán:</strong> {orderDetail.payment_method}
+                    <strong>Thanh toán:</strong>{" "}
+                    {orderDetail.payment_method}
                   </Typography>
                   <Typography sx={{ mb: 0.5 }}>
                     <strong>Ngày đặt:</strong>{" "}
                     {orderDetail.created_at
-                      ? new Date(orderDetail.created_at).toLocaleString("vi-VN")
+                      ? new Date(orderDetail.created_at).toLocaleString(
+                          "vi-VN"
+                        )
                       : "—"}
                   </Typography>
                   {orderDetail.note && (
@@ -825,12 +853,8 @@ export default function AccountPage() {
                     const color = pd.color || {};
                     const size = pd.size || {};
                     const images = pd.images || [];
-                    const imgUrl =
-  product.image_url ||
-  images[0]?.full_url ||
-  images[0]?.url_image ||
-  "";
 
+                    const imgUrl = getProductImage(product, images);
 
                     const lineTotal =
                       (item.price || 0) * (item.quantity || 0);
@@ -909,8 +933,11 @@ export default function AccountPage() {
                     );
                   })}
 
-                  {(!orderDetail.items || orderDetail.items.length === 0) && (
-                    <Typography>Đơn hàng chưa có dữ liệu sản phẩm.</Typography>
+                  {(!orderDetail.items ||
+                    orderDetail.items.length === 0) && (
+                    <Typography>
+                      Đơn hàng chưa có dữ liệu sản phẩm.
+                    </Typography>
                   )}
                 </Stack>
 
@@ -921,8 +948,9 @@ export default function AccountPage() {
                 >
                   Tổng đơn:{" "}
                   {orderDetail.total_price
-                    ? Number(orderDetail.total_price).toLocaleString("vi-VN") +
-                      "₫"
+                    ? Number(orderDetail.total_price).toLocaleString(
+                        "vi-VN"
+                      ) + "₫"
                     : "—"}
                 </Typography>
               </Box>
