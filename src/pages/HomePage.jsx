@@ -20,7 +20,7 @@ import { createTheme, ThemeProvider } from "@mui/material/styles";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 /**
- * HomePage (user-facing)
+ * HomePage (user-facing) — style đồng bộ với CartPage / Uniqlo
  */
 
 const API_BASE = "http://127.0.0.1:8000";
@@ -28,21 +28,18 @@ const API_BASE = "http://127.0.0.1:8000";
 const theme = createTheme({
   palette: {
     mode: "light",
-    primary: { main: "#111" },
-    text: {
-      primary: "#111",
-      secondary: "#555",
-    },
-    background: {
-      default: "#fff",
-      paper: "#fff",
-    },
+    background: { default: "#FFFFFF", paper: "#FFFFFF" },
+    primary: { main: "#111111", contrastText: "#FFFFFF" },
+    secondary: { main: "#DD002A" }, // đỏ giống CartPage
+    text: { primary: "#111111", secondary: "#666666" },
   },
+  shape: { borderRadius: 0 }, // ít bo góc như Uniqlo + CartPage
   typography: {
     fontFamily: "Helvetica, Arial, sans-serif",
+    h5: { fontWeight: 700 },
     subtitle1: { fontWeight: 500 },
+    body2: { fontSize: 13 },
   },
-  shape: { borderRadius: 4 }, // rất ít bo góc
 });
 
 export default function HomePage() {
@@ -50,8 +47,6 @@ export default function HomePage() {
 
   // URL search params
   const [searchParams] = useSearchParams();
-
-  // query lấy từ URL ?q=
   const query = useMemo(
     () => (searchParams.get("q") || "").trim(),
     [searchParams]
@@ -124,7 +119,6 @@ export default function HomePage() {
           color: colorName,
           size: sizeName,
           rating: typeof p.rating === "number" ? p.rating : 0,
-          // quan trọng: categories_id dùng để filter
           categories_id: p.categories_id ?? p.category_id ?? null,
           image_url:
             p.image_url && typeof p.image_url === "string"
@@ -150,26 +144,24 @@ export default function HomePage() {
     fetchProducts();
   }, [fetchCategories, fetchProducts]);
 
-  // category tiles
+  // ---------- Category tiles ----------
   const categoryTiles = useMemo(() => {
     if (categories && categories.length > 0) {
-      return categories.map((c, i) => {
-        return {
-          id: c.id ?? i,
-          title: (c.name || "Danh mục").toUpperCase(),
-          categoryId: c.id ?? null, // dùng id để filter
-          img: c.image_url
-            ? c.image_url.startsWith("http")
-              ? c.image_url
-              : `${API_BASE}/storage/${c.image_url}`
-            : `/images/cat-${(c.slug ?? c.name ?? `cat-${i}`)
-                .toString()
-                .toLowerCase()
-                .replace(/\s+/g, "-")}.jpg`,
-        };
-      });
+      return categories.map((c, i) => ({
+        id: c.id ?? i,
+        title: (c.name || "Danh mục").toUpperCase(),
+        categoryId: c.id ?? null, // dùng id để filter
+        img: c.image_url
+          ? c.image_url.startsWith("http")
+            ? c.image_url
+            : `${API_BASE}/storage/${c.image_url}`
+          : `/images/cat-${(c.slug ?? c.name ?? `cat-${i}`)
+              .toString()
+              .toLowerCase()
+              .replace(/\s+/g, "-")}.jpg`,
+      }));
     }
-    // fallback static tiles (không map được vào categories_id, chỉ để trang cho đẹp)
+    // fallback static tiles
     return [
       {
         id: "c1",
@@ -198,18 +190,16 @@ export default function HomePage() {
     ];
   }, [categories]);
 
-  // client-side filtering (category + search) + pagination
+  // ---------- Filter + pagination ----------
   const filtered = useMemo(() => {
     let list = products.slice();
 
-    // FILTER THEO CATEGORY (bằng categories_id)
     if (selectedCategory != null) {
       list = list.filter(
         (p) => Number(p.categories_id) === Number(selectedCategory)
       );
     }
 
-    // FILTER THEO SEARCH
     if (query) {
       const q = query.toLowerCase();
       list = list.filter(
@@ -229,110 +219,114 @@ export default function HomePage() {
     return filtered.slice(start, start + PAGE_SIZE);
   }, [filtered, page]);
 
-  // util
+  // ---------- Utils ----------
   const safePrice = (price) => {
     if (price == null || typeof price !== "number" || price <= 0)
       return "Liên hệ";
     return price.toLocaleString("vi-VN") + "₫";
   };
 
+  // thêm giỏ: luôn chọn biến thể còn hàng đầu tiên
   const handleAddToCart = async (p) => {
-  try {
-    // 1. Lấy danh sách biến thể của product
-    const res = await fetch(
-      `${API_BASE}/api/product-details?product_id=${p.id}`
-    );
-    if (!res.ok) {
-      throw new Error(`Fetch product details failed: ${res.status}`);
-    }
+    try {
+      // 1. Lấy danh sách biến thể của product
+      const res = await fetch(
+        `${API_BASE}/api/product-details?product_id=${p.id}`
+      );
+      if (!res.ok) {
+        throw new Error(`Fetch product details failed: ${res.status}`);
+      }
 
-    const data = await res.json();
-    const variantsRaw = Array.isArray(data) ? data : [];
+      const data = await res.json();
+      const variantsRaw = Array.isArray(data) ? data : [];
 
-    // 2. Chuẩn hóa + lọc ra những variant còn hàng
-    const variants = variantsRaw
-      .map((d) => ({
-        id: d.id,
-        product_id: d.product_id,
-        price:
-          typeof d.price === "number"
-            ? d.price
-            : d.price
-            ? Number(d.price)
-            : 0,
-        quantity: d.quantity ?? 0,
-        size: d.size?.name ?? null,
-        color: d.color?.name ?? null,
-        image_url:
-          (Array.isArray(d.images) && d.images[0]?.full_url) ||
-          d.product?.image_url ||
-          p.image_url ||
-          null,
-      }))
-      .filter((v) => v.quantity > 0); // chỉ lấy variant còn hàng
+      // 2. Chuẩn hóa + lọc ra những variant còn hàng
+      const variants = variantsRaw
+        .map((d) => ({
+          id: d.id,
+          product_id: d.product_id,
+          price:
+            typeof d.price === "number"
+              ? d.price
+              : d.price
+              ? Number(d.price)
+              : 0,
+          quantity: d.quantity ?? 0,
+          size: d.size?.name ?? null,
+          color: d.color?.name ?? null,
+          image_url:
+            (Array.isArray(d.images) && d.images[0]?.full_url) ||
+            d.product?.image_url ||
+            p.image_url ||
+            null,
+        }))
+        .filter((v) => v.quantity > 0); // chỉ lấy variant còn hàng
 
-    if (!variants.length) {
+      if (!variants.length) {
+        setSnack({
+          severity: "warning",
+          message: "Sản phẩm này hiện tạm hết hàng.",
+        });
+        return;
+      }
+
+      // 3. Chọn biến thể đầu tiên còn hàng
+      const v = variants[0];
+
+      // 4. Đọc giỏ hiện tại từ localStorage
+      const raw = localStorage.getItem("cart") || "[]";
+      let cart;
+      try {
+        const parsed = JSON.parse(raw);
+        cart = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        cart = [];
+      }
+
+      // 5. Nếu đã có dòng cùng product_detail_id thì cộng số lượng
+      const idx = cart.findIndex(
+        (it) =>
+          it.product_detail_id === v.id ||
+          (it.product_id === v.product_id &&
+            it.size === v.size &&
+            it.color === v.color)
+      );
+
+      if (idx >= 0) {
+        cart[idx].quantity = (cart[idx].quantity || 1) + 1;
+        cart[idx].unit_price = v.price;
+      } else {
+        cart.push({
+          id: Date.now(), // id dòng cart
+          product_id: v.product_id,
+          product_detail_id: v.id,
+          name: p.name,
+          size: v.size,
+          color: v.color,
+          unit_price: v.price,
+          image_url: v.image_url,
+          quantity: 1,
+        });
+      }
+
+      // 6. Lưu lại localStorage
+      localStorage.setItem("cart", JSON.stringify(cart));
+
       setSnack({
-        severity: "warning",
-        message: "Sản phẩm này hiện tạm hết hàng.",
+        severity: "success",
+        message: `${p.name} đã được thêm vào giỏ.`,
       });
-      return;
-    }
-
-    // 3. Chọn biến thể đầu tiên còn hàng
-    const v = variants[0];
-
-    // 4. Đọc giỏ hiện tại từ localStorage
-    const raw = localStorage.getItem("cart") || "[]";
-    const cart = Array.isArray(JSON.parse(raw)) ? JSON.parse(raw) : [];
-
-    // 5. Nếu đã có dòng cùng product_detail_id thì cộng số lượng
-    const idx = cart.findIndex(
-      (it) =>
-        it.product_detail_id === v.id ||
-        (it.product_id === v.product_id &&
-          it.size === v.size &&
-          it.color === v.color)
-    );
-
-    if (idx >= 0) {
-      cart[idx].quantity = (cart[idx].quantity || 1) + 1;
-      cart[idx].unit_price = v.price;
-    } else {
-      cart.push({
-        // id là id của dòng cart, dùng random / timestamp để không bị trùng
-        id: Date.now(),
-        product_id: v.product_id,
-        product_detail_id: v.id,
-        name: p.name,          // chỉ tên sản phẩm
-        size: v.size,          // size tách riêng
-        color: v.color,        // màu tách riêng
-        unit_price: v.price,
-        image_url: v.image_url,
-        quantity: 1,
+    } catch (e) {
+      console.warn("Cannot update cart in localStorage", e);
+      setSnack({
+        severity: "error",
+        message: "Không thể thêm sản phẩm vào giỏ.",
       });
     }
-
-    // 6. Lưu lại localStorage
-    localStorage.setItem("cart", JSON.stringify(cart));
-
-    setSnack({
-      severity: "success",
-      message: `${p.name} đã được thêm vào giỏ.`,
-    });
-  } catch (e) {
-    console.warn("Cannot update cart in localStorage", e);
-    setSnack({
-      severity: "error",
-      message: "Không thể thêm sản phẩm vào giỏ.",
-    });
-  }
-};
-
+  };
 
   // click vào category tile
   const handleCategoryClick = (tile) => {
-    // nếu categoryId null thì reset filter
     if (!tile.categoryId) {
       setSelectedCategory(null);
       setPage(1);
@@ -365,11 +359,13 @@ export default function HomePage() {
                       position: "relative",
                       overflow: "hidden",
                       cursor: "pointer",
-                      height: { xs: 160, md: 220 },
-                      borderRadius: 1,
-                      border: isActive ? "2px solid #111" : "1px solid transparent",
+                      height: { xs: 170, md: 230 },
+                      borderRadius: 0,
+                      border: isActive
+                        ? "2px solid #111"
+                        : "1px solid #e0e0e0",
                       opacity:
-                        selectedCategory != null && !isActive ? 0.5 : 1,
+                        selectedCategory != null && !isActive ? 0.6 : 1,
                       transition: "opacity 0.25s ease, border 0.25s ease",
                       "&:hover .overlay": { opacity: 0.95 },
                     }}
@@ -409,7 +405,7 @@ export default function HomePage() {
                       <Typography
                         sx={{
                           fontWeight: 800,
-                          fontSize: { xs: 18, md: 26 },
+                          fontSize: { xs: 18, md: 22 },
                           letterSpacing: 1.2,
                         }}
                       >
@@ -425,9 +421,14 @@ export default function HomePage() {
 
         {/* Products grid */}
         <Container maxWidth="lg" sx={{ mt: 8, mb: 8 }}>
-          {/* Chỉ còn tiêu đề, không còn ô search trên HomePage */}
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="h5" sx={{ fontWeight: 800 }}>
+          <Box
+            sx={{
+              mb: 3,
+              borderBottom: "2px solid #111",
+              pb: 1,
+            }}
+          >
+            <Typography variant="h5" sx={{ fontWeight: 700 }}>
               New Arrivals
             </Typography>
           </Box>
@@ -455,8 +456,9 @@ export default function HomePage() {
                       <Card
                         elevation={0}
                         sx={{
-                          border: "1px solid #eee",
+                          border: "1px solid #e0e0e0",
                           boxShadow: "none",
+                          borderRadius: 0,
                           transition: "0.25s ease",
                           "&:hover": {
                             transform: "translateY(-3px)",
@@ -476,13 +478,14 @@ export default function HomePage() {
                           }}
                         />
 
-                        <CardContent>
+                        <CardContent sx={{ pt: 1.5, pb: 1.5 }}>
                           <Typography
                             variant="subtitle1"
                             sx={{
-                              fontWeight: 500,
+                              fontWeight: 600,
                               textTransform: "uppercase",
                               letterSpacing: 0.5,
+                              fontSize: 14,
                             }}
                           >
                             {p.name}
@@ -490,7 +493,7 @@ export default function HomePage() {
 
                           <Typography
                             variant="body2"
-                            sx={{ color: "#777", mt: 1 }}
+                            sx={{ color: "#777", mt: 0.5 }}
                           >
                             {(p.rating ?? 0).toFixed(1)} ★
                           </Typography>
@@ -501,13 +504,14 @@ export default function HomePage() {
                               mt: 1,
                               fontWeight: 700,
                               letterSpacing: 0.5,
+                              fontSize: 16,
                             }}
                           >
                             {safePrice(p.price)}
                           </Typography>
                         </CardContent>
 
-                        <CardActions sx={{ px: 2, pb: 2 }}>
+                        <CardActions sx={{ px: 2, pb: 2, pt: 0 }}>
                           <Button
                             size="small"
                             variant="outlined"
@@ -515,6 +519,8 @@ export default function HomePage() {
                               borderRadius: 0,
                               borderColor: "#111",
                               textTransform: "none",
+                              fontSize: 13,
+                              px: 2.5,
                             }}
                             onClick={() => navigate(`/product/${p.id}`)}
                           >
@@ -529,6 +535,9 @@ export default function HomePage() {
                               color: "#fff",
                               borderRadius: 0,
                               textTransform: "none",
+                              fontSize: 13,
+                              px: 2.5,
+                              ml: 1,
                               "&:hover": { bgcolor: "#000" },
                             }}
                             onClick={() => handleAddToCart(p)}

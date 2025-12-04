@@ -8,7 +8,6 @@ import {
   Button,
   Paper,
   Grid,
-  Avatar,
   Stack,
   TextField,
   Divider,
@@ -16,16 +15,15 @@ import {
   Alert,
   List,
   ListItem,
-  ListItemAvatar,
-  ListItemText,
-  ListItemSecondaryAction,
-  Chip,
-  MenuItem,
+  
 } from "@mui/material";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import RemoveCircleOutlineIcon from "@mui/icons-material/RemoveCircleOutline";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
+import Chip from "@mui/material/Chip";
+import Avatar from "@mui/material/Avatar";
+
 import { useNavigate } from "react-router-dom";
 
 const API_BASE = "http://127.0.0.1:8000";
@@ -34,13 +32,17 @@ const STORAGE_KEY = "cart";
 const theme = createTheme({
   palette: {
     mode: "light",
-    background: { default: "#F7FAFC", paper: "#fff" },
-    primary: { main: "#162447", contrastText: "#fff" },
-    secondary: { main: "#42A5F5" },
-    text: { primary: "#0D1B2A", secondary: "#5C6F91" },
+    background: { default: "#FFFFFF", paper: "#FFFFFF" },
+    primary: { main: "#111111", contrastText: "#FFFFFF" },
+    secondary: { main: "#DD002A" }, // gần giống đỏ Uniqlo
+    text: { primary: "#111111", secondary: "#666666" },
   },
-  shape: { borderRadius: 8 },
-  typography: { fontFamily: "Poppins, Roboto, sans-serif" },
+  shape: { borderRadius: 0 }, // Uniqlo rất ít bo góc
+  typography: {
+    fontFamily: "Helvetica, Arial, sans-serif",
+    h5: { fontWeight: 700 },
+    body2: { fontSize: 13 },
+  },
 });
 
 export default function CartPage() {
@@ -55,33 +57,31 @@ export default function CartPage() {
 
   // ----------------- HELPERS -----------------
   const normalizeLocalItem = (it) => {
-  let pureName = it.name;
+    let pureName = it.name;
 
-  // Tự động tách nếu name có dạng "Tên sản phẩm - Size - Màu"
-  if (pureName && pureName.includes(" - ")) {
-    const parts = pureName.split(" - ");
-    pureName = parts[0]; // tên thật
-    it.size_name = it.size_name ?? it.size ?? parts[1];  // size
-    it.color_name = it.color_name ?? it.color ?? parts[2]; // màu
-  }
+    // Tự động tách nếu name có dạng "Tên sản phẩm - Size - Màu"
+    if (pureName && pureName.includes(" - ")) {
+      const parts = pureName.split(" - ");
+      pureName = parts[0]; // tên thật
+      it.size_name = it.size_name ?? it.size ?? parts[1]; // size
+      it.color_name = it.color_name ?? it.color ?? parts[2]; // màu
+    }
 
-  return {
-    id: it.id ?? Math.random(),
-    product_id: it.product_id ?? null,
-    product_detail_id: it.product_detail_id ?? null,
-    name: pureName,
-    price:
-      typeof it.unit_price === "number"
-        ? it.unit_price
-        : Number(it.price ?? 0),
-    qty: Number(it.quantity ?? it.qty ?? 1),
-    image_url: it.image_url ?? it.image ?? null,
-    size_name: it.size_name ?? it.size ?? null,   // đọc thêm it.size
-    color_name: it.color_name ?? it.color ?? null, // đọc thêm it.color
+    return {
+      id: it.id ?? Math.random(),
+      product_id: it.product_id ?? null,
+      product_detail_id: it.product_detail_id ?? null,
+      name: pureName,
+      price:
+        typeof it.unit_price === "number"
+          ? it.unit_price
+          : Number(it.price ?? 0),
+      qty: Number(it.quantity ?? it.qty ?? 1),
+      image_url: it.image_url ?? it.image ?? null,
+      size_name: it.size_name ?? it.size ?? null,
+      color_name: it.color_name ?? it.color ?? null,
+    };
   };
-};
-
-
 
   const normalizeImg = (u) => {
     if (!u) return "/images/posterdenim.png";
@@ -92,17 +92,16 @@ export default function CartPage() {
   const saveAndBroadcast = (nextItems) => {
     try {
       const toStore = nextItems.map((it) => ({
-  id: it.id,
-  product_id: it.product_id,
-  product_detail_id: it.product_detail_id,
-  name: it.name,            // CHỈ TÊN THẬT
-  size: it.size_name,       // size tách riêng
-  color: it.color_name,     // màu tách riêng
-  unit_price: it.price,
-  image_url: it.image_url,
-  quantity: it.qty,
-}));
-
+        id: it.id,
+        product_id: it.product_id,
+        product_detail_id: it.product_detail_id,
+        name: it.name, // CHỈ TÊN THẬT
+        size: it.size_name, // size tách riêng
+        color: it.color_name, // màu tách riêng
+        unit_price: it.price,
+        image_url: it.image_url,
+        quantity: it.qty,
+      }));
 
       localStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
 
@@ -416,6 +415,11 @@ export default function CartPage() {
     }, 400);
   };
 
+  const formatVND = (n) =>
+    typeof n === "number"
+      ? n.toLocaleString("vi-VN") + "₫"
+      : "—";
+
   // ----------------- RENDER -----------------
   return (
     <ThemeProvider theme={theme}>
@@ -430,38 +434,47 @@ export default function CartPage() {
           <Grid container spacing={4}>
             {/* Left: Cart items */}
             <Grid item xs={12} md={8}>
-              <Paper elevation={0} sx={{ p: 3 }}>
-                <Stack
-                  direction="row"
-                  justifyContent="space-between"
-                  alignItems="center"
-                  sx={{ mb: 2 }}
-                >
-                  <Typography variant="h5" sx={{ fontWeight: 800 }}>
-                    Giỏ hàng
-                  </Typography>
-                  <Stack direction="row" spacing={1}>
-                    <Button
-                      variant="outlined"
-                      color="inherit"
-                      onClick={() => navigate("/collections")}
-                    >
-                      Tiếp tục mua sắm
-                    </Button>
-                    <Button
-                      variant="text"
-                      color="error"
-                      onClick={clearCart}
-                      disabled={items.length === 0}
-                      startIcon={<DeleteOutlineIcon />}
-                    >
-                      Xóa hết
-                    </Button>
-                  </Stack>
+              <Box
+                sx={{
+                  mb: 2,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  borderBottom: "2px solid #111",
+                  pb: 1,
+                }}
+              >
+                <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                  GIỎ HÀNG
+                </Typography>
+                <Stack direction="row" spacing={1}>
+                  <Button
+                    variant="text"
+                    sx={{ borderRadius: 0, fontSize: 15 }}
+                    onClick={() => navigate("/collections")}
+                  >
+                    Tiếp tục mua sắm
+                  </Button>
+                  <Button
+                    variant="text"
+                    color="error"
+                    onClick={clearCart}
+                    disabled={items.length === 0}
+                    startIcon={<DeleteOutlineIcon fontSize="small" />}
+                    sx={{ borderRadius: 0, fontSize: 13 }}
+                  >
+                    Xóa hết
+                  </Button>
                 </Stack>
+              </Box>
 
-                <Divider sx={{ mb: 2 }} />
-
+              <Paper
+                elevation={0}
+                sx={{
+                  border: "1px solid #e0e0e0",
+                  boxShadow: "none",
+                }}
+              >
                 {loading ? (
                   <Box
                     sx={{
@@ -485,6 +498,12 @@ export default function CartPage() {
                     </Typography>
                     <Button
                       variant="contained"
+                      sx={{
+                        backgroundColor: "#DD002A",
+                        color: "#fff",
+                        borderRadius: 0,
+                        "&:hover": { backgroundColor: "#c10023" },
+                      }}
                       onClick={() => navigate("/collections")}
                     >
                       Xem sản phẩm
@@ -492,155 +511,267 @@ export default function CartPage() {
                   </Box>
                 ) : (
                   <List disablePadding>
-                    {items.map((it) => (
-                      <ListItem
-  key={it.id}
-  sx={{
-    py: 3,
-    px: 2,
-    mb: 3,
-    borderBottom: "1px solid #e5e5e5",
-    display: "flex",
-    alignItems: "flex-start",
-  }}
->
-  {/* IMAGE */}
-  <Avatar
-    variant="square"
-    src={normalizeImg(it.image_url)}
-    alt={it.name}
-    sx={{
-      width: 96,
-      height: 96,
-      mr: 3,
-      border: "1px solid #ddd",
-    }}
-  />
+                    {items.map((it, index) => {
+                      const sizes = getSizesForItem(it);
+                      const colors = getColorsForItem(it);
 
-  {/* CONTENT */}
-  <Box sx={{ flex: 1 }}>
-    {/* NAME — KHÔNG CÒN SIZE + MÀU */}
-    <Typography
-  sx={{
-    fontWeight: 600,
-    fontSize: "1.05rem",
-    color: "#111",
-    mb: 0.5,
-  }}
->
-  {it.name}
-</Typography>
+                      return (
+                        <React.Fragment key={it.id ?? index}>
+                          <ListItem
+                            disableGutters
+                            sx={{
+                              px: 2,
+                              py: 2.5,
+                              borderBottom: "1px solid #e5e5e5",
+                              display: "flex",
+                              alignItems: "flex-start",
+                            }}
+                          >
+                            {/* IMAGE */}
+                            <Avatar
+                              variant="square"
+                              src={normalizeImg(it.image_url)}
+                              alt={it.name}
+                              sx={{
+                                width: 150,
+                                height: 150,
+                                mr: 2.5,
+                                border: "1px solid #ddd",
+                                borderRadius: 0,
+                              }}
+                            />
 
+                            {/* CONTENT */}
+                            <Box sx={{ flex: 1 }}>
+                              {/* NAME */}
+                              <Typography
+                                sx={{
+                                  fontWeight: 700,
+                                  fontSize: 17,
+                                
+                                  color: "#111",
+                                  mb: 0.5,
+                                  textTransform: "none",
+                                }}
+                              >
+                                {it.name}
+                              </Typography>
 
-    {/* PRICE */}
-    <Typography sx={{ fontSize: ".95rem", color: "#222", fontWeight: 600 }}>
-      {it.price.toLocaleString("vi-VN")}₫
-    </Typography>
+                              {/* SIZE + COLOR TEXT */}
+                              <Typography
+                                variant="body2"
+                                sx={{ color: "#666", mb: 1 }}
+                              >
+                                {it.size_name && <>Size: {it.size_name} · </>}
+                                {it.color_name && <>Màu: {it.color_name}</>}
+                              </Typography>
 
-    {/* SIZE + COLOR */}
-    <Box sx={{ mt: 2, display: "flex", gap: 3 }}>
-      {/* SIZE */}
-      <Box>
-        <Typography sx={{ fontSize: ".8rem", color: "#555" }}>Size</Typography>
-        <TextField
-          select
-          size="small"
-          value={it.size_name}
-          onChange={(e) => handleChangeSize(it, e.target.value)}
-          sx={{
-            width: 85,
-            mt: 0.5,
-            "& .MuiOutlinedInput-root": {
-              borderRadius: 1,
-              height: 38,
-              fontSize: ".9rem",
-            },
-          }}
-        >
-          {getSizesForItem(it).map((size) => (
-            <MenuItem
-              key={size}
-              value={size}
-              disabled={!hasStockForSize(it.product_id, size)}
-            >
-              {size}
-            </MenuItem>
-          ))}
-        </TextField>
-      </Box>
+                              {/* PRICE */}
+                              <Typography
+                                sx={{
+                                  fontSize: 14,
+                                  color: "#111",
+                                  fontWeight: 700,
+                                  mb: 1.5,
+                                }}
+                              >
+                                {formatVND(it.price)}
+                              </Typography>
 
-      {/* COLOR */}
-      <Box>
-        <Typography sx={{ fontSize: ".8rem", color: "#555" }}>Màu</Typography>
-        <TextField
-          select
-          size="small"
-          value={it.color_name}
-          onChange={(e) => handleChangeColor(it, e.target.value)}
-          sx={{
-            width: 110,
-            mt: 0.5,
-            "& .MuiOutlinedInput-root": {
-              borderRadius: 1,
-              height: 38,
-              fontSize: ".9rem",
-            },
-          }}
-        >
-          {getColorsForItem(it).map((color) => (
-            <MenuItem
-              key={color}
-              value={color}
-              disabled={
-                !hasStockForSizeColor(it.product_id, it.size_name, color)
-              }
-            >
-              {color}
-            </MenuItem>
-          ))}
-        </TextField>
-      </Box>
-    </Box>
+                              {/* SIZE / COLOR SELECTORS (CHIP STYLE) */}
+                              <Box sx={{ display: "flex", gap: 4, mb: 1.5 }}>
+                                {/* Size chips */}
+                                <Box>
+                                  <Typography
+                                    sx={{
+                                      fontSize: 11,
+                                      color: "#666",
+                                      mb: 0.5,
+                                      textTransform: "uppercase",
+                                    }}
+                                  >
+                                    Size
+                                  </Typography>
+                                  <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
+                                    {sizes.map((size) => {
+                                      const selected = size === it.size_name;
+                                      const disabled = !hasStockForSize(
+                                        it.product_id,
+                                        size
+                                      );
 
-    {/* QTY + DELETE */}
-    <Box
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        mt: 2.5,
-      }}
-    >
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        <IconButton size="small" onClick={() => subQty(it.id)}>
-          <RemoveCircleOutlineIcon fontSize="small" />
-        </IconButton>
+                                      return (
+                                        <Chip
+                                          key={size}
+                                          label={size}
+                                          size="small"
+                                          clickable={!disabled}
+                                          disabled={disabled}
+                                          onClick={() =>
+                                            !disabled &&
+                                            handleChangeSize(it, size)
+                                          }
+                                          sx={{
+                                            borderRadius: 0,
+                                            border: "1px solid #bbb",
+                                            fontSize: 11,
+                                            height: 26,
+                                            px: 1.5,
+                                            backgroundColor: selected
+                                              ? "#111"
+                                              : "#fff",
+                                            color: selected ? "#fff" : "#111",
+                                            "&.Mui-disabled": {
+                                              opacity: 0.4,
+                                              borderStyle: "dashed",
+                                            },
+                                            "&:hover": {
+                                              backgroundColor: selected
+                                                ? "#111"
+                                                : "#f5f5f5",
+                                            },
+                                          }}
+                                        />
+                                      );
+                                    })}
+                                  </Box>
+                                </Box>
 
-        <TextField
-          value={it.qty}
-          size="small"
-          onChange={(e) => updateQty(it.id, e.target.value)}
-          sx={{
-            width: 60,
-            "& input": { textAlign: "center" },
-          }}
-        />
+                                {/* Color chips */}
+                                <Box>
+                                  <Typography
+                                    sx={{
+                                      fontSize: 11,
+                                      color: "#666",
+                                      mb: 0.5,
+                                      textTransform: "uppercase",
+                                    }}
+                                  >
+                                    Màu
+                                  </Typography>
+                                  <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
+                                    {colors.map((color) => {
+                                      const selected =
+                                        color === it.color_name;
+                                      const disabled = !hasStockForSizeColor(
+                                        it.product_id,
+                                        it.size_name,
+                                        color
+                                      );
 
-        <IconButton size="small" onClick={() => addQty(it.id)}>
-          <AddCircleOutlineIcon fontSize="small" />
-        </IconButton>
-      </Box>
+                                      return (
+                                        <Chip
+                                          key={color}
+                                          label={color}
+                                          size="small"
+                                          clickable={!disabled}
+                                          disabled={disabled}
+                                          onClick={() =>
+                                            !disabled &&
+                                            handleChangeColor(it, color)
+                                          }
+                                          sx={{
+                                            borderRadius: 0,
+                                            border: "1px solid #bbb",
+                                            fontSize: 11,
+                                            height: 26,
+                                            px: 1.5,
+                                            backgroundColor: selected
+                                              ? "#111"
+                                              : "#fff",
+                                            color: selected ? "#fff" : "#111",
+                                            "&.Mui-disabled": {
+                                              opacity: 0.4,
+                                              borderStyle: "dashed",
+                                            },
+                                            "&:hover": {
+                                              backgroundColor: selected
+                                                ? "#111"
+                                                : "#f5f5f5",
+                                            },
+                                          }}
+                                        />
+                                      );
+                                    })}
+                                  </Box>
+                                </Box>
+                              </Box>
 
-      <IconButton color="error" onClick={() => removeItem(it.id)}>
-        <DeleteOutlineIcon />
-      </IconButton>
-    </Box>
-  </Box>
-</ListItem>
+                              {/* QTY + DELETE */}
+                              <Box
+                                sx={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "space-between",
+                                  mt: 1,
+                                }}
+                              >
+                                {/* QTY CONTROL */}
+                                <Box
+                                  sx={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 0.5,
+                                  }}
+                                >
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => subQty(it.id)}
+                                  >
+                                    <RemoveCircleOutlineIcon fontSize="small" />
+                                  </IconButton>
 
+                                  <TextField
+                                    value={it.qty}
+                                    size="small"
+                                    onChange={(e) =>
+                                      updateQty(it.id, e.target.value)
+                                    }
+                                    sx={{
+                                      width: 60,
+                                      "& input": {
+                                        textAlign: "center",
+                                        fontSize: 13,
+                                      },
+                                      "& .MuiOutlinedInput-root": {
+                                        borderRadius: 0,
+                                        height: 32,
+                                      },
+                                    }}
+                                  />
 
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => addQty(it.id)}
+                                  >
+                                    <AddCircleOutlineIcon fontSize="small" />
+                                  </IconButton>
+                                </Box>
 
-                    ))}
+                                {/* DELETE */}
+                                <Button
+                                  variant="text"
+                                  color="error"
+                                  onClick={() => removeItem(it.id)}
+                                  sx={{
+                                    fontSize: 12,
+                                    borderRadius: 0,
+                                    textTransform: "none",
+                                    minWidth: "auto",
+                                    px: 0,
+                                  }}
+                                  startIcon={
+                                    <DeleteOutlineIcon fontSize="small" />
+                                  }
+                                >
+                                  Xóa
+                                </Button>
+                              </Box>
+                            </Box>
+                          </ListItem>
+                        </React.Fragment>
+                      );
+                    })}
                   </List>
                 )}
               </Paper>
@@ -648,80 +779,113 @@ export default function CartPage() {
 
             {/* Right: Summary */}
             <Grid item xs={12} md={4}>
-              <Paper
-                elevation={0}
-                sx={{ p: 3, position: "sticky", top: 24 }}
+              <Box
+                sx={{
+                  position: "sticky",
+                  top: 24,
+                }}
               >
-                <Typography
-                  variant="subtitle2"
-                  sx={{ color: "text.secondary" }}
-                >
-                  Tóm tắt đơn hàng
-                </Typography>
-                <Typography
-                  variant="h6"
-                  sx={{ fontWeight: 800, mt: 1 }}
-                >
-                  Thanh toán
-                </Typography>
-
-                <Box
+                <Paper
+                  elevation={0}
                   sx={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    mt: 2,
+                    p: 2.5,
+                    border: "1px solid #e0e0e0",
+                    backgroundColor: "#f7f7f7",
+                    boxShadow: "none",
                   }}
                 >
                   <Typography
-                    variant="body2"
-                    sx={{ color: "text.secondary" }}
+                    variant="subtitle2"
+                    sx={{
+                      color: "text.secondary",
+                      textTransform: "uppercase",
+                      letterSpacing: 0.5,
+                      mb: 1,
+                    }}
                   >
-                    Tạm tính
+                    Tóm tắt đơn hàng
                   </Typography>
-                  <Typography
-                    variant="subtitle1"
-                    sx={{ fontWeight: 800 }}
-                  >
-                    {subtotal.toLocaleString("vi-VN")}₫
-                  </Typography>
-                </Box>
+                  <Divider sx={{ mb: 2 }} />
 
-                <Box sx={{ mt: 2 }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: 1,
+                    }}
+                  >
+                    <Typography variant="body2">Tạm tính</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {formatVND(subtotal)}
+                    </Typography>
+                  </Box>
+
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: 1.5,
+                    }}
+                  >
+                    <Typography variant="body2">Phí vận chuyển</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {/* Phí ship xử lý bên PaymentPage, ở đây chỉ hiển thị gợi ý */}
+                      Sẽ tính ở bước sau
+                    </Typography>
+                  </Box>
+
+                  <Divider sx={{ my: 1.5 }} />
+
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      mb: 2,
+                    }}
+                  >
+                    <Typography
+                      variant="body1"
+                      sx={{ fontWeight: 700, letterSpacing: 0.3 }}
+                    >
+                      Tổng tạm tính
+                    </Typography>
+                    <Typography
+                      variant="body1"
+                      sx={{ fontWeight: 700, fontSize: 16 }}
+                    >
+                      {formatVND(subtotal)}
+                    </Typography>
+                  </Box>
+
                   <Button
                     fullWidth
                     variant="contained"
                     size="large"
                     onClick={handleCheckout}
                     disabled={items.length === 0}
+                    sx={{
+                      borderRadius: 0,
+                      backgroundColor: "#DD002A",
+                      fontWeight: 600,
+                      letterSpacing: 0.5,
+                      textTransform: "none",
+                      mb: 1.5,
+                      "&:hover": { backgroundColor: "#c10023" },
+                    }}
                   >
-                    Thanh toán
+                    Đặt hàng
                   </Button>
-                </Box>
 
-                <Button
-                  fullWidth
-                  variant="outlined"
-                  size="small"
-                  sx={{ mt: 2 }}
-                  onClick={() => {
-                    setSnack({
-                      severity: "info",
-                      message: "Lưu giỏ hàng (demo)",
-                    });
-                  }}
-                >
-                  Lưu để sau
-                </Button>
-
-                <Divider sx={{ my: 2 }} />
-
-                <Typography
-                  variant="caption"
-                  sx={{ color: "text.secondary" }}
-                >
-                  Phương thức thanh toán COD
-                </Typography>
-              </Paper>
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "text.secondary", fontSize: 11 }}
+                  >
+                    Phương thức thanh toán hiện tại: Thanh toán khi nhận hàng
+                    (COD). 
+                  </Typography>
+                </Paper>
+              </Box>
             </Grid>
           </Grid>
         </Container>

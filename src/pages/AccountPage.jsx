@@ -18,7 +18,12 @@ import {
   CircularProgress,
   Snackbar,
   Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from "@mui/material";
+
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 
 import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
@@ -26,6 +31,7 @@ import ShoppingBagIcon from "@mui/icons-material/ShoppingBag";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import MailOutlineIcon from "@mui/icons-material/MailOutline";
 import LogoutIcon from "@mui/icons-material/Logout";
+import LockIcon from "@mui/icons-material/Lock";
 
 import { useNavigate } from "react-router-dom";
 
@@ -34,17 +40,22 @@ const API_BASE = process.env.REACT_APP_API_BASE || "http://127.0.0.1:8000";
 const theme = createTheme({
   palette: {
     mode: "light",
-    background: { default: "#F7FAFC", paper: "#fff" },
-    primary: { main: "#000000", contrastText: "#fff" }, // nút đen
+    background: { default: "#FFFFFF", paper: "#FFFFFF" },
+    primary: { main: "#000000", contrastText: "#fff" },
     text: { primary: "#111", secondary: "#666" },
   },
-  typography: { fontFamily: "Poppins, Roboto, sans-serif" },
-  shape: { borderRadius: 2 },
+  typography: {
+    fontFamily: "Helvetica, Arial, sans-serif",
+  },
+  shape: { borderRadius: 0 },
 });
 
 // helper
 function a11yProps(index) {
-  return { id: `account-section-${index}`, "aria-controls": `account-panel-${index}` };
+  return {
+    id: `account-section-${index}`,
+    "aria-controls": `account-panel-${index}`,
+  };
 }
 
 export default function AccountPage() {
@@ -60,11 +71,11 @@ export default function AccountPage() {
     }
   });
 
-  const [section, setSection] = useState(0); // 0: info, 1: orders, 2: shipping, 3: newsletter
+  const [section, setSection] = useState(0);
   const [saving, setSaving] = useState(false);
   const [snack, setSnack] = useState(null);
 
-  // profile form (KHÔNG còn birthday)
+  // profile
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -72,19 +83,31 @@ export default function AccountPage() {
     password: "",
   });
 
-  // orders / addresses
+  // orders
   const [orders, setOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
+
+  // shipping addresses
   const [addresses, setAddresses] = useState([]);
 
-  // chỉ giữ chữ số, dài tối đa 10
+  // form đổi mật khẩu
+  const [pwd, setPwd] = useState({
+    old_password: "",
+    new_password: "",
+    confirm_password: "",
+  });
+
+  // dialog chi tiết đơn hàng
+  const [openOrderDialog, setOpenOrderDialog] = useState(false);
+  const [orderDetail, setOrderDetail] = useState(null);
+  const [loadingOrderDetail, setLoadingOrderDetail] = useState(false);
+
   const sanitizePhone = (value) => {
     if (!value) return "";
-    const digits = value.replace(/\D/g, "");
-    return digits.slice(0, 10);
+    return value.replace(/\D/g, "").slice(0, 10);
   };
 
-  // init form theo user
+  // init form
   useEffect(() => {
     if (user) {
       setForm({
@@ -96,7 +119,7 @@ export default function AccountPage() {
     }
   }, [user]);
 
-  // ====== FETCH ORDERS ======
+  // fetch orders
   async function fetchOrders() {
     setLoadingOrders(true);
     try {
@@ -111,39 +134,16 @@ export default function AccountPage() {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       };
-      const url = `${API_BASE}/api/my-orders`;
-      const res = await fetch(url, { headers });
+
+      const res = await fetch(`${API_BASE}/api/my-orders`, { headers });
 
       const text = await res.text().catch(() => "");
-      const ct = res.headers.get("content-type") || "";
-
       let parsed = null;
-      if (
-        ct.includes("application/json") ||
-        text.trim().startsWith("{") ||
-        text.trim().startsWith("[")
-      ) {
-        try {
-          parsed = text ? JSON.parse(text) : null;
-        } catch {
-          parsed = null;
-        }
-      }
+      try {
+        parsed = text ? JSON.parse(text) : null;
+      } catch {}
 
       if (!res.ok) {
-        if (res.status === 401 || res.status === 403) {
-          console.warn("fetchOrders auth warning:", res.status, parsed || text);
-          setSnack({
-            severity: "warning",
-            message: "Không thể tải đơn hàng: cần đăng nhập hoặc quyền không đủ.",
-          });
-          setOrders([]);
-          return;
-        }
-        const msg =
-          (parsed && (parsed.message || parsed.error)) ||
-          `Lỗi khi tải đơn hàng (${res.status})`;
-        setSnack({ severity: "error", message: msg });
         setOrders([]);
         return;
       }
@@ -151,27 +151,14 @@ export default function AccountPage() {
       const list = Array.isArray(parsed)
         ? parsed
         : parsed?.data ?? parsed?.orders ?? [];
-      const finalList = Array.isArray(list) ? list : [];
-      setOrders(finalList);
-      try {
-        localStorage.setItem("orders_cache", JSON.stringify(finalList));
-      } catch {}
-    } catch (err) {
-      console.error("fetchOrders network error:", err);
-      setSnack({ severity: "error", message: "Lỗi mạng khi tải đơn hàng." });
-      try {
-        const raw = localStorage.getItem("orders_cache") || "[]";
-        const cached = JSON.parse(raw);
-        setOrders(Array.isArray(cached) ? cached : []);
-      } catch {
-        setOrders([]);
-      }
+      setOrders(Array.isArray(list) ? list : []);
+    } catch {
+      setOrders([]);
     } finally {
       setLoadingOrders(false);
     }
   }
 
-  // ====== FETCH ADDRESSES (localStorage demo) ======
   const fetchAddresses = useCallback(() => {
     try {
       const raw = localStorage.getItem("addresses") || "[]";
@@ -186,201 +173,171 @@ export default function AccountPage() {
     if (user && token) {
       fetchOrders();
       fetchAddresses();
-    } else if (user && !token) {
-      setSnack({
-        severity: "warning",
-        message: "Bạn chưa đăng nhập hoặc token không hợp lệ.",
-      });
     }
   }, [user, fetchAddresses]);
 
-  // ====== SAVE PROFILE ======
+  // save profile
   const handleSaveProfile = async () => {
     setSaving(true);
-    try {
-      if (form.email && !/^\S+@\S+\.\S+$/.test(form.email)) {
-        setSnack({ severity: "error", message: "Email không hợp lệ." });
-        setSaving(false);
-        return;
-      }
-      if (form.phone && !/^\d{10}$/.test(form.phone)) {
-        setSnack({
-          severity: "error",
-          message: "Số điện thoại phải đúng 10 chữ số (chỉ gồm số).",
-        });
-        setSaving(false);
-        return;
-      }
 
-      const originalUser = user ? { ...user } : null;
-      const optimisticUser = { ...(user || {}), ...form };
-
-      setUser(optimisticUser);
-      try {
-        localStorage.setItem("user", JSON.stringify(optimisticUser));
-      } catch {}
-
-      try {
-        window.dispatchEvent(new Event("userUpdated"));
-        if (typeof BroadcastChannel !== "undefined") {
-          const bc = new BroadcastChannel("app-user");
-          bc.postMessage({ type: "userUpdated", user: optimisticUser });
-          bc.close();
-        }
-      } catch {}
-
-      if (!navigator.onLine) {
-        try {
-          const pendingKey = "pending_user_updates";
-          const raw = localStorage.getItem(pendingKey) || "[]";
-          const arr = JSON.parse(raw);
-          arr.push({ at: Date.now(), payload: form, userId: user?.id ?? null });
-          localStorage.setItem(pendingKey, JSON.stringify(arr));
-        } catch {}
-        setSnack({
-          severity: "info",
-          message:
-            "Bạn đang offline — thay đổi đã lưu cục bộ và sẽ đồng bộ khi có mạng.",
-        });
-        setSaving(false);
-        return;
-      }
-
-      const token = localStorage.getItem("access_token");
-      const headers = { "Content-Type": "application/json" };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-
-      const url = `${API_BASE}/api/me`;
-      const res = await fetch(url, {
-        method: "PUT",
-        headers,
-        body: JSON.stringify(form),
-      }).catch((err) => {
-        console.error("Network error on profile update:", err);
-        return null;
-      });
-
-      if (!res) {
-        setSnack({
-          severity: "info",
-          message: "Lỗi mạng — đã lưu cục bộ, sẽ thử đồng bộ sau.",
-        });
-        setSaving(false);
-        return;
-      }
-
-      const text = await res.text().catch(() => "");
-      let body = null;
-      try {
-        body = text ? JSON.parse(text) : null;
-      } catch {
-        body = null;
-      }
-
-      if (!res.ok) {
-        if (res.status === 404) {
-          console.warn("Profile update endpoint not found (404). Keeping local.");
-          setSnack({
-            severity: "warning",
-            message: "Đã lưu cục bộ nhưng server không hỗ trợ cập nhật (404).",
-          });
-          setSaving(false);
-          return;
-        }
-        const serverMsg =
-          (body && (body.message || body.error)) ||
-          `Cập nhật thất bại (${res.status})`;
-
-        try {
-          if (originalUser)
-            localStorage.setItem("user", JSON.stringify(originalUser));
-          else localStorage.removeItem("user");
-        } catch {}
-        setUser(originalUser);
-        setSnack({ severity: "error", message: serverMsg });
-        setSaving(false);
-        return;
-      }
-
-      const updatedFromServer =
-        body && typeof body === "object" && (body.id || body.email || body.name)
-          ? body
-          : optimisticUser;
-
-      try {
-        localStorage.setItem("user", JSON.stringify(updatedFromServer));
-      } catch {}
-      setUser(updatedFromServer);
-
-      try {
-        window.dispatchEvent(new Event("userUpdated"));
-        if (typeof BroadcastChannel !== "undefined") {
-          const bc = new BroadcastChannel("app-user");
-          bc.postMessage({ type: "userUpdated", user: updatedFromServer });
-          bc.close();
-        }
-      } catch {}
-
-      setSnack({
-        severity: "success",
-        message: "Cập nhật thông tin thành công.",
-      });
-    } catch (err) {
-      console.error("save profile err:", err);
-      try {
-        if (user) {
-          localStorage.setItem("user", JSON.stringify(user));
-          setUser(user);
-        } else {
-          localStorage.removeItem("user");
-          setUser(null);
-        }
-      } catch {}
+    if (form.email && !/^\S+@\S+\.\S+$/.test(form.email)) {
+      setSnack({ severity: "error", message: "Email không hợp lệ." });
+      setSaving(false);
+      return;
+    }
+    if (form.phone && !/^\d{10}$/.test(form.phone)) {
       setSnack({
         severity: "error",
-        message: err?.message ?? "Cập nhật thất bại.",
+        message: "Số điện thoại phải đủ 10 chữ số.",
       });
-    } finally {
       setSaving(false);
+      return;
     }
-  };
 
-  // ====== LOGOUT ======
-  const handleLogout = () => {
+    const token = localStorage.getItem("access_token");
+    const headers = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
     try {
-      localStorage.removeItem("access_token");
-      localStorage.removeItem("user");
-      setUser(null);
-      setSnack({ severity: "info", message: "Đã đăng xuất." });
-      navigate("/login");
-    } catch (err) {
-      console.warn("logout", err);
-      setSnack({ severity: "error", message: "Không thể đăng xuất." });
+      const payload = { ...form };
+      delete payload.password; // không cập nhật mật khẩu chung với profile
+
+      const res = await fetch(`${API_BASE}/api/me`, {
+        method: "PUT",
+        headers,
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        setSnack({ severity: "error", message: "Lỗi cập nhật." });
+      } else {
+        const updated = await res.json();
+        localStorage.setItem("user", JSON.stringify(updated));
+        setUser(updated);
+        setSnack({ severity: "success", message: "Cập nhật thành công." });
+      }
+    } catch {
+      setSnack({ severity: "error", message: "Lỗi mạng." });
+    }
+
+    setSaving(false);
+  };
+
+  // đổi mật khẩu
+  const handleChangePassword = async () => {
+    if (!pwd.old_password || !pwd.new_password) {
+      setSnack({
+        severity: "error",
+        message: "Vui lòng nhập đủ thông tin.",
+      });
+      return;
+    }
+
+    if (pwd.new_password !== pwd.confirm_password) {
+      setSnack({
+        severity: "error",
+        message: "Mật khẩu mới và xác nhận không khớp.",
+      });
+      return;
+    }
+
+    const token = localStorage.getItem("access_token");
+
+    const res = await fetch(`${API_BASE}/api/change-password`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        old_password: pwd.old_password,
+        new_password: pwd.new_password,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      setSnack({ severity: "success", message: "Đổi mật khẩu thành công!" });
+      setPwd({ old_password: "", new_password: "", confirm_password: "" });
+    } else {
+      setSnack({
+        severity: "error",
+        message: data.message || "Lỗi đổi mật khẩu",
+      });
     }
   };
 
-  const handleGoToOrder = (id) => navigate(`/order/${id}`);
+  // mở dialog chi tiết đơn hàng
+  const handleOpenOrderDetail = async (id) => {
+    try {
+      setLoadingOrderDetail(true);
+      setOrderDetail(null);
+      setOpenOrderDialog(true);
 
-  const fullName = user?.name || "";
+      const token = localStorage.getItem("access_token");
+      const res = await fetch(`${API_BASE}/api/orders/${id}`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setSnack({
+          severity: "error",
+          message: data.message || "Không tải được chi tiết đơn hàng.",
+        });
+        setOpenOrderDialog(false);
+        return;
+      }
+
+      setOrderDetail(data);
+    } catch (err) {
+      setSnack({
+        severity: "error",
+        message: "Lỗi kết nối khi tải chi tiết đơn hàng.",
+      });
+      setOpenOrderDialog(false);
+    } finally {
+      setLoadingOrderDetail(false);
+    }
+  };
+
+  const handleCloseOrderDialog = () => {
+    setOpenOrderDialog(false);
+    setOrderDetail(null);
+  };
+
+  // logout
+  const handleLogout = () => {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("user");
+    setUser(null);
+    navigate("/login");
+  };
+
   const greetingName =
-    fullName || (user?.email ? user.email.split("@")[0] : "Bạn");
+    user?.name || (user?.email ? user.email.split("@")[0] : "Bạn");
 
-  // ============ RENDER ============
+  // ============================================================
+  // ===================== UI (UNIQLO STYLE) =====================
+  // ============================================================
 
   return (
     <ThemeProvider theme={theme}>
-      <Box sx={{ minHeight: "80vh", backgroundColor: "#fff", py: 6 }}>
-        <Container maxWidth="lg">
+      <Box sx={{ backgroundColor: "#fff", py: 5 }}>
+        <Container maxWidth="lg" sx={{ maxWidth: "1080px !important", px: 2 }}>
           <Grid container spacing={4}>
-            {/* LEFT: menu + logout */}
+            {/* LEFT SIDEBAR */}
             <Grid item xs={12} md={3}>
               <Box sx={{ mb: 3 }}>
-                <Typography
-                  variant="h5"
-                  sx={{ fontWeight: 800, textTransform: "capitalize" }}
-                >
-                  Xin Chào, {greetingName}!
+                <Typography sx={{ fontSize: 22, fontWeight: 700 }}>
+                  Xin chào, {greetingName}!
                 </Typography>
+
                 <Button
                   onClick={handleLogout}
                   sx={{
@@ -402,282 +359,253 @@ export default function AccountPage() {
               <Paper
                 sx={{
                   borderRadius: 0,
-                  boxShadow: "none",
-                  border: "1px solid #eee",
+                  border: "1px solid #e0e0e0",
                 }}
               >
                 <List disablePadding>
-                  <ListItem disablePadding>
-                    <ListItemButton
-                      selected={section === 0}
-                      onClick={() => setSection(0)}
-                      {...a11yProps(0)}
-                      sx={{
-                        py: 2,
-                        "&.Mui-selected": {
-                          backgroundColor: "#f5f5f5",
-                        },
-                      }}
-                    >
-                      <ListItemIcon>
-                        <PersonOutlineIcon />
-                      </ListItemIcon>
-                      <ListItemText primary="Thông Tin Cá Nhân" />
-                    </ListItemButton>
-                  </ListItem>
-
-                  <Divider />
-
-                  <ListItem disablePadding>
-                    <ListItemButton
-                      selected={section === 1}
-                      onClick={() => setSection(1)}
-                      {...a11yProps(1)}
-                      sx={{
-                        py: 2,
-                        "&.Mui-selected": {
-                          backgroundColor: "#f5f5f5",
-                        },
-                      }}
-                    >
-                      <ListItemIcon>
-                        <ShoppingBagIcon />
-                      </ListItemIcon>
-                      <ListItemText primary="Lịch Sử Đặt Hàng" />
-                    </ListItemButton>
-                  </ListItem>
-
-                  <Divider />
-
-                  <ListItem disablePadding>
-                    <ListItemButton
-                      selected={section === 2}
-                      onClick={() => setSection(2)}
-                      {...a11yProps(2)}
-                      sx={{
-                        py: 2,
-                        "&.Mui-selected": {
-                          backgroundColor: "#f5f5f5",
-                        },
-                      }}
-                    >
-                      <ListItemIcon>
-                        <LocalShippingIcon />
-                      </ListItemIcon>
-                      <ListItemText primary="Thông Tin Giao Hàng" />
-                    </ListItemButton>
-                  </ListItem>
-
-                  <Divider />
-
-                  <ListItem disablePadding>
-                    <ListItemButton
-                      selected={section === 3}
-                      onClick={() => setSection(3)}
-                      {...a11yProps(3)}
-                      sx={{
-                        py: 2,
-                        "&.Mui-selected": {
-                          backgroundColor: "#f5f5f5",
-                        },
-                      }}
-                    >
-                      <ListItemIcon>
-                        <MailOutlineIcon />
-                      </ListItemIcon>
-                      <ListItemText primary="Đăng Ký Nhận Tin" />
-                    </ListItemButton>
-                  </ListItem>
+                  {[
+                    ["Thông Tin Cá Nhân", 0, <PersonOutlineIcon />],
+                    ["Lịch Sử Đặt Hàng", 1, <ShoppingBagIcon />],
+                    ["Thông Tin Giao Hàng", 2, <LocalShippingIcon />],
+                    ["Đăng Ký Nhận Tin", 3, <MailOutlineIcon />],
+                    ["Đổi Mật Khẩu", 4, <LockIcon />],
+                  ].map(([label, index, icon]) => (
+                    <React.Fragment key={index}>
+                      <ListItem disablePadding>
+                        <ListItemButton
+                          selected={section === index}
+                          onClick={() => setSection(index)}
+                          sx={{
+                            py: 2,
+                            "&.Mui-selected": {
+                              backgroundColor: "#f5f5f5",
+                            },
+                          }}
+                        >
+                          <ListItemIcon>{icon}</ListItemIcon>
+                          <ListItemText primary={label} />
+                        </ListItemButton>
+                      </ListItem>
+                      <Divider />
+                    </React.Fragment>
+                  ))}
                 </List>
               </Paper>
             </Grid>
 
-            {/* RIGHT: content */}
+            {/* RIGHT CONTENT */}
             <Grid item xs={12} md={9}>
               <Paper
                 sx={{
                   p: 4,
                   borderRadius: 0,
-                  border: "1px solid #eee",
-                  boxShadow: "none",
+                  border: "1px solid #e0e0e0",
                 }}
               >
-                {/* SECTION 0: PERSONAL INFO */}
+                {/* SECTION 0: PROFILE */}
                 {section === 0 && (
-                  <Box id="account-panel-0">
+                  <Box>
                     <Typography
-                      variant="h5"
                       sx={{
-                        fontWeight: 800,
-                        textTransform: "uppercase",
+                        fontSize: 22,
+                        fontWeight: 700,
                         mb: 3,
+                        textTransform: "uppercase",
                       }}
                     >
                       Thông Tin Cá Nhân
                     </Typography>
 
-                    {/* Tất cả ô ở 1 cột, "Sinh nhật" -> "Mật khẩu" */}
-                    <Grid container spacing={3} direction="column">
-                      <Grid item xs={12}>
-                        <TextField
-                          label="Email"
-                          fullWidth
-                          value={form.email}
-                          onChange={(e) =>
-                            setForm({ ...form, email: e.target.value })
-                          }
-                        />
-                      </Grid>
-                      <Grid item xs={12}>
-                        <TextField
-                          label="Họ & Tên"
-                          fullWidth
-                          value={form.name}
-                          onChange={(e) =>
-                            setForm({ ...form, name: e.target.value })
-                          }
-                        />
-                      </Grid>
-                      <Grid item xs={12}>
-                        <TextField
-                          label="Mật khẩu"
-                          type="password"
-                          fullWidth
-                          value={form.password}
-                          onChange={(e) =>
-                            setForm({ ...form, password: e.target.value })
-                          }
-                        />
-                      </Grid>
-                      <Grid item xs={12}>
-                        <TextField
-                          label="Số điện thoại"
-                          fullWidth
-                          value={form.phone}
-                          onChange={(e) =>
-                            setForm({
-                              ...form,
-                              phone: sanitizePhone(e.target.value),
-                            })
-                          }
-                          inputProps={{ maxLength: 10 }}
-                        />
-                      </Grid>
-                    </Grid>
+                    <Stack spacing={3} sx={{ maxWidth: 420 }}>
+                      <TextField
+                        label="Email"
+                        fullWidth
+                        value={form.email}
+                        onChange={(e) =>
+                          setForm({ ...form, email: e.target.value })
+                        }
+                        InputProps={{ sx: { height: 42 } }}
+                      />
 
-                    <Box sx={{ mt: 4 }}>
-                      <Button
-                        variant="contained"
-                        onClick={handleSaveProfile}
-                        disabled={saving}
-                        sx={{
-                          px: 5,
-                          py: 1.5,
-                          fontWeight: 700,
-                          fontSize: 14,
-                        }}
-                      >
-                        {saving ? (
-                          <CircularProgress size={20} sx={{ color: "#fff" }} />
-                        ) : (
-                          "LƯU THAY ĐỔI"
-                        )}
-                      </Button>
-                    </Box>
+                      <TextField
+                        label="Họ & Tên"
+                        fullWidth
+                        value={form.name}
+                        onChange={(e) =>
+                          setForm({ ...form, name: e.target.value })
+                        }
+                        InputProps={{ sx: { height: 42 } }}
+                      />
+
+                      <TextField
+                        label="Số điện thoại"
+                        fullWidth
+                        value={form.phone}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            phone: sanitizePhone(e.target.value),
+                          })
+                        }
+                        InputProps={{ sx: { height: 42 } }}
+                      />
+                    </Stack>
+
+                    <Button
+                      variant="contained"
+                      onClick={handleSaveProfile}
+                      disabled={saving}
+                      sx={{
+                        mt: 4,
+                        backgroundColor: "#000",
+                        px: 5,
+                        py: 1.5,
+                        fontWeight: 700,
+                        "&:hover": { backgroundColor: "#222" },
+                      }}
+                    >
+                      {saving ? (
+                        <CircularProgress size={20} sx={{ color: "#fff" }} />
+                      ) : (
+                        "LƯU THAY ĐỔI"
+                      )}
+                    </Button>
                   </Box>
                 )}
 
                 {/* SECTION 1: ORDER HISTORY */}
                 {section === 1 && (
-                  <Box id="account-panel-1">
+                  <Box>
                     <Typography
-                      variant="h5"
                       sx={{
-                        fontWeight: 800,
-                        textTransform: "uppercase",
+                        fontSize: 22,
+                        fontWeight: 700,
                         mb: 3,
+                        textTransform: "uppercase",
                       }}
                     >
                       Lịch Sử Đặt Hàng
                     </Typography>
 
                     {loadingOrders ? (
-                      <Box
-                        sx={{
-                          display: "flex",
-                          justifyContent: "center",
-                          py: 4,
-                        }}
-                      >
-                        <CircularProgress />
-                      </Box>
+                      <CircularProgress />
                     ) : orders.length === 0 ? (
                       <Typography>Chưa có đơn hàng nào.</Typography>
                     ) : (
-                      <List>
-                        {orders.map((o) => (
-                          <React.Fragment key={o.id}>
-                            <ListItem
-                              sx={{ py: 2 }}
-                              secondaryAction={
-                                <Button
-                                  size="small"
-                                  variant="outlined"
-                                  onClick={() => handleGoToOrder(o.id)}
-                                >
-                                  Xem chi tiết
-                                </Button>
-                              }
+                      <Stack spacing={3}>
+                        {orders.map((o) => {
+                          const formattedDate = o.created_at
+                            ? new Date(o.created_at).toLocaleString("vi-VN", {
+                                day: "2-digit",
+                                month: "2-digit",
+                                year: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })
+                            : "—";
+
+                          const statusColors = {
+                            pending: "#1976d2",
+                            confirmed: "#0288d1",
+                            shipping: "#f57c00",
+                            completed: "#2e7d32",
+                            cancelled: "#d32f2f",
+                            returned: "#6d4c41",
+                          };
+
+                          const statusColor = statusColors[o.status] || "#333";
+
+                          return (
+                            <Paper
+                              key={o.id}
+                              sx={{
+                                p: 3,
+                                border: "1px solid #ddd",
+                                borderRadius: 0,
+                                backgroundColor: "#fafafa",
+                              }}
                             >
-                              <ListItemText
-                                primary={`Đơn hàng #${o.id}`}
-                                secondary={
-                                  <>
-                                    <Typography
-                                      variant="body2"
-                                      color="text.secondary"
-                                    >
-                                      {`Trạng thái: ${o.status ?? "—"}`}
-                                    </Typography>
-                                    <Typography
-                                      variant="body2"
-                                      color="text.secondary"
-                                    >
-                                      {`Tổng: ${
-                                        o.Total_price
-                                          ? Number(
-                                              o.Total_price
-                                            ).toLocaleString("vi-VN") + "₫"
-                                          : "—"
-                                      }`}
-                                    </Typography>
-                                    <Typography
-                                      variant="caption"
-                                      color="text.secondary"
-                                    >
-                                      {`Ngày: ${o.created_at ?? o.date ?? "—"}`}
-                                    </Typography>
-                                  </>
-                                }
-                              />
-                            </ListItem>
-                            <Divider />
-                          </React.Fragment>
-                        ))}
-                      </List>
+                              <Typography
+                                sx={{
+                                  fontWeight: 700,
+                                  fontSize: 18,
+                                  mb: 1,
+                                }}
+                              >
+                                Đơn hàng #{o.id}
+                              </Typography>
+
+                              {o.order_code && (
+                                <Typography
+                                  variant="body2"
+                                  sx={{ mb: 1, color: "#777" }}
+                                >
+                                  Mã đơn: {o.order_code}
+                                </Typography>
+                              )}
+
+                              <Divider sx={{ mb: 2 }} />
+
+                              <Typography sx={{ mb: 1 }}>
+                                <strong>Trạng thái:</strong>{" "}
+                                <span
+                                  style={{
+                                    color: statusColor,
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  {o.status}
+                                </span>
+                              </Typography>
+
+                              <Typography sx={{ mb: 1 }}>
+                                <strong>Tổng tiền:</strong>{" "}
+                                <span style={{ fontWeight: 700 }}>
+                                  {o.total_price
+                                    ? Number(o.total_price).toLocaleString(
+                                        "vi-VN"
+                                      ) + "₫"
+                                    : "—"}
+                                </span>
+                              </Typography>
+
+                              <Typography sx={{ mb: 1 }}>
+                                <strong>Thanh toán:</strong>{" "}
+                                {o.payment_method || "—"}
+                              </Typography>
+
+                              <Typography sx={{ mb: 2 }}>
+                                <strong>Ngày đặt:</strong> {formattedDate}
+                              </Typography>
+
+                              <Button
+                                variant="outlined"
+                                onClick={() => handleOpenOrderDetail(o.id)}
+                                sx={{
+                                  borderRadius: 0,
+                                  px: 3,
+                                  fontWeight: 600,
+                                }}
+                              >
+                                XEM CHI TIẾT
+                              </Button>
+                            </Paper>
+                          );
+                        })}
+                      </Stack>
                     )}
                   </Box>
                 )}
 
                 {/* SECTION 2: SHIPPING INFO */}
                 {section === 2 && (
-                  <Box id="account-panel-2">
+                  <Box>
                     <Typography
-                      variant="h5"
                       sx={{
-                        fontWeight: 800,
-                        textTransform: "uppercase",
+                        fontSize: 22,
+                        fontWeight: 700,
                         mb: 3,
+                        textTransform: "uppercase",
                       }}
                     >
                       Thông Tin Giao Hàng
@@ -685,76 +613,71 @@ export default function AccountPage() {
 
                     {addresses.length === 0 ? (
                       <Typography>
-                        Chưa có địa chỉ nào. Bạn có thể lưu địa chỉ trong phần
-                        thông tin cá nhân hoặc tại bước thanh toán.
+                        Chưa có địa chỉ nào. Hãy lưu địa chỉ của bạn trong phần
+                        hồ sơ hoặc khi đặt hàng.
                       </Typography>
                     ) : (
-                      <Grid container spacing={2}>
+                      <Stack spacing={2}>
                         {addresses.map((a, idx) => (
-                          <Grid item xs={12} key={idx}>
-                            <Paper sx={{ p: 2, borderRadius: 1 }}>
-                              <Typography sx={{ fontWeight: 700, mb: 0.5 }}>
-                                {a.name ?? `Địa chỉ ${idx + 1}`}
-                              </Typography>
-                              <Typography variant="body2">
-                                {a.address}
-                              </Typography>
-                              <Typography
-                                variant="body2"
-                                color="text.secondary"
-                              >
-                                {a.city}
-                              </Typography>
-                              {a.phone && (
-                                <Typography
-                                  variant="body2"
-                                  color="text.secondary"
-                                >
-                                  {`Điện thoại: ${a.phone}`}
-                                </Typography>
-                              )}
-                            </Paper>
-                          </Grid>
+                          <Paper
+                            key={idx}
+                            sx={{ p: 2, border: "1px solid #ddd" }}
+                          >
+                            <Typography sx={{ fontWeight: 700 }}>
+                              {a.name ?? `Địa chỉ ${idx + 1}`}
+                            </Typography>
+                            <Typography>{a.address}</Typography>
+                            {a.phone && (
+                              <Typography>Điện thoại: {a.phone}</Typography>
+                            )}
+                          </Paper>
                         ))}
-                      </Grid>
+                      </Stack>
                     )}
                   </Box>
                 )}
 
                 {/* SECTION 3: NEWSLETTER */}
                 {section === 3 && (
-                  <Box id="account-panel-3">
+                  <Box>
                     <Typography
-                      variant="h5"
                       sx={{
-                        fontWeight: 800,
-                        textTransform: "uppercase",
+                        fontSize: 22,
+                        fontWeight: 700,
                         mb: 3,
+                        textTransform: "uppercase",
                       }}
                     >
                       Đăng Ký Nhận Tin
                     </Typography>
 
                     <Typography sx={{ mb: 2 }}>
-                      Nhận email về sản phẩm mới, chương trình khuyến mãi và các
-                      tin tức mới nhất từ cửa hàng.
+                      Nhận email về khuyến mãi & sản phẩm mới.
                     </Typography>
 
-                    <Stack direction="row" spacing={2} sx={{ maxWidth: 400 }}>
+                    <Stack spacing={2} sx={{ maxWidth: 400 }}>
                       <TextField
+                        placeholder="Nhập email"
                         fullWidth
-                        placeholder="Nhập email của bạn"
                         value={form.email}
                         onChange={(e) =>
                           setForm({ ...form, email: e.target.value })
                         }
                       />
+
                       <Button
                         variant="contained"
+                        sx={{
+                          backgroundColor: "#000",
+                          px: 4,
+                          py: 1.3,
+                          fontWeight: 700,
+                          borderRadius: 0,
+                        }}
                         onClick={() =>
                           setSnack({
                             severity: "success",
-                            message: "Đã đăng ký nhận tin (demo).",
+                            message: "Đã đăng ký (demo).",
                           })
                         }
                       >
@@ -763,25 +686,263 @@ export default function AccountPage() {
                     </Stack>
                   </Box>
                 )}
+
+                {/* SECTION 4: CHANGE PASSWORD */}
+                {section === 4 && (
+                  <Box>
+                    <Typography
+                      sx={{
+                        fontSize: 22,
+                        fontWeight: 700,
+                        mb: 3,
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      Đổi Mật Khẩu
+                    </Typography>
+
+                    <Stack spacing={3} sx={{ maxWidth: 420 }}>
+                      <TextField
+                        label="Mật khẩu hiện tại"
+                        type="password"
+                        fullWidth
+                        value={pwd.old_password}
+                        onChange={(e) =>
+                          setPwd({ ...pwd, old_password: e.target.value })
+                        }
+                      />
+
+                      <TextField
+                        label="Mật khẩu mới"
+                        type="password"
+                        fullWidth
+                        value={pwd.new_password}
+                        onChange={(e) =>
+                          setPwd({ ...pwd, new_password: e.target.value })
+                        }
+                      />
+
+                      <TextField
+                        label="Xác nhận mật khẩu mới"
+                        type="password"
+                        fullWidth
+                        value={pwd.confirm_password}
+                        onChange={(e) =>
+                          setPwd({ ...pwd, confirm_password: e.target.value })
+                        }
+                      />
+                    </Stack>
+
+                    <Button
+                      variant="contained"
+                      onClick={handleChangePassword}
+                      sx={{
+                        mt: 4,
+                        backgroundColor: "#000",
+                        px: 5,
+                        py: 1.5,
+                        fontWeight: 700,
+                        "&:hover": { backgroundColor: "#222" },
+                      }}
+                    >
+                      ĐỔI MẬT KHẨU
+                    </Button>
+                  </Box>
+                )}
               </Paper>
             </Grid>
           </Grid>
         </Container>
+
+        {/* DIALOG CHI TIẾT ĐƠN HÀNG */}
+        <Dialog
+          open={openOrderDialog}
+          onClose={handleCloseOrderDialog}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle sx={{ fontWeight: 700 }}>
+            {orderDetail ? `Chi tiết đơn hàng #${orderDetail.id}` : "Chi tiết đơn hàng"}
+          </DialogTitle>
+          <DialogContent dividers>
+            {loadingOrderDetail && (
+              <Box sx={{ textAlign: "center", py: 4 }}>
+                <CircularProgress />
+              </Box>
+            )}
+
+            {!loadingOrderDetail && orderDetail && (
+              <Box>
+                {/* Thông tin chung */}
+                <Box sx={{ mb: 2 }}>
+                  {orderDetail.order_code && (
+                    <Typography sx={{ mb: 0.5 }}>
+                      <strong>Mã đơn:</strong> {orderDetail.order_code}
+                    </Typography>
+                  )}
+                  <Typography sx={{ mb: 0.5 }}>
+                    <strong>Trạng thái:</strong> {orderDetail.status}
+                  </Typography>
+                  <Typography sx={{ mb: 0.5 }}>
+                    <strong>Người nhận:</strong> {orderDetail.name}
+                  </Typography>
+                  <Typography sx={{ mb: 0.5 }}>
+                    <strong>SĐT:</strong> {orderDetail.phone}
+                  </Typography>
+                  <Typography sx={{ mb: 0.5 }}>
+                    <strong>Địa chỉ:</strong> {orderDetail.address}
+                  </Typography>
+                  <Typography sx={{ mb: 0.5 }}>
+                    <strong>Thanh toán:</strong> {orderDetail.payment_method}
+                  </Typography>
+                  <Typography sx={{ mb: 0.5 }}>
+                    <strong>Ngày đặt:</strong>{" "}
+                    {orderDetail.created_at
+                      ? new Date(orderDetail.created_at).toLocaleString("vi-VN")
+                      : "—"}
+                  </Typography>
+                  {orderDetail.note && (
+                    <Typography sx={{ mt: 0.5 }}>
+                      <strong>Ghi chú:</strong> {orderDetail.note}
+                    </Typography>
+                  )}
+                </Box>
+
+                <Divider sx={{ my: 2 }} />
+
+                {/* Sản phẩm */}
+                <Typography
+                  sx={{ fontWeight: 700, mb: 2, textTransform: "uppercase" }}
+                >
+                  Sản phẩm
+                </Typography>
+
+                <Stack spacing={2}>
+                  {(orderDetail.items || []).map((item) => {
+                    const pd =
+                      item.product_detail || item.productDetail || {};
+                    const product = pd.product || {};
+                    const color = pd.color || {};
+                    const size = pd.size || {};
+                    const images = pd.images || [];
+                    const imgUrl =
+  product.image_url ||
+  images[0]?.full_url ||
+  images[0]?.url_image ||
+  "";
+
+
+                    const lineTotal =
+                      (item.price || 0) * (item.quantity || 0);
+
+                    return (
+                      <Paper
+                        key={item.id}
+                        sx={{
+                          p: 2,
+                          display: "flex",
+                          gap: 2,
+                          border: "1px solid #eee",
+                        }}
+                      >
+                        {imgUrl ? (
+                          <img
+                            src={imgUrl}
+                            alt={product.name || "Sản phẩm"}
+                            style={{
+                              width: 90,
+                              height: 90,
+                              objectFit: "cover",
+                              border: "1px solid #eee",
+                            }}
+                          />
+                        ) : (
+                          <Box
+                            sx={{
+                              width: 90,
+                              height: 90,
+                              border: "1px solid #eee",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: 12,
+                              color: "#999",
+                            }}
+                          >
+                            No image
+                          </Box>
+                        )}
+
+                        <Box>
+                          <Typography sx={{ fontWeight: 700, mb: 0.5 }}>
+                            {product.name || "Sản phẩm"}
+                          </Typography>
+                          {color.name && (
+                            <Typography variant="body2">
+                              Màu: {color.name}
+                            </Typography>
+                          )}
+                          {size.name && (
+                            <Typography variant="body2">
+                              Size: {size.name}
+                            </Typography>
+                          )}
+                          <Typography variant="body2">
+                            Giá:{" "}
+                            {item.price
+                              ? Number(item.price).toLocaleString("vi-VN") +
+                                "₫"
+                              : "—"}{" "}
+                            × {item.quantity}
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            sx={{ fontWeight: 700, mt: 0.5 }}
+                          >
+                            Thành tiền:{" "}
+                            {lineTotal
+                              ? lineTotal.toLocaleString("vi-VN") + "₫"
+                              : "—"}
+                          </Typography>
+                        </Box>
+                      </Paper>
+                    );
+                  })}
+
+                  {(!orderDetail.items || orderDetail.items.length === 0) && (
+                    <Typography>Đơn hàng chưa có dữ liệu sản phẩm.</Typography>
+                  )}
+                </Stack>
+
+                <Divider sx={{ my: 2 }} />
+
+                <Typography
+                  sx={{ fontWeight: 700, fontSize: 18, textAlign: "right" }}
+                >
+                  Tổng đơn:{" "}
+                  {orderDetail.total_price
+                    ? Number(orderDetail.total_price).toLocaleString("vi-VN") +
+                      "₫"
+                    : "—"}
+                </Typography>
+              </Box>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseOrderDialog}>Đóng</Button>
+          </DialogActions>
+        </Dialog>
 
         <Snackbar
           open={!!snack}
           autoHideDuration={3000}
           onClose={() => setSnack(null)}
         >
-          {snack ? (
-            <Alert
-              onClose={() => setSnack(null)}
-              severity={snack.severity}
-              sx={{ width: "100%" }}
-            >
+          {snack && (
+            <Alert severity={snack.severity} onClose={() => setSnack(null)}>
               {snack.message}
             </Alert>
-          ) : null}
+          )}
         </Snackbar>
       </Box>
     </ThemeProvider>

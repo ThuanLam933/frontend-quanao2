@@ -11,6 +11,7 @@ import {
   TextField,
   InputAdornment,
 } from "@mui/material";
+
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
@@ -23,14 +24,12 @@ function Header() {
   const [cartCount, setCartCount] = useState(0);
   const [searchText, setSearchText] = useState("");
 
-  // đọc q từ URL để sync lên ô search
   const [searchParams] = useSearchParams();
   const urlQuery = searchParams.get("q") || "";
 
-  useEffect(() => {
-    setSearchText(urlQuery);
-  }, [urlQuery]);
+  useEffect(() => setSearchText(urlQuery), [urlQuery]);
 
+  // CART AUTO UPDATE
   useEffect(() => {
     const computeCount = () => {
       try {
@@ -45,30 +44,22 @@ function Header() {
         setCartCount(0);
       }
     };
-
     computeCount();
-    const onUpdated = () => computeCount();
-    window.addEventListener("cartUpdated", onUpdated);
-    window.addEventListener("storage", onUpdated); // cross-tab fallback
+
+    window.addEventListener("cartUpdated", computeCount);
+    window.addEventListener("storage", computeCount);
+
     return () => {
-      window.removeEventListener("cartUpdated", onUpdated);
-      window.removeEventListener("storage", onUpdated);
+      window.removeEventListener("cartUpdated", computeCount);
+      window.removeEventListener("storage", computeCount);
     };
   }, []);
 
+  // SEARCH submit
   const handleSearchSubmit = () => {
     const q = searchText.trim();
     const search = q ? `?${createSearchParams({ q })}` : "";
-    navigate({
-      pathname: "/trang-chu",
-      search,
-    });
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter") {
-      handleSearchSubmit();
-    }
+    navigate({ pathname: "/trang-chu", search });
   };
 
   return (
@@ -76,8 +67,8 @@ function Header() {
       position="sticky"
       elevation={0}
       sx={{
-        backgroundColor: "#fff",
-        borderBottom: "1px solid rgba(13,27,42,0.06)",
+        backgroundColor: "#ffffff",
+        borderBottom: "1px solid rgba(0,0,0,0.12)",
       }}
     >
       <Container maxWidth="lg">
@@ -86,91 +77,88 @@ function Header() {
           sx={{
             display: "flex",
             justifyContent: "space-between",
+            alignItems: "center",
             py: 1,
-            gap: 2,
+            gap: 3,
           }}
         >
-          {/* Logo */}
+          {/* LOGO */}
           <Box onClick={() => navigate("/trang-chu")} sx={{ cursor: "pointer" }}>
             <Typography
               sx={{
-                fontWeight: 800,
-                fontSize: 22,
-                letterSpacing: 2,
-                color: "#0D1B2A",
+                fontWeight: 900,
+                fontSize: 26,
+                letterSpacing: 1,
+                color: "#111",
               }}
             >
               DENIM ON
             </Typography>
           </Box>
 
-          {/* Menu */}
-          <Box sx={{ display: "flex", gap: 3, alignItems: "center" }}>
-            <Button
-              onClick={() => navigate("/trang-chu")}
-              sx={{ color: "#0D1B2A", textTransform: "none" }}
-            >
-              Trang chủ
-            </Button>
-            <Button
-              onClick={() => navigate("/collections")}
-              sx={{ color: "#0D1B2A", textTransform: "none" }}
-            >
-              Sản phẩm
-            </Button>
-            <Button
-              onClick={() => navigate("/contact")}
-              sx={{ color: "#0D1B2A", textTransform: "none" }}
-            >
-              Liên hệ
-            </Button>
-          </Box>
-
-          {/* Search + icon bên phải */}
+          {/* MENU */}
           <Box
             sx={{
               display: "flex",
+              gap: 3,
               alignItems: "center",
-              gap: 1,
-              minWidth: 0,
             }}
           >
-            {/* Thanh tìm kiếm ở Header */}
+            {[
+              { label: "Trang chủ", link: "/trang-chu" },
+              { label: "Sản phẩm", link: "/collections" },
+              { label: "Liên hệ", link: "/contact" },
+            ].map((item) => (
+              <Button
+                key={item.label}
+                onClick={() => navigate(item.link)}
+                sx={{
+                  color: "#111",
+                  textTransform: "none",
+                  fontWeight: 600,
+                  fontSize: 15,
+                  "&:hover": { color: "#000" },
+                }}
+              >
+                {item.label}
+              </Button>
+            ))}
+          </Box>
+
+          {/* SEARCH + ICONS */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <TextField
               size="small"
-              placeholder="Tìm sản phẩm..."
+              placeholder="Tìm kiếm..."
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              onKeyDown={handleKeyDown}
-              sx={{ width: 220 }}
+              onKeyDown={(e) => e.key === "Enter" && handleSearchSubmit()}
+              sx={{
+                width: 190,
+                "& .MuiOutlinedInput-root": { borderRadius: 0 },
+              }}
               InputProps={{
                 endAdornment: (
                   <InputAdornment position="end">
-                    <IconButton
-                      size="small"
-                      onClick={handleSearchSubmit}
-                      aria-label="search"
-                    >
-                      <SearchIcon />
+                    <IconButton size="small" onClick={handleSearchSubmit}>
+                      <SearchIcon sx={{ color: "#111" }} />
                     </IconButton>
                   </InputAdornment>
                 ),
               }}
             />
 
-            <IconButton
-              onClick={() => navigate("/account")}
-              aria-label="user account"
-            >
-              <AccountCircleIcon sx={{ color: "#0D1B2A" }} />
-            </IconButton>
-            <IconButton onClick={() => navigate("/wishlist")} aria-label="wishlist">
-              <FavoriteBorderIcon sx={{ color: "#0D1B2A" }} />
+            <IconButton onClick={() => navigate("/account")}>
+              <AccountCircleIcon sx={{ color: "#111" }} />
             </IconButton>
 
-            <IconButton onClick={() => navigate("/cart")} aria-label="cart">
+            <IconButton onClick={() => navigate("/wishlist")}>
+              <FavoriteBorderIcon sx={{ color: "#111" }} />
+            </IconButton>
+
+            <IconButton onClick={() => navigate("/cart")}>
               <Badge badgeContent={cartCount} color="error">
-                <ShoppingCartIcon sx={{ color: "#0D1B2A" }} />
+                <ShoppingCartIcon sx={{ color: "#111" }} />
               </Badge>
             </IconButton>
           </Box>
