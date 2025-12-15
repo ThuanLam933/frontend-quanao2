@@ -184,7 +184,8 @@ export default function VariantPage({ setSnack }) {
                                     <TableCell>Ảnh</TableCell>
                                     <TableCell>Màu</TableCell>
                                     <TableCell>Kích cỡ</TableCell>
-                                    <TableCell>Giá</TableCell>
+                                    <TableCell>Giá gốc</TableCell>
+                                    <TableCell>Giá sau giảm</TableCell>
                                     <TableCell>Số lượng</TableCell>
                                     <TableCell>Trạng thái</TableCell>
                                     <TableCell>Actions</TableCell>
@@ -225,7 +226,24 @@ export default function VariantPage({ setSnack }) {
                                             <TableCell>
                                                 {Number(v.price).toLocaleString("vi-VN")}₫
                                             </TableCell>
-                                            <TableCell>{v.quantity}</TableCell>
+                                            
+                                            <TableCell>
+                                                {v.has_discount ? (
+                                                    <Typography
+                                                    sx={{
+                                                        fontWeight: 600,
+                                                        color: "error.main",
+                                                    }}
+                                                    >
+                                                    {Number(v.final_price).toLocaleString("vi-VN")}₫
+                                                    </Typography>
+                                                ) : (
+                                                    <Typography sx={{ color: "text.secondary" }}>
+                                                     —
+                                                    </Typography>
+                                                )}
+                                                </TableCell>
+                                                <TableCell>{v.quantity}</TableCell>
 
                                             {/* TRẠNG THÁI */}
                                             <TableCell>
@@ -309,11 +327,14 @@ function AddVariantDialog({
         quantity: "",
         color_id: "",
         size_id: "",
-        images: null, // FileList | null
+        images: null,
+        product_discount_id: "", // FileList | null
     });
 
     const [colors, setColors] = useState([]);
     const [sizes, setSizes] = useState([]);
+    const [discounts, setDiscounts] = useState([]);
+
 
     // Khi mở dialog edit → load data vào form
     useEffect(() => {
@@ -324,6 +345,8 @@ function AddVariantDialog({
                 color_id: variant.color_id ?? "",
                 size_id: variant.size_id ?? "",
                 images: null,
+                product_discount_id: variant.product_discount_id ?? "",
+
             });
         } else {
             setForm({
@@ -332,6 +355,7 @@ function AddVariantDialog({
                 color_id: "",
                 size_id: "",
                 images: null,
+                product_discount_id: "",
             });
         }
     }, [variant, isEdit]);
@@ -347,10 +371,16 @@ function AddVariantDialog({
             fetch(`${API_BASE}/api/sizes`, {
                 headers: { Authorization: `Bearer ${token}` },
             }).then((res) => res.json()),
+            fetch(`${API_BASE}/api/admin/product-discounts`, {
+                headers: { Authorization: `Bearer ${token}` },
+            }).then((res) => res.json()),
+
         ])
-            .then(([c, s]) => {
+            .then(([c, s, d]) => {
                 setColors(Array.isArray(c) ? c : c.data ?? []);
                 setSizes(Array.isArray(s) ? s : s.data ?? []);
+                setDiscounts(Array.isArray(d) ? d : d.data ?? []);
+
             })
             .catch((e) => {
                 console.error(e);
@@ -372,6 +402,7 @@ function AddVariantDialog({
             fd.append("quantity", isEdit ? form.quantity : 0);
             fd.append("color_id", form.color_id ?? "");
             fd.append("size_id", form.size_id ?? "");
+            fd.append("product_discount_id", form.product_discount_id ?? "");
 
             const endpoint = isEdit
                 ? `${API_BASE}/api/product-details/${variant.id}?_method=PUT`
@@ -453,6 +484,27 @@ function AddVariantDialog({
                         setForm({ ...form, price: e.target.value })
                     }
                 />
+                <TextField
+                    label="Giảm giá"
+                    select
+                    fullWidth
+                    sx={{ mt: 2 }}
+                    value={form.product_discount_id}
+                    onChange={(e) =>
+                        setForm({ ...form, product_discount_id: e.target.value })
+                    }
+                        >
+                        <MenuItem value="">-- Không áp dụng --</MenuItem>
+
+                {discounts.map((d) => (
+    <MenuItem key={d.id} value={d.id}>
+      {d.type === "percent"
+        ? `Giảm ${d.value}%`
+        : `Giảm ${Number(d.value).toLocaleString("vi-VN")}₫`}
+    </MenuItem>
+  ))}
+</TextField>
+
 
                 {/* SỐ LƯỢNG: chỉ hiện khi EDIT */}
                 {isEdit && (

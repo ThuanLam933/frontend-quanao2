@@ -15,7 +15,6 @@ import {
   Divider,
   Chip,
 } from "@mui/material";
-
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 
 const API_BASE = "http://127.0.0.1:8000";
@@ -26,18 +25,25 @@ const theme = createTheme({
     mode: "light",
     background: { default: "#FFFFFF", paper: "#FFFFFF" },
     primary: { main: "#111111" },
+    secondary: { main: "#DD002A" },
     text: {
       primary: "#111111",
       secondary: "#666666",
     },
   },
-  shape: { borderRadius: 0 }, // phong cách Uniqlo
+  shape: { borderRadius: 0 },
   typography: {
     fontFamily: "Helvetica, Arial, sans-serif",
     h5: { fontWeight: 700 },
     body2: { fontSize: 13 },
   },
 });
+
+// ===== util =====
+const normalizePrice = (p) => {
+  const num = Number(p);
+  return isNaN(num) ? 0 : num;
+};
 
 export default function ProductPage() {
   const { id } = useParams();
@@ -58,13 +64,34 @@ export default function ProductPage() {
   const [snack, setSnack] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Lấy ảnh chính
   const fixImage = (url) => {
     if (!url) return "/images/placeholder.jpg";
     return url.startsWith("http") ? url : `${API_BASE}/storage/${url}`;
   };
 
-  // Fetch sản phẩm
+  // ✅ HELPER DUY NHẤT ĐỂ SET VARIANT (QUAN TRỌNG)
+  const selectVariant = (v) => {
+    if (!v) return;
+
+    const original = normalizePrice(v.price);
+    const final =
+      v.has_discount && v.final_price
+        ? normalizePrice(v.final_price)
+        : original;
+
+    setSelectedVariant({
+      ...v,
+      original_price: original,
+      final_price: final,
+      has_discount: !!v.has_discount,
+      discount_percent:
+        original > 0
+          ? Math.round(((original - final) / original) * 100)
+          : 0,
+    });
+  };
+
+  // ===== Fetch product =====
   const fetchProduct = useCallback(async () => {
     setLoading(true);
     try {
@@ -72,14 +99,33 @@ export default function ProductPage() {
       const p = await res.json();
 
       setProduct(p);
-      setVariants(p.details || []);
 
-      const first = p.details?.[0];
+      const normalizedVariants = (p.details || []).map((v) => {
+        const original = normalizePrice(v.price);
+        const final =
+          v.has_discount && v.final_price
+            ? normalizePrice(v.final_price)
+            : original;
 
+        return {
+          ...v,
+          original_price: original,
+          final_price: final,
+          has_discount: !!v.has_discount,
+          discount_percent:
+            original > 0
+              ? Math.round(((original - final) / original) * 100)
+              : 0,
+        };
+      });
+
+      setVariants(normalizedVariants);
+
+      const first = normalizedVariants[0];
       if (first) {
         setSelectedSize(first.size?.name);
         setSelectedColor(first.color?.name);
-        setSelectedVariant(first);
+        selectVariant(first);
         setMainImage(fixImage(p.image_url));
       }
     } catch (err) {
@@ -89,7 +135,7 @@ export default function ProductPage() {
     }
   }, [id]);
 
-  // Fetch ảnh cho variant
+  // ===== Fetch images =====
   const fetchImages = useCallback(async () => {
     if (!selectedVariant) return;
 
@@ -100,29 +146,33 @@ export default function ProductPage() {
       const raw = await res.json();
       const arr = Array.isArray(raw) ? raw : raw.data || [];
 
-      const list = arr.map((img) => ({
-        id: img.id,
-        url: fixImage(img.full_url || img.url_image),
-        sort_order: img.sort_order ?? 0,
-      }));
+      const list = arr
+        .map((img) => ({
+          id: img.id,
+          url: fixImage(img.full_url || img.url_image),
+          sort_order: img.sort_order ?? 0,
+        }))
+        .sort((a, b) => a.sort_order - b.sort_order);
 
-      const sorted = list.sort((a, b) => a.sort_order - b.sort_order);
-
-      setImages(sorted);
-      if (sorted.length > 0) setMainImage(sorted[0].url);
+      setImages(list);
+      if (list.length > 0) setMainImage(list[0].url);
     } catch {
       setImages([]);
     }
   }, [selectedVariant]);
 
-  // Related
+  // ===== Related =====
   const fetchRelated = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/api/products/`);
       const arr = await res.json();
 
       const list = arr
-        .filter((p) => p.categories_id === product?.categories_id && p.id !== product?.id)
+        .filter(
+          (p) =>
+            p.categories_id === product?.categories_id &&
+            p.id !== product?.id
+        )
         .slice(0, 4);
 
       setRelated(list);
@@ -135,19 +185,18 @@ export default function ProductPage() {
 
   useEffect(() => {
     fetchImages();
-  }, [selectedVariant]);
+  }, [fetchImages]);
 
   useEffect(() => {
     if (product) fetchRelated();
   }, [product]);
 
-  // Colors theo size
   const colorsForSize = useMemo(() => {
     if (!selectedSize) return [];
     return variants.filter((v) => v.size?.name === selectedSize);
   }, [variants, selectedSize]);
 
-  // Thêm vào giỏ
+  // ===== Add to cart =====
   const addToCart = () => {
     if (!selectedVariant) {
       setSnack({ severity: "warning", message: "Vui lòng chọn size & màu." });
@@ -156,11 +205,17 @@ export default function ProductPage() {
 
     const cart = JSON.parse(localStorage.getItem(CART_KEY) || "[]");
 
-    // nếu đã có → cộng dồn
-    const exist = cart.find((item) => item.product_detail_id === selectedVariant.id);
+    const price = selectedVariant.has_discount
+      ? selectedVariant.final_price
+      : selectedVariant.original_price;
+
+    const exist = cart.find(
+      (item) => item.product_detail_id === selectedVariant.id
+    );
 
     if (exist) {
       exist.quantity += qty;
+      exist.unit_price = price;
     } else {
       cart.push({
         id: Date.now(),
@@ -169,35 +224,33 @@ export default function ProductPage() {
         name: product.name,
         size: selectedVariant.size?.name,
         color: selectedVariant.color?.name,
-        unit_price: selectedVariant.price,
+        unit_price: selectedVariant.final_price,
+        original_price: selectedVariant.original_price,
+        has_discount: selectedVariant.has_discount,
         quantity: qty,
         image_url: mainImage,
       });
     }
 
     localStorage.setItem(CART_KEY, JSON.stringify(cart));
-
-    window.dispatchEvent(
-      new CustomEvent("cartUpdated", { detail: { count: cart.length, items: cart } })
-    );
-
     setSnack({ severity: "success", message: "Đã thêm vào giỏ hàng!" });
   };
 
-  // ---------------- RENDER ----------------
-  if (loading || !product)
+  // ===== Render =====
+  if (loading || !product) {
     return (
       <Box sx={{ textAlign: "center", py: 8 }}>
         <CircularProgress />
       </Box>
     );
+  }
 
   return (
     <ThemeProvider theme={theme}>
       <Box sx={{ py: 4, backgroundColor: "#fff" }}>
         <Container maxWidth="lg">
           <Grid container spacing={4}>
-            {/* LEFT IMAGE COLUMN - STYLE UNIQLO */}
+            {/* IMAGE */}
             <Grid item xs={12} md={7}>
               <Box
                 component="img"
@@ -211,7 +264,6 @@ export default function ProductPage() {
                 }}
               />
 
-              {/* thumbnails */}
               <Stack direction="row" spacing={1} mt={2}>
                 {images.map((img) => (
                   <Box
@@ -234,16 +286,16 @@ export default function ProductPage() {
               </Stack>
             </Grid>
 
-            {/* RIGHT COLUMN */}
+            {/* INFO */}
             <Grid item xs={12} md={5}>
-              <Typography variant="h5" sx={{ fontWeight: 800, mb: 1 }}>
+              <Typography variant="h5" sx={{ fontWeight: 800 }}>
                 {product.name}
               </Typography>
 
               <Divider sx={{ my: 2 }} />
 
-              {/* SIZE SELECT */}
-              <Typography sx={{ fontWeight: 600, mb: 1 }}>Chọn Size</Typography>
+              {/* SIZE */}
+              <Typography sx={{ fontWeight: 600, mb: 1 }}>Size</Typography>
               <Stack direction="row" spacing={1} mb={2}>
                 {[...new Set(variants.map((v) => v.size?.name))].map((size) => {
                   const hasStock = variants.some(
@@ -258,19 +310,22 @@ export default function ProductPage() {
                       disabled={!hasStock}
                       onClick={() => {
                         setSelectedSize(size);
-                        const opt = variants.filter((v) => v.size?.name === size);
+                        const list = variants.filter(
+                          (v) => v.size?.name === size && v.quantity > 0
+                        );
                         const valid =
-                          opt.find((v) => v.color?.name === selectedColor) ||
-                          opt.find((v) => v.quantity > 0);
+                          list.find(
+                            (v) => v.color?.name === selectedColor
+                          ) || list[0];
+
                         if (valid) {
-                          setSelectedVariant(valid);
                           setSelectedColor(valid.color?.name);
+                          selectVariant(valid);
                         }
                       }}
                       sx={{
                         borderRadius: 0,
                         border: "1px solid #111",
-                        px: 2,
                         backgroundColor:
                           selectedSize === size ? "#111" : "#fff",
                         color: selectedSize === size ? "#fff" : "#111",
@@ -280,8 +335,8 @@ export default function ProductPage() {
                 })}
               </Stack>
 
-              {/* COLOR SELECT */}
-              <Typography sx={{ fontWeight: 600, mb: 1 }}>Chọn Màu</Typography>
+              {/* COLOR */}
+              <Typography sx={{ fontWeight: 600, mb: 1 }}>Màu</Typography>
               <Stack direction="row" spacing={1} mb={3}>
                 {colorsForSize.map((v) => (
                   <Chip
@@ -291,12 +346,11 @@ export default function ProductPage() {
                     disabled={v.quantity === 0}
                     onClick={() => {
                       setSelectedColor(v.color?.name);
-                      setSelectedVariant(v);
+                      selectVariant(v);
                     }}
                     sx={{
                       borderRadius: 0,
                       border: "1px solid #111",
-                      px: 2,
                       backgroundColor:
                         selectedColor === v.color?.name ? "#111" : "#fff",
                       color:
@@ -307,13 +361,35 @@ export default function ProductPage() {
               </Stack>
 
               {/* PRICE */}
-              <Typography variant="h5" sx={{ fontWeight: 800, mb: 2 }}>
-                {selectedVariant?.price
-                  ? selectedVariant.price.toLocaleString("vi-VN") + "₫"
-                  : "Liên hệ"}
-              </Typography>
+              <Box sx={{ mb: 2 }}>
+                {selectedVariant?.has_discount ? (
+                  <>
+                    <Typography
+                      sx={{
+                        fontSize: 25,
+                        color: "#999",
+                        textDecoration: "line-through",
+                      }}
+                    >
+                      {selectedVariant.original_price.toLocaleString("vi-VN")}₫
+                    </Typography>
 
-              {/* QTY */}
+                    <Typography
+                      variant="h5"
+                      sx={{ fontWeight: 800, color: "secondary.main" }}
+                    >
+                      {selectedVariant.final_price.toLocaleString("vi-VN")}₫
+                    </Typography>
+                  </>
+                ) : (
+                  <Typography variant="h5" sx={{ fontWeight: 800 }}>
+                    {selectedVariant?.final_price
+                      ? selectedVariant.final_price.toLocaleString("vi-VN") + "₫"
+                      : "Liên hệ"}
+                  </Typography>
+                )}
+              </Box>
+
               <TextField
                 label="Số lượng"
                 type="number"
@@ -334,7 +410,8 @@ export default function ProductPage() {
                   fontSize: 16,
                   fontWeight: 700,
                   backgroundColor: "#111",
-                  "&:hover": { backgroundColor: "#000" },
+                  borderRadius: 0,
+                  "&:hover": { backgroundColor: "#333" },
                 }}
                 onClick={addToCart}
               >
@@ -343,52 +420,13 @@ export default function ProductPage() {
             </Grid>
           </Grid>
 
-          {/* RELATED */}
-          <Box mt={6}>
-            <Typography variant="h6" sx={{ fontWeight: 800, mb: 2 }}>
-              Sản phẩm liên quan
-            </Typography>
-
-            <Grid container spacing={2}>
-              {related.map((p) => (
-                <Grid item xs={6} sm={4} md={3} key={p.id}>
-                  <Box
-                    onClick={() => navigate(`/product/${p.id}`)}
-                    sx={{ cursor: "pointer" }}
-                  >
-                    <Box
-                      component="img"
-                      src={fixImage(p.image_url)}
-                      sx={{
-                        width: "100%",
-                        height: 260,
-                        objectFit: "cover",
-                        border: "1px solid #eee",
-                      }}
-                    />
-                    <Typography sx={{ mt: 1, fontWeight: 600 }}>
-                      {p.name}
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: "#666" }}>
-                      {p.details?.[0]?.price
-                        ? p.details[0].price.toLocaleString("vi-VN") + "₫"
-                        : "Liên hệ"}
-                    </Typography>
-                  </Box>
-                </Grid>
-              ))}
-            </Grid>
-          </Box>
-
           {/* SNACKBAR */}
           <Snackbar
             open={!!snack}
             autoHideDuration={2500}
             onClose={() => setSnack(null)}
           >
-            {snack && (
-              <Alert severity={snack.severity}>{snack.message}</Alert>
-            )}
+            {snack && <Alert severity={snack.severity}>{snack.message}</Alert>}
           </Snackbar>
         </Container>
       </Box>

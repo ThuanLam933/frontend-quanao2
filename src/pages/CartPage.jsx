@@ -12,7 +12,7 @@ import {
   TextField,
   Divider,
   Snackbar,
-  Alert,
+  
   List,
   ListItem,
   
@@ -22,6 +22,8 @@ import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import RemoveCircleOutlineIcon from "@mui/icons-material/RemoveCircleOutline";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import Chip from "@mui/material/Chip";
+import Alert from "@mui/material/Alert";
+
 import Avatar from "@mui/material/Avatar";
 
 import { useNavigate } from "react-router-dom";
@@ -68,19 +70,21 @@ export default function CartPage() {
     }
 
     return {
-      id: it.id ?? Math.random(),
-      product_id: it.product_id ?? null,
-      product_detail_id: it.product_detail_id ?? null,
-      name: pureName,
-      price:
-        typeof it.unit_price === "number"
-          ? it.unit_price
-          : Number(it.price ?? 0),
-      qty: Number(it.quantity ?? it.qty ?? 1),
-      image_url: it.image_url ?? it.image ?? null,
-      size_name: it.size_name ?? it.size ?? null,
-      color_name: it.color_name ?? it.color ?? null,
-    };
+  id: it.id ?? Math.random(),
+  product_id: it.product_id ?? null,
+  product_detail_id: it.product_detail_id ?? null,
+  name: pureName,
+
+  original_price: Number(it.original_price ?? it.unit_price ?? 0),
+  final_price: Number(it.final_price ?? it.unit_price ?? 0),
+  has_discount: !!it.has_discount,
+
+  qty: Number(it.quantity ?? it.qty ?? 1),
+  image_url: it.image_url ?? it.image ?? null,
+  size_name: it.size_name ?? it.size ?? null,
+  color_name: it.color_name ?? it.color ?? null,
+};
+
   };
 
   const normalizeImg = (u) => {
@@ -98,7 +102,10 @@ export default function CartPage() {
         name: it.name, // CHỈ TÊN THẬT
         size: it.size_name, // size tách riêng
         color: it.color_name, // màu tách riêng
-        unit_price: it.price,
+        unit_price: it.final_price,
+        original_price: it.original_price,
+        final_price: it.final_price,
+        has_discount: it.has_discount,
         image_url: it.image_url,
         quantity: it.qty,
       }));
@@ -175,23 +182,31 @@ export default function CartPage() {
               const data = await res.json();
               const arr = Array.isArray(data) ? data : [];
 
-              const normalized = arr.map((d) => ({
-                id: d.id,
-                product_id: d.product_id,
-                price:
-                  typeof d.price === "number"
-                    ? d.price
-                    : d.price
-                    ? Number(d.price)
-                    : 0,
-                quantity: d.quantity ?? 0,
-                size_name: d.size?.name ?? null,
-                color_name: d.color?.name ?? null,
-                image_url:
-                  (Array.isArray(d.images) && d.images[0]?.full_url) ||
-                  d.product?.image_url ||
-                  null,
-              }));
+              const normalized = arr.map((d) => {
+  const original = Number(d.price ?? 0);
+  const final =
+    d.has_discount && d.final_price
+      ? Number(d.final_price)
+      : original;
+
+  return {
+    id: d.id,
+    product_id: d.product_id,
+
+    original_price: original,
+    final_price: final,
+    has_discount: !!d.has_discount,
+
+    quantity: d.quantity ?? 0,
+    size_name: d.size?.name ?? null,
+    color_name: d.color?.name ?? null,
+    image_url:
+      (Array.isArray(d.images) && d.images[0]?.full_url) ||
+      d.product?.image_url ||
+      null,
+  };
+});
+
 
               return [pid, normalized];
             } catch {
@@ -286,7 +301,9 @@ export default function CartPage() {
           product_id: variant.product_id,
           size_name: variant.size_name,
           color_name: variant.color_name,
-          price: variant.price,
+          original_price: variant.original_price,
+          final_price: variant.final_price,
+          has_discount: variant.has_discount,
           image_url: variant.image_url || next[idx].image_url,
         };
       }
@@ -390,13 +407,12 @@ export default function CartPage() {
   };
 
   const subtotal = useMemo(() => {
-    return items.reduce(
-      (s, it) =>
-        s +
-        (typeof it.price === "number" ? it.price : 0) * (it.qty || 0),
-      0
-    );
-  }, [items]);
+  return items.reduce(
+    (s, it) => s + (it.final_price || 0) * (it.qty || 0),
+    0
+  );
+}, [items]);
+
 
   const handleCheckout = () => {
     if (items.length === 0) {
@@ -567,16 +583,44 @@ export default function CartPage() {
                               </Typography>
 
                               {/* PRICE */}
-                              <Typography
-                                sx={{
-                                  fontSize: 14,
-                                  color: "#111",
-                                  fontWeight: 700,
-                                  mb: 1.5,
-                                }}
-                              >
-                                {formatVND(it.price)}
-                              </Typography>
+                              <Box sx={{ mb: 1.5 }}>
+  {it.has_discount ? (
+    <>
+      <Typography
+        sx={{
+          fontSize: 16,
+          textDecoration: "line-through",
+          color: "#999",
+          lineHeight: 1.2,
+        }}
+      >
+        {formatVND(it.original_price)}
+      </Typography>
+
+      <Typography
+        sx={{
+          fontSize: 20,
+          fontWeight: 700,
+          color: "secondary.main",
+          lineHeight: 1.2,
+        }}
+      >
+        {formatVND(it.final_price)}
+      </Typography>
+    </>
+  ) : (
+    <Typography
+      sx={{
+        fontSize: 14,
+        fontWeight: 700,
+        color: "#111",
+      }}
+    >
+      {formatVND(it.final_price)}
+    </Typography>
+  )}
+</Box>
+
 
                               {/* SIZE / COLOR SELECTORS (CHIP STYLE) */}
                               <Box sx={{ display: "flex", gap: 4, mb: 1.5 }}>

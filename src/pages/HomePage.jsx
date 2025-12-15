@@ -58,6 +58,9 @@ export default function HomePage() {
 
   // data
   const [products, setProducts] = useState([]);
+  const [minVariantMap, setMinVariantMap] = useState({}); 
+// { [productId]: { variantId, final_price, original_price, has_discount, discount_percent } }
+
   const [categories, setCategories] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [loadingCategories, setLoadingCategories] = useState(false);
@@ -89,6 +92,71 @@ export default function HomePage() {
   }, []);
 
   // ---------- Fetch products ----------
+  const fetchMinVariantsInStock = useCallback(async (productList) => {
+  try {
+    const results = await Promise.all(
+      productList.map(async (p) => {
+        const res = await fetch(`${API_BASE}/api/product-details?product_id=${p.id}`);
+        if (!res.ok) return [p.id, null];
+
+        const data = await res.json();
+        const variantsRaw = Array.isArray(data) ? data : [];
+
+        const inStock = variantsRaw
+          .filter((d) => (d.quantity ?? 0) > 0)
+          .map((d) => {
+            const original = Number(d.price) || 0;
+            const final =
+              d.has_discount && d.final_price ? Number(d.final_price) : original;
+
+            return {
+              variantId: d.id,
+              original_price: original,
+              final_price: final,
+              has_discount: !!d.has_discount,
+              discount_percent:
+                original > 0 ? Math.round(((original - final) / original) * 100) : 0,
+            };
+          })
+          .filter((v) => v.final_price > 0);
+
+        if (!inStock.length) return [p.id, null];
+
+        // rẻ nhất theo final_price
+        const cheapest = inStock.reduce((min, v) =>
+          v.final_price < min.final_price ? v : min
+        );
+
+        return [p.id, cheapest];
+      })
+    );
+
+    const map = {};
+    results.forEach(([pid, cheapest]) => {
+      if (cheapest) map[pid] = cheapest;
+    });
+
+    setMinVariantMap(map);
+
+    // cập nhật lại products để UI render “Giá từ …” chuẩn
+    setProducts((prev) =>
+      prev.map((p) => {
+        const cheapest = map[p.id];
+        if (!cheapest) return { ...p, in_stock: false };
+        return {
+          ...p,
+          in_stock: true,
+          original_price: cheapest.original_price,
+          final_price: cheapest.final_price,
+          has_discount: cheapest.has_discount,
+          discount_percent: cheapest.discount_percent,
+        };
+      })
+    );
+  } catch (e) {
+    console.warn("fetchMinVariantsInStock error:", e);
+  }
+}, []);
   const fetchProducts = useCallback(async () => {
     setLoadingProducts(true);
     setError(null);
@@ -100,48 +168,77 @@ export default function HomePage() {
       const data = await res.json();
 
       const normalized = (Array.isArray(data) ? data : data || []).map((p) => {
-        const firstDetail = p.details?.[0] ?? {};
-        const price =
-          typeof firstDetail.price === "string" ||
-          typeof firstDetail.price === "number"
-            ? parseFloat(firstDetail.price)
-            : null;
+        const details = Array.isArray(p.details) ? p.details : [];
 
-        const colorName = firstDetail.color?.name ?? null;
-        const sizeName = firstDetail.size?.name ?? null;
+const variants = details
+  .map((d) => {
+    const original = Number(d.price) || 0;
+    const final =
+      d.has_discount && d.final_price
+        ? Number(d.final_price)
+        : original;
+
+    return {
+      original_price: original,
+      final_price: final,
+      has_discount: !!d.has_discount,
+      discount_percent:
+        d.has_discount && original > 0
+          ? Math.round(((original - final) / original) * 100)
+          : 0,
+    };
+  })
+  .filter((v) => v.final_price > 0);
+
+// 👉 lấy variant rẻ nhất
+const cheapest =
+  variants.length > 0
+    ? variants.reduce((min, v) =>
+        v.final_price < min.final_price ? v : min
+      )
+    : null;
+
 
         return {
-          id: p.id,
-          name: p.name ?? p.title ?? "Không tên",
-          slug: p.slug ?? null,
-          description: p.description ?? "",
-          price,
-          color: colorName,
-          size: sizeName,
-          rating: typeof p.rating === "number" ? p.rating : 0,
-          categories_id: p.categories_id ?? p.category_id ?? null,
-          image_url:
-            p.image_url && typeof p.image_url === "string"
-              ? p.image_url.startsWith("http")
-                ? p.image_url
-                : `${API_BASE}/storage/${p.image_url}`
-              : null,
-        };
+  id: p.id,
+  name: p.name ?? p.title ?? "Không tên",
+  slug: p.slug ?? null,
+  description: p.description ?? "",
+  original_price: cheapest?.original_price ?? null,
+  final_price: cheapest?.final_price ?? null,
+  has_discount: cheapest?.has_discount ?? false,
+  discount_percent: cheapest?.discount_percent ?? 0,
+  rating: typeof p.rating === "number" ? p.rating : 0,
+  categories_id: p.categories_id ?? p.category_id ?? null,
+  image_url:
+    p.image_url && typeof p.image_url === "string"
+      ? p.image_url.startsWith("http")
+        ? p.image_url
+        : `${API_BASE}/storage/${p.image_url}`
+      : null,
+};
+
       });
 
       console.log("✅ Products normalized:", normalized);
       setProducts(normalized);
+      fetchMinVariantsInStock(normalized);
+
     } catch (err) {
       console.error("❌ Fetch products error:", err);
       setError("Không thể tải sản phẩm. Vui lòng thử lại.");
     } finally {
       setLoadingProducts(false);
     }
-  }, []);
+    
+  }, [fetchMinVariantsInStock]);
+  
+
 
   useEffect(() => {
     fetchCategories();
     fetchProducts();
+    
   }, [fetchCategories, fetchProducts]);
 
   // ---------- Category tiles ----------
@@ -225,6 +322,11 @@ export default function HomePage() {
       return "Liên hệ";
     return price.toLocaleString("vi-VN") + "₫";
   };
+  const formatPrice = (price) => {
+  if (!price || price <= 0) return "Liên hệ";
+  return price.toLocaleString("vi-VN") + "₫";
+};
+
 
   // thêm giỏ: luôn chọn biến thể còn hàng đầu tiên
   const handleAddToCart = async (p) => {
@@ -242,25 +344,34 @@ export default function HomePage() {
 
       // 2. Chuẩn hóa + lọc ra những variant còn hàng
       const variants = variantsRaw
-        .map((d) => ({
-          id: d.id,
-          product_id: d.product_id,
-          price:
-            typeof d.price === "number"
-              ? d.price
-              : d.price
-              ? Number(d.price)
-              : 0,
-          quantity: d.quantity ?? 0,
-          size: d.size?.name ?? null,
-          color: d.color?.name ?? null,
-          image_url:
-            (Array.isArray(d.images) && d.images[0]?.full_url) ||
-            d.product?.image_url ||
-            p.image_url ||
-            null,
-        }))
-        .filter((v) => v.quantity > 0); // chỉ lấy variant còn hàng
+  .map((d) => {
+    const original = Number(d.price) || 0;
+    const final =
+      d.has_discount && d.final_price
+        ? Number(d.final_price)
+        : original;
+
+    return {
+      id: d.id,
+      product_id: d.product_id,
+
+      original_price: original,
+      final_price: final,
+      has_discount: !!d.has_discount,
+
+      quantity: d.quantity ?? 0,
+      size: d.size?.name ?? null,
+      color: d.color?.name ?? null,
+      image_url:
+        (Array.isArray(d.images) && d.images[0]?.full_url) ||
+        d.product?.image_url ||
+        p.image_url ||
+        null,
+    };
+  })
+  .filter((v) => v.quantity > 0)
+  .sort((a, b) => a.final_price - b.final_price);
+
 
       if (!variants.length) {
         setSnack({
@@ -297,16 +408,22 @@ export default function HomePage() {
         cart[idx].unit_price = v.price;
       } else {
         cart.push({
-          id: Date.now(), // id dòng cart
-          product_id: v.product_id,
-          product_detail_id: v.id,
-          name: p.name,
-          size: v.size,
-          color: v.color,
-          unit_price: v.price,
-          image_url: v.image_url,
-          quantity: 1,
-        });
+  id: Date.now(),
+  product_id: v.product_id,
+  product_detail_id: v.id,
+  name: p.name,
+  size: v.size,
+  color: v.color,
+
+  original_price: v.original_price,
+  final_price: v.final_price,
+  has_discount: v.has_discount,
+  unit_price: v.final_price,
+
+  image_url: v.image_url,
+  quantity: 1,
+});
+
       }
 
       // 6. Lưu lại localStorage
@@ -479,17 +596,37 @@ export default function HomePage() {
                         />
 
                         <CardContent sx={{ pt: 1.5, pb: 1.5 }}>
-                          <Typography
-                            variant="subtitle1"
-                            sx={{
-                              fontWeight: 600,
-                              textTransform: "uppercase",
-                              letterSpacing: 0.5,
-                              fontSize: 14,
-                            }}
-                          >
-                            {p.name}
-                          </Typography>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+  <Typography
+    variant="subtitle1"
+    sx={{
+      fontWeight: 600,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+      fontSize: 14,
+    }}
+  >
+    {p.name}
+  </Typography>
+
+  {p.has_discount && p.discount_percent > 0 && (
+    <Box
+      sx={{
+        fontSize: 14,
+        fontWeight: 700,
+        color: "#fff",
+        backgroundColor: "secondary.main",
+        px: 0.8,
+        py: 0.2,
+        borderRadius: "2px",
+        lineHeight: 1,
+      }}
+    >
+      -{p.discount_percent}%
+    </Box>
+  )}
+</Box>
+
 
                           <Typography
                             variant="body2"
@@ -498,17 +635,45 @@ export default function HomePage() {
                             {(p.rating ?? 0).toFixed(1)} ★
                           </Typography>
 
-                          <Typography
-                            variant="h6"
-                            sx={{
-                              mt: 1,
-                              fontWeight: 700,
-                              letterSpacing: 0.5,
-                              fontSize: 16,
-                            }}
-                          >
-                            {safePrice(p.price)}
-                          </Typography>
+                          <Box sx={{ mt: 1 }}>
+  {p.in_stock === false ? (
+    <Typography sx={{ fontSize: 14, fontWeight: 700, color: "#999" }}>
+      Hết hàng
+    </Typography>
+  ) : p.has_discount ? (
+    <>
+      <Typography
+        sx={{
+          fontSize: 20,
+          color: "#999",
+          textDecoration: "line-through",
+        }}
+      >
+        {formatPrice(p.original_price)}
+      </Typography>
+
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+        <Typography
+          sx={{
+            fontSize: 16,
+            fontWeight: 700,
+            color: "secondary.main",
+          }}
+        >
+           {formatPrice(p.final_price)}
+        </Typography>
+
+        
+      </Box>
+    </>
+  ) : (
+    <Typography sx={{ fontSize: 16, fontWeight: 700 }}>
+       {formatPrice(p.final_price ?? p.original_price)}
+    </Typography>
+  )}
+</Box>
+
+
                         </CardContent>
 
                         <CardActions sx={{ px: 2, pb: 2, pt: 0 }}>
