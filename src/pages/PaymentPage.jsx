@@ -76,12 +76,14 @@ export default function PaymentPage() {
   const SHIPPING_FEE = 30000;
 
   const subtotal = useMemo(() => {
-    return cart.reduce((s, it) => {
-      const unit = Number(it.unit_price) || 0;
-      const qty = Number(it.quantity || 1);
-      return s + unit * qty;
-    }, 0);
-  }, [cart]);
+  return cart.reduce((s, it) => {
+    const unit =
+      Number(it.final_price ?? it.unit_price) || 0;
+    const qty = Number(it.quantity || 1);
+    return s + unit * qty;
+  }, 0);
+}, [cart]);
+
 
   const total = subtotal + SHIPPING_FEE;
 
@@ -125,7 +127,9 @@ export default function PaymentPage() {
         product_detail_id: it.product_detail_id,
         product_id: it.product_id ?? null,
         quantity: it.quantity || 1,
-        unit_price: it.unit_price || null,
+        unit_price: it.final_price ?? it.unit_price, // ✅ giá bán
+  original_price: it.original_price ?? null,   // ✅ optional
+  has_discount: !!it.has_discount,
       })),
       payment: {
         method: paymentMethod,
@@ -409,9 +413,26 @@ export default function PaymentPage() {
                           </Typography>
                         </Box>
 
-                        <Typography sx={{ fontWeight: 700 }}>
-                          {formatVND(it.unit_price * it.quantity)}
-                        </Typography>
+                        <Box sx={{ textAlign: "right" }}>
+  {it.has_discount && (
+    <Typography
+      sx={{
+        fontSize: 12,
+        textDecoration: "line-through",
+        color: "#999",
+      }}
+    >
+      {formatVND(it.original_price * it.quantity)}
+    </Typography>
+  )}
+
+  <Typography sx={{ fontWeight: 700 }}>
+    {formatVND(
+      (it.final_price ?? it.unit_price) * it.quantity
+    )}
+  </Typography>
+</Box>
+
                       </Box>
                     ))}
 
