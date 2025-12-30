@@ -170,54 +170,47 @@ export default function HomePage() {
       const normalized = (Array.isArray(data) ? data : data || []).map((p) => {
         const details = Array.isArray(p.details) ? p.details : [];
 
-const variants = details
-  .map((d) => {
-    const original = Number(d.price) || 0;
-    const final =
-      d.has_discount && d.final_price
-        ? Number(d.final_price)
-        : original;
+        const variants = details
+          .map((d) => {
+            const original = Number(d.price) || 0;
+            const final = d.has_discount && d.final_price ? Number(d.final_price) : original;
 
-    return {
-      original_price: original,
-      final_price: final,
-      has_discount: !!d.has_discount,
-      discount_percent:
-        d.has_discount && original > 0
-          ? Math.round(((original - final) / original) * 100)
-          : 0,
-    };
-  })
-  .filter((v) => v.final_price > 0);
+            return {
+              original_price: original,
+              final_price: final,
+              has_discount: !!d.has_discount,
+              discount_percent:
+                d.has_discount && original > 0
+                  ? Math.round(((original - final) / original) * 100)
+                  : 0,
+            };
+          })
+          .filter((v) => v.final_price > 0);
 
-// 👉 lấy variant rẻ nhất
-const cheapest =
-  variants.length > 0
-    ? variants.reduce((min, v) =>
-        v.final_price < min.final_price ? v : min
-      )
-    : null;
-
+        // lấy variant rẻ nhất
+        const cheapest =
+          variants.length > 0
+            ? variants.reduce((min, v) => (v.final_price < min.final_price ? v : min))
+            : null;
 
         return {
-  id: p.id,
-  name: p.name ?? p.title ?? "Không tên",
-  slug: p.slug ?? null,
-  description: p.description ?? "",
-  original_price: cheapest?.original_price ?? null,
-  final_price: cheapest?.final_price ?? null,
-  has_discount: cheapest?.has_discount ?? false,
-  discount_percent: cheapest?.discount_percent ?? 0,
-  rating: typeof p.rating === "number" ? p.rating : 0,
-  categories_id: p.categories_id ?? p.category_id ?? null,
-  image_url:
-    p.image_url && typeof p.image_url === "string"
-      ? p.image_url.startsWith("http")
-        ? p.image_url
-        : `${API_BASE}/storage/${p.image_url}`
-      : null,
-};
-
+          id: p.id,
+          name: p.name ?? p.title ?? "Không tên",
+          slug: p.slug ?? null,
+          description: p.description ?? "",
+          original_price: cheapest?.original_price ?? null,
+          final_price: cheapest?.final_price ?? null,
+          has_discount: cheapest?.has_discount ?? false,
+          discount_percent: cheapest?.discount_percent ?? 0,
+          rating: typeof p.rating === "number" ? p.rating : 0,
+          categories_id: p.categories_id ?? p.category_id ?? null,
+          image_url:
+            p.image_url && typeof p.image_url === "string"
+              ? p.image_url.startsWith("http")
+                ? p.image_url
+                : `${API_BASE}/storage/${p.image_url}`
+              : null,
+        };
       });
 
       console.log("✅ Products normalized:", normalized);
@@ -230,15 +223,11 @@ const cheapest =
     } finally {
       setLoadingProducts(false);
     }
-    
   }, [fetchMinVariantsInStock]);
-  
-
 
   useEffect(() => {
     fetchCategories();
     fetchProducts();
-    
   }, [fetchCategories, fetchProducts]);
 
   // ---------- Category tiles ----------
@@ -323,9 +312,9 @@ const cheapest =
     return price.toLocaleString("vi-VN") + "₫";
   };
   const formatPrice = (price) => {
-  if (!price || price <= 0) return "Liên hệ";
-  return price.toLocaleString("vi-VN") + "₫";
-};
+    if (!price || price <= 0) return "Liên hệ";
+    return price.toLocaleString("vi-VN") + "₫";
+  };
 
 
   // thêm giỏ: luôn chọn biến thể còn hàng đầu tiên
@@ -344,33 +333,28 @@ const cheapest =
 
       // 2. Chuẩn hóa + lọc ra những variant còn hàng
       const variants = variantsRaw
-  .map((d) => {
-    const original = Number(d.price) || 0;
-    const final =
-      d.has_discount && d.final_price
-        ? Number(d.final_price)
-        : original;
+        .map((d) => {
+          const original = Number(d.price) || 0;
+          const final = d.has_discount && d.final_price ? Number(d.final_price) : original;
 
-    return {
-      id: d.id,
-      product_id: d.product_id,
-
-      original_price: original,
-      final_price: final,
-      has_discount: !!d.has_discount,
-
-      quantity: d.quantity ?? 0,
-      size: d.size?.name ?? null,
-      color: d.color?.name ?? null,
-      image_url:
-        (Array.isArray(d.images) && d.images[0]?.full_url) ||
-        d.product?.image_url ||
-        p.image_url ||
-        null,
-    };
-  })
-  .filter((v) => v.quantity > 0)
-  .sort((a, b) => a.final_price - b.final_price);
+          return {
+            id: d.id,
+            product_id: d.product_id,
+            original_price: original,
+            final_price: final,
+            has_discount: !!d.has_discount,
+            quantity: d.quantity ?? 0,
+            size: d.size?.name ?? null,
+            color: d.color?.name ?? null,
+            image_url:
+              (Array.isArray(d.images) && d.images[0]?.full_url) ||
+              d.product?.image_url ||
+              p.image_url ||
+              null,
+          };
+        })
+        .filter((v) => v.quantity > 0)
+        .sort((a, b) => a.final_price - b.final_price);
 
 
       if (!variants.length) {
@@ -597,83 +581,75 @@ const cheapest =
 
                         <CardContent sx={{ pt: 1.5, pb: 1.5 }}>
                           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-  <Typography
-    variant="subtitle1"
-    sx={{
-      fontWeight: 600,
-      textTransform: "uppercase",
-      letterSpacing: 0.5,
-      fontSize: 14,
-    }}
-  >
-    {p.name}
-  </Typography>
+                            <Typography
+                              variant="subtitle1"
+                              sx={{
+                                fontWeight: 600,
+                                textTransform: "uppercase",
+                                letterSpacing: 0.5,
+                                fontSize: 14,
+                              }}
+                            >
+                              {p.name}
+                            </Typography>
 
-  {p.has_discount && p.discount_percent > 0 && (
-    <Box
-      sx={{
-        fontSize: 14,
-        fontWeight: 700,
-        color: "#fff",
-        backgroundColor: "secondary.main",
-        px: 0.8,
-        py: 0.2,
-        borderRadius: "2px",
-        lineHeight: 1,
-      }}
-    >
-      -{p.discount_percent}%
-    </Box>
-  )}
-</Box>
+                            {p.has_discount && p.discount_percent > 0 && (
+                              <Box
+                                sx={{
+                                  fontSize: 14,
+                                  fontWeight: 700,
+                                  color: "#fff",
+                                  backgroundColor: "secondary.main",
+                                  px: 0.8,
+                                  py: 0.2,
+                                  borderRadius: "2px",
+                                  lineHeight: 1,
+                                }}
+                              >
+                                -{p.discount_percent}%
+                              </Box>
+                            )}
+                          </Box>
 
-
-                          <Typography
-                            variant="body2"
-                            sx={{ color: "#777", mt: 0.5 }}
-                          >
+                          <Typography variant="body2" sx={{ color: "#777", mt: 0.5 }}>
                             {(p.rating ?? 0).toFixed(1)} ★
                           </Typography>
 
                           <Box sx={{ mt: 1 }}>
-  {p.in_stock === false ? (
-    <Typography sx={{ fontSize: 14, fontWeight: 700, color: "#999" }}>
-      Hết hàng
-    </Typography>
-  ) : p.has_discount ? (
-    <>
-      <Typography
-        sx={{
-          fontSize: 20,
-          color: "#999",
-          textDecoration: "line-through",
-        }}
-      >
-        {formatPrice(p.original_price)}
-      </Typography>
+                            {p.in_stock === false ? (
+                              <Typography sx={{ fontSize: 14, fontWeight: 700, color: "#999" }}>
+                                Hết hàng
+                              </Typography>
+                            ) : p.has_discount ? (
+                              <>
+                                <Typography
+                                  sx={{
+                                    fontSize: 20,
+                                    color: "#999",
+                                    textDecoration: "line-through",
+                                  }}
+                                >
+                                  {formatPrice(p.original_price)}
+                                </Typography>
 
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        <Typography
-          sx={{
-            fontSize: 16,
-            fontWeight: 700,
-            color: "secondary.main",
-          }}
-        >
-           {formatPrice(p.final_price)}
-        </Typography>
-
-        
-      </Box>
-    </>
-  ) : (
-    <Typography sx={{ fontSize: 16, fontWeight: 700 }}>
-       {formatPrice(p.final_price ?? p.original_price)}
-    </Typography>
-  )}
-</Box>
-
-
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                  <Typography
+                                    sx={{
+                                      fontSize: 16,
+                                      fontWeight: 700,
+                                      color: "secondary.main",
+                                    }}
+                                  >
+                                    {formatPrice(p.final_price)}
+                                  </Typography>
+                                </Box>
+                              </>
+                            ) : (
+                              <Typography sx={{ fontSize: 16, fontWeight: 700 }}>
+                                {formatPrice(p.final_price ?? p.original_price)}
+                              </Typography>
+                            )}
+                          </Box>
                         </CardContent>
 
                         <CardActions sx={{ px: 2, pb: 2, pt: 0 }}>

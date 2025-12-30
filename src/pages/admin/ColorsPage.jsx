@@ -352,19 +352,7 @@ export default function ColorsPage({ setSnack }) {
                                     </TableCell>
                                     <TableCell align="right">
                                         <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                                            <Tooltip title="View on site">
-                                                <IconButton
-                                                    size="small"
-                                                    onClick={() =>
-                                                        window.open(
-                                                            `/collections?color=${c.slug || c.name}`,
-                                                            "_blank"
-                                                        )
-                                                    }
-                                                >
-                                                    <VisibilityIcon fontSize="small" />
-                                                </IconButton>
-                                            </Tooltip>
+                                            
                                             <Tooltip title="Edit">
                                                 <IconButton
                                                     size="small"

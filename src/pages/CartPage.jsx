@@ -53,9 +53,15 @@ export default function CartPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [snack, setSnack] = useState(null);
-
+  
   // product_id -> list variants
   const [variantsMap, setVariantsMap] = useState({});
+   // ===== DISCOUNT (order) =====
+const [discountCode, setDiscountCode] = useState("");
+const [discount, setDiscount] = useState(null); 
+// discount sẽ là data trả về từ API: { amount_discount, total_after_discount, discount: {...} }
+const [applyingDiscount, setApplyingDiscount] = useState(false);
+const DISCOUNT_KEY="cart_discount";
 
   // ----------------- HELPERS -----------------
   const normalizeLocalItem = (it) => {
@@ -132,34 +138,50 @@ export default function CartPage() {
 
   // ----------------- LOAD CART -----------------
   useEffect(() => {
-    setLoading(true);
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY) || "[]";
-      const parsed = JSON.parse(raw);
-      const arr = (Array.isArray(parsed) ? parsed : []).map((it) =>
-        normalizeLocalItem(it)
-      );
-      setItems(arr);
+  setLoading(true);
 
-      const totalQty = arr.reduce(
-        (s, it) => s + (Number(it.qty) || 0),
-        0
-      );
-      try {
-        localStorage.setItem("guest_cart_count", String(totalQty));
-      } catch (e) {}
-      window.dispatchEvent(
-        new CustomEvent("cartUpdated", {
-          detail: { count: totalQty, items: arr },
-        })
-      );
+  let arr = [];
+
+  // 1) Load cart
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY) || "[]";
+    const parsed = JSON.parse(raw);
+    arr = (Array.isArray(parsed) ? parsed : []).map((it) => normalizeLocalItem(it));
+    setItems(arr);
+
+    const totalQty = arr.reduce((s, it) => s + (Number(it.qty) || 0), 0);
+    localStorage.setItem("guest_cart_count", String(totalQty));
+
+    window.dispatchEvent(new CustomEvent("cartUpdated", { detail: { count: totalQty, items: arr } }));
+  } catch (e) {
+    console.warn("Cart load error", e);
+    setItems([]);
+    arr = [];
+  } finally {
+    setLoading(false);
+  }
+
+  // 2) Load discount: CHỈ load khi cart có item
+  if (arr.length > 0) {
+    try {
+      const rawD = localStorage.getItem(DISCOUNT_KEY);
+      if (rawD) {
+        const d = JSON.parse(rawD);
+        setDiscount(d);
+        setDiscountCode(d?.discount?.code || d?.code || "");
+      }
     } catch (e) {
-      console.warn("Cart load error", e);
-      setItems([]);
-    } finally {
-      setLoading(false);
+      console.warn("Discount load error", e);
     }
-  }, []);
+  } else {
+    // cart rỗng -> xóa discount luôn
+    setDiscount(null);
+    setDiscountCode("");
+    localStorage.removeItem(DISCOUNT_KEY);
+  }
+}, []);
+
+
 
   // ----------------- LOAD VARIANTS FOR ITEMS -----------------
   useEffect(() => {
@@ -183,29 +205,29 @@ export default function CartPage() {
               const arr = Array.isArray(data) ? data : [];
 
               const normalized = arr.map((d) => {
-  const original = Number(d.price ?? 0);
-  const final =
-    d.has_discount && d.final_price
+              const original = Number(d.price ?? 0);
+              const final =
+      d.has_discount && d.final_price
       ? Number(d.final_price)
       : original;
 
-  return {
-    id: d.id,
-    product_id: d.product_id,
+        return {
+          id: d.id,
+          product_id: d.product_id,
 
-    original_price: original,
-    final_price: final,
-    has_discount: !!d.has_discount,
+          original_price: original,
+          final_price: final,
+          has_discount: !!d.has_discount,
 
-    quantity: d.quantity ?? 0,
-    size_name: d.size?.name ?? null,
-    color_name: d.color?.name ?? null,
-    image_url:
-      (Array.isArray(d.images) && d.images[0]?.full_url) ||
-      d.product?.image_url ||
-      null,
-  };
-});
+          quantity: d.quantity ?? 0,
+          size_name: d.size?.name ?? null,
+          color_name: d.color?.name ?? null,
+          image_url:
+            (Array.isArray(d.images) && d.images[0]?.full_url) ||
+            d.product?.image_url ||
+            null,
+        };
+      });
 
 
               return [pid, normalized];
@@ -391,20 +413,31 @@ export default function CartPage() {
   };
 
   const removeItem = (id) => {
-    const next = items.filter((i) => i.id !== id);
-    setItems(next);
-    saveAndBroadcast(next);
-    setSnack({ severity: "info", message: "Đã xoá sản phẩm" });
-  };
+  const next = items.filter((i) => i.id !== id);
+  setItems(next);
+  saveAndBroadcast(next);
+
+  if (next.length === 0) {
+    setDiscount(null);
+    setDiscountCode("");
+    localStorage.removeItem(DISCOUNT_KEY);
+  }
+
+  setSnack({ severity: "info", message: "Đã xoá sản phẩm" });
+};
+
 
   const clearCart = () => {
-    setItems([]);
-    saveAndBroadcast([]);
-    setSnack({
-      severity: "info",
-      message: "Giỏ hàng đã được làm rỗng",
-    });
-  };
+  setItems([]);
+  saveAndBroadcast([]);
+
+  setDiscount(null);
+  setDiscountCode("");
+  localStorage.removeItem(DISCOUNT_KEY);
+
+  setSnack({ severity: "info", message: "Giỏ hàng đã được làm rỗng" });
+};
+
 
   const subtotal = useMemo(() => {
   return items.reduce(
@@ -412,6 +445,13 @@ export default function CartPage() {
     0
   );
 }, [items]);
+  const discountAmount = Number(discount?.amount_discount ?? 0);
+  const totalAfterDiscount =
+  subtotal <= 0
+    ? 0
+    : (discount?.total_after_discount != null ? Number(discount.total_after_discount) : subtotal);
+
+
 
 
   const handleCheckout = () => {
@@ -430,6 +470,57 @@ export default function CartPage() {
       navigate("/payment");
     }, 400);
   };
+  const applyDiscount = async () => {
+  const code = discountCode.trim();
+  if (!code) {
+    setSnack({ severity: "warning", message: "Vui lòng nhập mã giảm giá" });
+    return;
+  }
+
+  if (subtotal <= 0) {
+    setSnack({ severity: "warning", message: "Giỏ hàng trống" });
+    return;
+  }
+
+  setApplyingDiscount(true);
+  try {
+    const res = await fetch(`${API_BASE}/api/discounts/apply`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        // Nếu API apply yêu cầu đăng nhập thì mở dòng dưới:
+        // Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+      },
+      body: JSON.stringify({
+        code,
+        total: subtotal,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data?.message || "Mã giảm giá không hợp lệ");
+    }
+
+    setDiscount(data);
+    localStorage.setItem(DISCOUNT_KEY,JSON.stringify({...data,code}))
+    setSnack({ severity: "success", message: "Áp mã giảm giá thành công" });
+  } catch (e) {
+    setDiscount(null);
+    setSnack({ severity: "error", message: e.message || "Áp mã thất bại" });
+  } finally {
+    setApplyingDiscount(false);
+  }
+};
+
+const removeDiscount = () => {
+  setDiscount(null);
+  setDiscountCode("");
+  localStorage.removeItem(DISCOUNT_KEY);
+  setSnack({ severity: "info", message: "Đã hủy mã giảm giá" });
+};
+
 
   const formatVND = (n) =>
     typeof n === "number"
@@ -863,7 +954,61 @@ export default function CartPage() {
                       {formatVND(subtotal)}
                     </Typography>
                   </Box>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
+  <Typography variant="body2">Giảm giá</Typography>
+  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+    {discount ? `- ${formatVND(discountAmount)}` : "—"}
+  </Typography>
+</Box>
 
+                   <Box sx={{ mb: 1.5 }}>
+  
+
+  <Stack direction="row" spacing={1}>
+    <TextField
+      size="small"
+      fullWidth
+      placeholder="Nhập mã giảm giá"
+      value={discountCode}
+      onChange={(e) => setDiscountCode(e.target.value)}
+      sx={{
+        "& .MuiOutlinedInput-root": { borderRadius: 0, background: "#fff" },
+      }}
+    />
+
+    <Button
+      variant="contained"
+      onClick={applyDiscount}
+      disabled={applyingDiscount || !discountCode.trim()}
+      sx={{
+        borderRadius: 0,
+        backgroundColor: "#111",
+        "&:hover": { backgroundColor: "#000" },
+        whiteSpace: "nowrap",
+      }}
+    >
+      {applyingDiscount ? "Đang áp..." : "Áp dụng"}
+    </Button>
+
+    {discount && (
+      <Button
+        variant="outlined"
+        color="error"
+        onClick={removeDiscount}
+        sx={{ borderRadius: 0, whiteSpace: "nowrap" }}
+      >
+        Hủy
+      </Button>
+    )}
+  </Stack>
+
+  {discount && (
+    <Typography variant="caption" sx={{ color: "text.secondary" }}>
+      Đã áp mã: <b>{discount?.discount?.code || discountCode.trim()}</b>
+    </Typography>
+  )}
+</Box>
+   
                   <Box
                     sx={{
                       display: "flex",
@@ -871,10 +1016,10 @@ export default function CartPage() {
                       mb: 1.5,
                     }}
                   >
-                    <Typography variant="body2">Phí vận chuyển</Typography>
+                    {/* <Typography variant="body2">Phí vận chuyển</Typography> */}
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>
                       {/* Phí ship xử lý bên PaymentPage, ở đây chỉ hiển thị gợi ý */}
-                      Sẽ tính ở bước sau
+                      {/* Sẽ tính ở bước sau */}
                     </Typography>
                   </Box>
 
@@ -898,7 +1043,7 @@ export default function CartPage() {
                       variant="body1"
                       sx={{ fontWeight: 700, fontSize: 16 }}
                     >
-                      {formatVND(subtotal)}
+                      {formatVND(totalAfterDiscount)}
                     </Typography>
                   </Box>
 

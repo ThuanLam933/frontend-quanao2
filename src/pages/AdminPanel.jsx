@@ -35,6 +35,7 @@ import StockPage from "./admin/StockPage";
 import CommentsPage from "./admin/CommentsPage";
 import ImageAdminPage from "./admin/ImageAdminPage";
 import DiscountProductPage from "./admin/DiscountProductPage";
+import DiscountPage from "./admin/DiscountPage";
 
 const API_BASE = "http://127.0.0.1:8000"; // change if needed
 export { API_BASE };
@@ -61,6 +62,7 @@ const SIDEBAR_ITEMS = [
   { key: "returns", title: "Phiếu trả" },
   { key: "stock", title: "Phiếu nhập" },
   { key: "discountproduct", title: "Sản phẩm giảm giá" },
+  { key: "discount", title: "Mã giảm giá đơn hàng" },
   { key: "comments", title: "Comments" },
   { key: "images", title: "Image Manager" },
 ];
@@ -146,6 +148,7 @@ export default function AdminPanel() {
             {page === "returns" && <ReturnsPage setSnack={setSnack} />}
             {page === "stock" && <StockPage setSnack={setSnack} />}
             {page === "discountproduct" && <DiscountProductPage setSnack={setSnack} />}
+            {page === "discount" && <DiscountPage setSnack={setSnack} />}
             {page === "comments" && <CommentsPage setSnack={setSnack} />}
             {page === "images" && <ImageAdminPage setSnack={setSnack} />}
           </Container>

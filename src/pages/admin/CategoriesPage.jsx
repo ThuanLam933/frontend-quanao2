@@ -256,10 +256,7 @@ export default function CategoriesPage({ setSnack }) {
             >
                 <Box>
                     <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                        Categories
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                        Quản lý nhóm sản phẩm / loại sản phẩm trên website.
+                        Loại sản phẩm
                     </Typography>
                 </Box>
                 <Button
@@ -267,7 +264,7 @@ export default function CategoriesPage({ setSnack }) {
                     startIcon={<AddIcon />}
                     onClick={onCreate}
                 >
-                    Create category
+                    Thêm loại sản phẩm
                 </Button>
             </Stack>
 
@@ -354,19 +351,7 @@ export default function CategoriesPage({ setSnack }) {
                                     </TableCell>
                                     <TableCell align="right">
                                         <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                                            <Tooltip title="View on site">
-                                                <IconButton
-                                                    size="small"
-                                                    onClick={() =>
-                                                        window.open(
-                                                            `/collections?category=${c.slug || c.name}`,
-                                                            "_blank"
-                                                        )
-                                                    }
-                                                >
-                                                    <VisibilityIcon fontSize="small" />
-                                                </IconButton>
-                                            </Tooltip>
+                                            
                                             <Tooltip title="Edit">
                                                 <IconButton
                                                     size="small"

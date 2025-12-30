@@ -56,6 +56,16 @@ export default function PaymentPage() {
       return [];
     }
   });
+  const DISCOUNT_KEY="cart_discount";
+  const [discount, setDiscount] = useState(() => {
+  try {
+    const raw = localStorage.getItem(DISCOUNT_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+});
+
 
   const [submitting, setSubmitting] = useState(false);
   const [snack, setSnack] = useState(null);
@@ -68,10 +78,7 @@ export default function PaymentPage() {
 
   // PAYMENT
   const [paymentMethod, setPaymentMethod] = useState("cod");
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardName, setCardName] = useState("");
-  const [cardExpiry, setCardExpiry] = useState("");
-  const [cardCvc, setCardCvc] = useState("");
+  
 
   const SHIPPING_FEE = 30000;
 
@@ -85,7 +92,10 @@ export default function PaymentPage() {
 }, [cart]);
 
 
-  const total = subtotal + SHIPPING_FEE;
+  const discountAmount = Number(discount?.amount_discount ?? 0);
+  const subtotalAfterDiscount = discount?.total_after_discount !=null
+  ?Number(discount.total_after_discount):subtotal;
+  const total =subtotalAfterDiscount + SHIPPING_FEE;
 
   // Validation (NOT CHANGED)
   const validateForm = () => {
@@ -94,104 +104,114 @@ export default function PaymentPage() {
     if (!phone || phone.trim().length < 6) return "Số điện thoại không hợp lệ.";
     if (!address || address.trim().length < 6) return "Vui lòng nhập địa chỉ giao hàng.";
 
-    if (paymentMethod === "card") {
-      if (!/^\d{12,19}$/.test(cardNumber.replace(/\s+/g, "")))
-        return "Số thẻ không hợp lệ.";
-      if (!cardName.trim()) return "Tên chủ thẻ không hợp lệ.";
-      if (!/^\d{3,4}$/.test(cardCvc)) return "CVC không hợp lệ.";
-      if (!/^\d{2}\/\d{2}$/.test(cardExpiry))
-        return "Ngày hết hạn phải theo định dạng MM/YY.";
-    }
+  
 
     return null;
   };
 
   // Create Order (NOT CHANGED)
   const handlePlaceOrder = async () => {
-    const v = validateForm();
-    if (v) {
-      setSnack({ severity: "error", message: v });
+  const v = validateForm();
+  if (v) {
+    setSnack({ severity: "error", message: v });
+    return;
+  }
+
+  setSubmitting(true);
+  const discountId = discount?.discount?.id ?? discount?.id ?? null;
+
+
+  try {
+    const headers = { "Content-Type": "application/json" };
+    const token = localStorage.getItem("access_token");
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    // ✅ COD: tạo đơn luôn (giữ như bạn đang chạy OK)
+    if (paymentMethod === "cod") {
+      const orderRes = await fetch(`${API_BASE}/api/orders`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+  customer: { name, email, phone, address },
+  items: cart,
+  payment: { method: "cod" },
+
+  // ✅ BẮT BUỘC để BE biết dùng mã nào
+  discount_id: discountId,
+
+  // ✅ ĐÚNG key: total_after_discount / total
+  totals: {
+    subtotal,
+    total_after_discount: subtotalAfterDiscount,
+    shipping: SHIPPING_FEE,
+    total,
+  },
+
+  // optional, không bắt buộc nhưng giữ cũng được
+  discount: discount
+    ? {
+        code: discount?.discount?.code || discount?.code,
+        amount_discount: discountAmount,
+      }
+    : null,
+}),
+
+      });
+
+      const orderBody = await orderRes.json();
+      if (!orderRes.ok) throw new Error(orderBody?.message || "Tạo đơn thất bại");
+
+      localStorage.removeItem("cart");
+      localStorage.removeItem(DISCOUNT_KEY); // ✅ xoá mã giảm giá luôn
+      // ✅ BE trả { message, order } nên id nằm trong order
+      navigate(`/order/${orderBody?.order?.id}`);
+
       return;
     }
 
-    setSubmitting(true);
+    // ✅ BANKING/VNPAY: KHÔNG tạo đơn tại đây
+    // 1) lưu draft để return page tạo đơn sau khi thanh toán thành công
+    localStorage.setItem(
+      "pending_checkout",
+      JSON.stringify({
+        customer: { name, email, phone, address },
+        items: cart,
+        payment: { method: "Banking" }, // ✅ đúng như BE đang accept
+        totals: {
+  subtotal,
+  total_after_discount: subtotalAfterDiscount,
+  shipping: SHIPPING_FEE,
+  total,
+},
+discount_id: discountId,
 
-    const payload = {
-      customer: {
-        name: name.trim(),
-        email: email.trim(),
-        phone: phone.trim(),
-        address: address.trim(),
-      },
-      items: cart.map((it) => ({
-        product_detail_id: it.product_detail_id,
-        product_id: it.product_id ?? null,
-        quantity: it.quantity || 1,
-        unit_price: it.final_price ?? it.unit_price, // ✅ giá bán
-  original_price: it.original_price ?? null,   // ✅ optional
-  has_discount: !!it.has_discount,
-      })),
-      payment: {
-        method: paymentMethod,
-        card:
-          paymentMethod === "card"
-            ? {
-                number: cardNumber.replace(/\s+/g, ""),
-                name: cardName,
-                expiry: cardExpiry,
-                cvc: cardCvc,
-              }
-            : null,
-      },
-      totals: {
-        subtotal,
-        shipping: SHIPPING_FEE,
-        total,
-      },
-    };
+        createdAt: Date.now(),
+      })
+    );
 
-    try {
-      const headers = { "Content-Type": "application/json" };
-      const token = localStorage.getItem("access_token");
-      if (token) headers["Authorization"] = `Bearer ${token}`;
+    // 2) tạo link VNPay (BE của bạn public route, chỉ cần amount)
+    const payRes = await fetch(`${API_BASE}/api/vnpay_create_payment`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount: total }),
+    });
 
-      const res = await fetch(`${API_BASE}/api/orders`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(payload),
-      });
-
-      const body = await res.json().catch(() => null);
-
-      if (!res.ok) {
-        setSnack({
-          severity: "error",
-          message:
-            body?.message || `Tạo đơn thất bại (mã ${res.status})`,
-        });
-        setSubmitting(false);
-        return;
-      }
-
-      localStorage.removeItem("cart");
-      setCart([]);
-
-      setSnack({ severity: "success", message: "Đặt hàng thành công!" });
-
-      const orderId = body?.id ?? body?.order_id ?? null;
-      setTimeout(() => {
-        if (orderId) navigate(`/order/${orderId}`);
-        else navigate("/thank-you");
-      }, 800);
-    } catch (err) {
-      setSnack({
-        severity: "error",
-        message: "Lỗi hệ thống, vui lòng thử lại.",
-      });
-    } finally {
-      setSubmitting(false);
+    const payBody = await payRes.json();
+    if (!payRes.ok || !payBody?.payment_url) {
+      throw new Error(payBody?.message || "Không tạo được link thanh toán");
     }
-  };
+
+    // 3) redirect sang VNPay
+    window.location.href = payBody.payment_url;
+  } catch (err) {
+    setSnack({ severity: "error", message: err.message || "Có lỗi xảy ra" });
+  } finally {
+    setSubmitting(false);
+  }
+};
+
+
+
 
   // ------------------- UI RENDER -------------------
   return (
@@ -273,65 +293,11 @@ export default function PaymentPage() {
                       label="Thanh toán khi nhận hàng (COD)"
                     />
                     <FormControlLabel
-                      value="card"
+                      value="Banking"
                       control={<Radio />}
                       label="Thanh toán bằng thẻ"
                     />
                   </RadioGroup>
-
-                  {/* CARD FIELDS */}
-                  {paymentMethod === "card" && (
-                    <Box>
-                      <Typography sx={{ mb: 1, fontSize: 13 }}>
-                        Thông tin thẻ (DEMO — không dùng thẻ thật)
-                      </Typography>
-
-                      <Grid container spacing={2}>
-                        <Grid item xs={12}>
-                          <TextField
-                            fullWidth
-                            label="Số thẻ"
-                            placeholder="1234 5678 9012 3456"
-                            value={cardNumber}
-                            onChange={(e) => setCardNumber(e.target.value)}
-                            InputProps={{ sx: { borderRadius: 0 } }}
-                          />
-                        </Grid>
-
-                        <Grid item xs={6}>
-                          <TextField
-                            label="Tên chủ thẻ"
-                            fullWidth
-                            value={cardName}
-                            onChange={(e) => setCardName(e.target.value)}
-                            InputProps={{ sx: { borderRadius: 0 } }}
-                          />
-                        </Grid>
-
-                        <Grid item xs={3}>
-                          <TextField
-                            label="MM/YY"
-                            fullWidth
-                            placeholder="MM/YY"
-                            value={cardExpiry}
-                            onChange={(e) => setCardExpiry(e.target.value)}
-                            InputProps={{ sx: { borderRadius: 0 } }}
-                          />
-                        </Grid>
-
-                        <Grid item xs={3}>
-                          <TextField
-                            label="CVC"
-                            fullWidth
-                            placeholder="123"
-                            value={cardCvc}
-                            onChange={(e) => setCardCvc(e.target.value)}
-                            InputProps={{ sx: { borderRadius: 0 } }}
-                          />
-                        </Grid>
-                      </Grid>
-                    </Box>
-                  )}
 
                   {/* BUTTONS */}
                   <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2, mt: 2 }}>
@@ -439,13 +405,17 @@ export default function PaymentPage() {
                     <Divider />
 
                     <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                      <Typography>Tạm tính</Typography>
+                      <Typography>Giá</Typography>
                       <Typography>{formatVND(subtotal)}</Typography>
                     </Box>
 
                     <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                       <Typography>Phí vận chuyển</Typography>
                       <Typography>{formatVND(SHIPPING_FEE)}</Typography>
+                    </Box>
+                    <Box sx={{ display:"flex", justifyContent:"space-between" }}>
+                      <Typography>Giảm giá</Typography>
+                      <Typography>{discount ? `- ${formatVND(discountAmount)}` : "-"}</Typography>
                     </Box>
 
                     <Divider />

@@ -388,7 +388,7 @@ export default function ProductsPage({ setSnack }) {
           <TextField
             size="small"
             fullWidth
-            placeholder="Tìm theo ID, tên, slug, mô tả, category..."
+            placeholder="Tìm theo ID, tên, slug, mô tả, category"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={handleSearchKeyDown}
@@ -397,7 +397,7 @@ export default function ProductsPage({ setSnack }) {
 
         <Stack direction="row" spacing={1} alignItems="center">
           <Button variant="contained" startIcon={<AddIcon />} onClick={onCreate}>
-            Create product
+            Thêm sản phẩm
           </Button>
           <Tooltip title="Chọn cột hiển thị">
             <IconButton onClick={handleOpenColumns} sx={{ border: "1px solid #ddd" }}>
@@ -600,37 +600,6 @@ export default function ProductsPage({ setSnack }) {
                               }}
                             >
                               <Stack direction="row" spacing={0.5}>
-                                <Tooltip title="Biến thể (Variants)">
-                                  <IconButton
-                                    size="small"
-                                    onClick={() =>
-                                      window.open(
-                                        `/admin/products/${p.id}/variants`,
-                                        "_blank"
-                                      )
-                                    }
-                                  >
-                                    <CategoryIcon fontSize="small" />
-                                  </IconButton>
-                                </Tooltip>
-
-                                <Tooltip title="Xem chi tiết (frontend)">
-                                  <span>
-                                    <IconButton
-                                      size="small"
-                                      disabled={!firstDetailId}
-                                      onClick={() =>
-                                        window.open(
-                                          `/product/${firstDetailId}`,
-                                          "_blank"
-                                        )
-                                      }
-                                    >
-                                      <VisibilityIcon fontSize="small" />
-                                    </IconButton>
-                                  </span>
-                                </Tooltip>
-
                                 <Tooltip title="Sửa sản phẩm">
                                   <IconButton
                                     size="small"

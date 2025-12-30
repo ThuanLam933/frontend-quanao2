@@ -386,11 +386,11 @@ export default function DashboardPage({ setSnack }) {
                         variant="h5"
                         sx={{ fontWeight: 700, mb: 0.5 }}
                     >
-                        📊 Tổng Quan Dashboard
+                         Tổng Quan Dashboard
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                        Tóm tắt nhanh tình hình sản phẩm, đơn hàng, người dùng
-                        và kho hàng.
+                        Doanh thu, sản phẩm, đơn hàng và người dùng trong hệ
+                        thống.
                     </Typography>
                 </Box>
             </Paper>

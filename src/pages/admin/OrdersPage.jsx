@@ -231,12 +231,19 @@ export default function OrdersPage({ setSnack }) {
                                     </TableCell>
                                     <TableCell>{o.name ?? "—"}</TableCell>
                                     <TableCell align="right">
-                                        {o.total_price
-                                            ? Number(
-                                                  o.total_price
-                                              ).toLocaleString("vi-VN") + "₫"
-                                            : "—"}
-                                    </TableCell>
+  {(() => {
+    const total =
+      o.total_after_discount ??
+      o.totalAfterDiscount ??
+      o.total_discounted ??
+      o.total_price; // fallback cuối cùng
+
+    return total != null
+      ? Number(total).toLocaleString("vi-VN") + "₫"
+      : "—";
+  })()}
+</TableCell>
+
                                     <TableCell>
                                         <Chip
                                             size="small"
@@ -439,7 +446,15 @@ function OrderDetailDialog({ sel, onClose }) {
                         )}
                         <Typography variant="body2" sx={{ mt: 1 }}>
                             Total price:{" "}
-                            <strong>{formatCurrency(sel?.total_price)}</strong>
+                            <strong>
+  {formatCurrency(
+    sel?.total_after_discount ??
+    sel?.totalAfterDiscount ??
+    sel?.total_discounted ??
+    sel?.total_price
+  )}
+</strong>
+
                         </Typography>
                     </Grid>
                 </Grid>
@@ -458,113 +473,139 @@ function OrderDetailDialog({ sel, onClose }) {
                     </Typography>
                 ) : (
                     <Table size="small">
-                        <TableHead>
-                            <TableRow>
-                                <TableCell>Product</TableCell>
-                                <TableCell>Variant</TableCell>
-                                <TableCell align="right">Qty</TableCell>
-                                <TableCell align="right">Price</TableCell>
-                                <TableCell align="right">Total</TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {items.map((it, idx) => {
-                                const product =
-                                    it.product ??
-                                    it.product_detail?.product ??
-                                    {};
-                                const name =
-                                    product.name ??
-                                    it.name ??
-                                    it.title ??
-                                    "—";
+  <TableHead>
+    <TableRow>
+      <TableCell>Product</TableCell>
+      <TableCell>Variant</TableCell>
+      <TableCell align="right">Qty</TableCell>
+      <TableCell align="right">Price</TableCell>
+      <TableCell align="right">Total</TableCell>
+    </TableRow>
+  </TableHead>
 
-                                const colorName =
-                                    it.color?.name ??
-                                    it.product_detail?.color?.name ??
-                                    it.color_name ??
-                                    it.color ??
-                                    null;
+  <TableBody>
+    {items.map((it, idx) => {
+      const product = it.product ?? it.product_detail?.product ?? {};
+      const name = product.name ?? it.name ?? it.title ?? "—";
 
-                                const sizeName =
-                                    it.size?.name ??
-                                    it.product_detail?.size?.name ??
-                                    it.size_name ??
-                                    it.size ??
-                                    null;
+      const colorName =
+        it.color?.name ??
+        it.product_detail?.color?.name ??
+        it.color_name ??
+        it.color ??
+        null;
 
-                                const qty =
-                                    it.quantity ??
-                                    it.qty ??
-                                    it.qty_order ??
-                                    1;
+      const sizeName =
+        it.size?.name ??
+        it.product_detail?.size?.name ??
+        it.size_name ??
+        it.size ??
+        null;
 
-                                const price = it.price ?? it.unit_price;
-                                const lineTotal =
-                                    it.total ??
-                                    (price && qty
-                                        ? Number(price) * Number(qty)
-                                        : null);
+      const qty = it.quantity ?? it.qty ?? it.qty_order ?? 1;
 
-                                const thumb =
-                                    it.product_detail?.image ??
-                                    product.image ??
-                                    product.thumbnail ??
-                                    it.image_url ??
-                                    null;
+      // ✅ ưu tiên giá sau giảm
+      const finalUnit =
+        it.final_price ??
+        it.unit_price ??
+        it.price ??
+        0;
 
-                                return (
-                                    <TableRow key={it.id ?? idx}>
-                                        <TableCell>
-                                            <Stack direction="row" spacing={1}>
-                                                {thumb && (
-                                                    <Box
-                                                        component="img"
-                                                        src={thumb}
-                                                        alt={name}
-                                                        sx={{
-                                                            width: 40,
-                                                            height: 40,
-                                                            borderRadius: 1,
-                                                            objectFit:
-                                                                "cover",
-                                                        }}
-                                                    />
-                                                )}
-                                                <Typography variant="body2">
-                                                    {name}
-                                                </Typography>
-                                            </Stack>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Typography
-                                                variant="body2"
-                                                color="text.secondary"
-                                            >
-                                                {[
-                                                    colorName &&
-                                                        `Color: ${colorName}`,
-                                                    sizeName &&
-                                                        `Size: ${sizeName}`,
-                                                ]
-                                                    .filter(Boolean)
-                                                    .join(" • ") || "—"}
-                                            </Typography>
-                                        </TableCell>
-                                        <TableCell align="right">
-                                            {qty}
-                                        </TableCell>
-                                        <TableCell align="right">
-                                            {formatCurrency(price)}
-                                        </TableCell>
-                                        <TableCell align="right">
-                                            {formatCurrency(lineTotal)}
-                                        </TableCell>
-                                    </TableRow>
-                                );
-                            })}
-                        </TableBody>
-                    </Table>
+      // ✅ giá gốc để gạch ngang (nếu có)
+      const originalUnit =
+        it.original_price ??
+        it.original ??
+        null;
+
+      const lineTotal =
+        it.total ??
+        (finalUnit && qty ? Number(finalUnit) * Number(qty) : null);
+
+      const originalLineTotal =
+        originalUnit && qty ? Number(originalUnit) * Number(qty) : null;
+
+      const thumb =
+        it.product_detail?.image ??
+        product.image ??
+        product.thumbnail ??
+        it.image_url ??
+        null;
+
+      return (
+        <TableRow key={it.id ?? idx}>
+          <TableCell>
+            <Stack direction="row" spacing={1}>
+              {thumb && (
+                <Box
+                  component="img"
+                  src={thumb}
+                  alt={name}
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 1,
+                    objectFit: "cover",
+                  }}
+                />
+              )}
+              <Typography variant="body2">{name}</Typography>
+            </Stack>
+          </TableCell>
+
+          <TableCell>
+            <Typography variant="body2" color="text.secondary">
+              {[
+                colorName && `Color: ${colorName}`,
+                sizeName && `Size: ${sizeName}`,
+              ]
+                .filter(Boolean)
+                .join(" • ") || "—"}
+            </Typography>
+          </TableCell>
+
+          <TableCell align="right">{qty}</TableCell>
+
+          {/* ✅ Price: show original (line-through) + final */}
+          <TableCell align="right">
+            {originalUnit != null && Number(originalUnit) !== Number(finalUnit) ? (
+              <>
+                <Typography sx={{ fontSize: 12, textDecoration: "line-through", color: "#999" }}>
+                  {formatCurrency(originalUnit)}
+                </Typography>
+                <Typography sx={{ fontWeight: 700 }}>
+                  {formatCurrency(finalUnit)}
+                </Typography>
+              </>
+            ) : (
+              <Typography sx={{ fontWeight: 700 }}>
+                {formatCurrency(finalUnit)}
+              </Typography>
+            )}
+          </TableCell>
+
+          {/* ✅ Total: show original total + discounted total */}
+          <TableCell align="right">
+            {originalLineTotal != null && originalLineTotal !== lineTotal ? (
+              <>
+                <Typography sx={{ fontSize: 12, textDecoration: "line-through", color: "#999" }}>
+                  {formatCurrency(originalLineTotal)}
+                </Typography>
+                <Typography sx={{ fontWeight: 700 }}>
+                  {formatCurrency(lineTotal)}
+                </Typography>
+              </>
+            ) : (
+              <Typography sx={{ fontWeight: 700 }}>
+                {formatCurrency(lineTotal)}
+              </Typography>
+            )}
+          </TableCell>
+        </TableRow>
+      );
+    })}
+  </TableBody>
+</Table>
+
                 )}
             </DialogContent>
             <DialogActions>

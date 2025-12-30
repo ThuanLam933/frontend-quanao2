@@ -333,18 +333,6 @@ export default function SizesPage({ setSnack }) {
                                         <Stack direction="row" justifyContent="flex-end" spacing={0.5}>
                                             <IconButton
                                                 size="small"
-                                                onClick={() =>
-                                                    window.open(
-                                                        `/collections?size=${s.slug}`,
-                                                        "_blank"
-                                                    )
-                                                }
-                                            >
-                                                <VisibilityIcon fontSize="small" />
-                                            </IconButton>
-
-                                            <IconButton
-                                                size="small"
                                                 onClick={() => onEdit(s)}
                                             >
                                                 <EditIcon fontSize="small" />
