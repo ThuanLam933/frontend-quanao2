@@ -391,6 +391,45 @@ function OrderDetailDialog({ sel, onClose }) {
 
     const statusColor =
         STATUS_COLOR[(sel?.status || "").toLowerCase()] || "default";
+    // --- DISCOUNT FIELDS (fallback nhiều kiểu backend) ---
+const discountCode =
+  sel?.discount_code ??
+  sel?.coupon_code ??
+  sel?.discount?.code ??
+  sel?.voucher_code ??
+  null;
+
+const discountAmount = Number(
+  sel?.amount_discount ??
+  sel?.discount_amount ??
+  sel?.discount_value ??
+  0
+) || 0;
+
+// subtotal (tổng trước discount đơn hàng): ưu tiên lấy từ API, nếu không có thì tính từ items
+const calcItemsSubtotal = (itemsArr) =>
+  (itemsArr || []).reduce((sum, it) => {
+    const qty = Number(it.quantity ?? it.qty ?? it.qty_order ?? 1) || 1;
+
+    // giá dòng hàng (ưu tiên final/unit)
+    const unit =
+      Number(it.final_price ?? it.unit_price ?? it.price ?? 0) || 0;
+
+    return sum + unit * qty;
+  }, 0);
+
+const subtotal =
+  Number(sel?.subtotal ?? sel?.total_before_discount ?? 0) ||
+  calcItemsSubtotal(items);
+
+// total sau discount: ưu tiên lấy từ API, nếu không có thì tự tính = subtotal - discountAmount
+const totalAfterDiscount =
+  Number(
+    sel?.total_after_discount ??
+    sel?.totalAfterDiscount ??
+    sel?.total_discounted ??
+    0
+  ) || Math.max(0, subtotal - discountAmount);
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
@@ -445,17 +484,25 @@ function OrderDetailDialog({ sel, onClose }) {
                             </Typography>
                         )}
                         <Typography variant="body2" sx={{ mt: 1 }}>
-                            Total price:{" "}
-                            <strong>
-  {formatCurrency(
-    sel?.total_after_discount ??
-    sel?.totalAfterDiscount ??
-    sel?.total_discounted ??
-    sel?.total_price
-  )}
-</strong>
+  Subtotal: <strong>{formatCurrency(subtotal)}</strong>
+</Typography>
 
-                        </Typography>
+{discountCode && (
+  <Typography variant="body2">
+    Discount code: <strong>{discountCode}</strong>
+  </Typography>
+)}
+
+{discountAmount > 0 && (
+  <Typography variant="body2">
+    Discount: <strong>-{formatCurrency(discountAmount)}</strong>
+  </Typography>
+)}
+
+<Typography variant="body2" sx={{ mt: 0.5 }}>
+  Total after discount: <strong>{formatCurrency(totalAfterDiscount)}</strong>
+</Typography>
+
                     </Grid>
                 </Grid>
 

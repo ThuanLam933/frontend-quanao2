@@ -11,6 +11,10 @@ import {
   Pagination,
   Snackbar,
   Alert,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
   Card,
   CardMedia,
   CardContent,
@@ -69,7 +73,7 @@ export default function HomePage() {
 
   // category đang chọn (id), null = tất cả
   const [selectedCategory, setSelectedCategory] = useState(null);
-
+  const[sortBy, setSortBy]= useState("default");
   // mỗi lần query đổi thì reset về trang 1
   useEffect(() => {
     setPage(1);
@@ -255,49 +259,44 @@ export default function HomePage() {
         img: "/images/quanxanh3.jpg",
         categoryId: null,
       },
-      {
-        id: "c2",
-        title: "T-SHIRT",
-        img: "/images/quanxanh2.jpg",
-        categoryId: null,
-      },
-      {
-        id: "c3",
-        title: "JEANS",
-        img: "/images/quanxanh2.jpg",
-        categoryId: null,
-      },
-      {
-        id: "c4",
-        title: "SHORTS",
-        img: "/images/quanxanh3.jpg",
-        categoryId: null,
-      },
+      
     ];
   }, [categories]);
 
   // ---------- Filter + pagination ----------
   const filtered = useMemo(() => {
-    let list = products.slice();
+  let list = products.slice();
 
-    if (selectedCategory != null) {
-      list = list.filter(
-        (p) => Number(p.categories_id) === Number(selectedCategory)
-      );
-    }
+  // filter theo category
+  if (selectedCategory != null) {
+    list = list.filter(
+      (p) => Number(p.categories_id) === Number(selectedCategory)
+    );
+  }
 
-    if (query) {
-      const q = query.toLowerCase();
-      list = list.filter(
-        (p) =>
-          p.name?.toLowerCase().includes(q) ||
-          p.description?.toLowerCase().includes(q) ||
-          p.slug?.toLowerCase().includes(q)
-      );
-    }
+  // filter theo search
+  if (query) {
+    const q = query.toLowerCase();
+    list = list.filter(
+      (p) =>
+        p.name?.toLowerCase().includes(q) ||
+        p.description?.toLowerCase().includes(q) ||
+        p.slug?.toLowerCase().includes(q)
+    );
+  }
 
-    return list;
-  }, [products, query, selectedCategory]);
+  // ✅ sort theo giá
+  const getPrice = (p) => Number(p.final_price ?? p.original_price ?? 0);
+
+  if (sortBy === "price_asc") {
+    list.sort((a, b) => getPrice(a) - getPrice(b));
+  } else if (sortBy === "price_desc") {
+    list.sort((a, b) => getPrice(b) - getPrice(a));
+  }
+
+  return list;
+}, [products, query, selectedCategory, sortBy]);
+
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPageProducts = useMemo(() => {
@@ -530,9 +529,71 @@ export default function HomePage() {
             }}
           >
             <Typography variant="h5" sx={{ fontWeight: 700 }}>
-              New Arrivals
+              Sản Phẩm Nổi Bật
             </Typography>
           </Box>
+          {/* ✅ Filter bar: Danh mục + Sắp xếp */}
+<Box
+  sx={{
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 2,
+    alignItems: "center",
+    mb: 3,
+  }}
+>
+  {/* Danh mục */}
+  <FormControl size="small" sx={{ minWidth: 220 }}>
+    <InputLabel>Danh mục</InputLabel>
+    <Select
+      label="Danh mục"
+      value={selectedCategory ?? "all"}
+      onChange={(e) => {
+        const val = e.target.value;
+        setSelectedCategory(val === "all" ? null : val);
+        setPage(1);
+      }}
+    >
+      <MenuItem value="all">Tất cả</MenuItem>
+      {(categories || []).map((c) => (
+        <MenuItem key={c.id} value={c.id}>
+          {c.name}
+        </MenuItem>
+      ))}
+    </Select>
+  </FormControl>
+
+  {/* Sort theo giá */}
+  <FormControl size="small" sx={{ minWidth: 220 }}>
+    <InputLabel>Sắp xếp</InputLabel>
+    <Select
+      label="Sắp xếp"
+      value={sortBy}
+      onChange={(e) => {
+        setSortBy(e.target.value);
+        setPage(1);
+      }}
+    >
+      <MenuItem value="default">Mặc định</MenuItem>
+      <MenuItem value="price_asc">Giá: Thấp → Cao</MenuItem>
+      <MenuItem value="price_desc">Giá: Cao → Thấp</MenuItem>
+    </Select>
+  </FormControl>
+
+  {/* Reset nhanh */}
+  <Button
+    variant="outlined"
+    sx={{ borderRadius: 0, borderColor: "#111", textTransform: "none" }}
+    onClick={() => {
+      setSelectedCategory(null);
+      setSortBy("default");
+      setPage(1);
+    }}
+  >
+    Xóa lọc
+  </Button>
+</Box>
+
 
           {loadingProducts ? (
             <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>

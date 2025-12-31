@@ -837,6 +837,72 @@ export default function AccountPage() {
                 </Box>
 
                 <Divider sx={{ my: 2 }} />
+                {/* ====== GIẢM GIÁ (HIỂN THỊ) ====== */}
+{(() => {
+  // Tổng tiền sản phẩm (tính từ items)
+  const itemsSubtotal = (orderDetail.items || []).reduce((s, it) => {
+    const price = Number(it.price || 0);
+    const qty = Number(it.quantity || 0);
+    return s + price * qty;
+  }, 0);
+
+  // Phí ship (nếu BE không trả thì = 0, bạn có thể đổi thành 30000 nếu hệ bạn luôn có ship)
+  const shipping = Number(
+    orderDetail.shipping ??
+      orderDetail.shipping_fee ??
+      orderDetail.totals?.shipping ??
+      0
+  );
+
+  // Tổng sau giảm (ưu tiên field BE; fallback sang total_price)
+  const totalAfterDiscount = Number(
+    orderDetail.total_after_discount ??
+      orderDetail.totals?.total_after_discount ??
+      orderDetail.total_price ??
+      0
+  );
+
+  // Mã giảm giá (nếu BE có trả)
+  const discountCode =
+    orderDetail.discount_code ??
+    orderDetail.discount?.code ??
+    orderDetail.voucher_code ??
+    null;
+
+  // Tiền giảm giá (nếu BE có trả thì lấy, không thì tự tính)
+  const computedDiscount = Math.max(
+    0,
+    itemsSubtotal + shipping - totalAfterDiscount
+  );
+
+  const discountAmount = Number(
+    orderDetail.discount_amount ??
+      orderDetail.discount?.amount_discount ??
+      computedDiscount
+  );
+
+  // Nếu không có giảm giá thì thôi khỏi hiện
+  if (!discountAmount || discountAmount <= 0) return null;
+
+  return (
+    <Box sx={{ mb: 2 }}>
+      <Typography sx={{ fontWeight: 700, textTransform: "uppercase", mb: 1 }}>
+        Ưu đãi
+      </Typography>
+
+      <Typography sx={{ mb: 0.5 }}>
+        <strong>Mã giảm giá:</strong> {discountCode || "—"}
+      </Typography>
+
+      <Typography sx={{ mb: 0.5 }}>
+        <strong>Số tiền giảm:</strong> -{" "}
+        {discountAmount.toLocaleString("vi-VN")}₫
+      </Typography>
+    </Box>
+  );
+})()}
+
+                
 
                 {/* Sản phẩm */}
                 <Typography

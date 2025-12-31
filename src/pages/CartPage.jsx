@@ -62,6 +62,21 @@ const [discount, setDiscount] = useState(null);
 // discount sẽ là data trả về từ API: { amount_discount, total_after_discount, discount: {...} }
 const [applyingDiscount, setApplyingDiscount] = useState(false);
 const DISCOUNT_KEY="cart_discount";
+// ✅ Hủy mã giảm giá khi giỏ hàng thay đổi
+const invalidateDiscount = (showMessage = false) => {
+  if (!discount) return;
+
+  setDiscount(null);
+  localStorage.removeItem(DISCOUNT_KEY);
+
+  if (showMessage) {
+    setSnack({
+      severity: "info",
+      message: "Giỏ hàng đã thay đổi nên mã giảm giá đã được hủy. Vui lòng áp dụng lại.",
+    });
+  }
+};
+
 
   // ----------------- HELPERS -----------------
   const normalizeLocalItem = (it) => {
@@ -297,6 +312,7 @@ const DISCOUNT_KEY="cart_discount";
 
   const updateCartItemVariant = (itemId, variant) => {
     setItems((prev) => {
+      invalidateDiscount(true);
       const idx = prev.findIndex((i) => i.id === itemId);
       if (idx === -1) return prev;
 
@@ -386,33 +402,43 @@ const DISCOUNT_KEY="cart_discount";
 
   // ----------------- LOCAL QTY ACTIONS -----------------
   const addQty = (id) => {
-    const next = items.map((i) =>
-      i.id === id ? { ...i, qty: (Number(i.qty) || 1) + 1 } : i
-    );
-    setItems(next);
-    saveAndBroadcast(next);
-  };
+  invalidateDiscount(true); // ✅ thêm dòng này
+
+  const next = items.map((i) =>
+    i.id === id ? { ...i, qty: (Number(i.qty) || 1) + 1 } : i
+  );
+  setItems(next);
+  saveAndBroadcast(next);
+};
+
 
   const subQty = (id) => {
-    const next = items.map((i) =>
-      i.id === id
-        ? { ...i, qty: Math.max(1, (Number(i.qty) || 1) - 1) }
-        : i
-    );
-    setItems(next);
-    saveAndBroadcast(next);
-  };
+  invalidateDiscount(true); // ✅ thêm dòng này
+
+  const next = items.map((i) =>
+    i.id === id
+      ? { ...i, qty: Math.max(1, (Number(i.qty) || 1) - 1) }
+      : i
+  );
+  setItems(next);
+  saveAndBroadcast(next);
+};
+
 
   const updateQty = (id, value) => {
-    const q = Math.max(1, Number(value || 1));
-    const next = items.map((i) =>
-      i.id === id ? { ...i, qty: q } : i
-    );
-    setItems(next);
-    saveAndBroadcast(next);
-  };
+  invalidateDiscount(true); // ✅ thêm dòng này
+
+  const q = Math.max(1, Number(value || 1));
+  const next = items.map((i) =>
+    i.id === id ? { ...i, qty: q } : i
+  );
+  setItems(next);
+  saveAndBroadcast(next);
+};
+
 
   const removeItem = (id) => {
+    invalidateDiscount(true);
   const next = items.filter((i) => i.id !== id);
   setItems(next);
   saveAndBroadcast(next);
@@ -508,6 +534,7 @@ const DISCOUNT_KEY="cart_discount";
     setSnack({ severity: "success", message: "Áp mã giảm giá thành công" });
   } catch (e) {
     setDiscount(null);
+    localStorage.removeItem(DISCOUNT_KEY);
     setSnack({ severity: "error", message: e.message || "Áp mã thất bại" });
   } finally {
     setApplyingDiscount(false);

@@ -53,15 +53,20 @@ export default function VnpayReturnPage() {
 
         // ✅ Gửi đúng payload như PaymentPage cũ (đừng thêm field lạ)
         const orderRes = await fetch(`${API_BASE}/api/orders`, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({
-            customer: draft.customer,
-            items: draft.items,
-            payment: draft.payment, // { method: "Banking" }
-            totals: draft.totals,
-          }),
-        });
+  method: "POST",
+  headers,
+  body: JSON.stringify({
+    customer: draft.customer,
+    items: draft.items,
+    payment: draft.payment, // { method: "Banking" }
+    totals: draft.totals,
+
+    // ✅ thêm 2 dòng này
+    discount_id: draft.discount_id ?? null,
+    discount: draft.discount ?? null,
+  }),
+});
+
 
         const body = await orderRes.json().catch(() => null);
 
@@ -74,7 +79,9 @@ export default function VnpayReturnPage() {
 
         setStatus("success");
         setMsg("Thanh toán thành công! Đang chuyển đến đơn hàng...");
-        navigate(`/order/${body.id}`);
+        const orderId = body?.order?.id ?? body?.id;
+navigate(`/order/${orderId}`);
+
       } catch (e) {
         setStatus("fail");
         setMsg(e.message || "Có lỗi khi tạo đơn sau thanh toán");
