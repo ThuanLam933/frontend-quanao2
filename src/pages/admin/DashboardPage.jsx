@@ -17,15 +17,7 @@ import {
 import { API_BASE } from "../AdminPanel";
 
 // Icons MUI
-import Inventory2Icon from "@mui/icons-material/Inventory2";
-import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
-import PeopleIcon from "@mui/icons-material/People";
-import CategoryIcon from "@mui/icons-material/Category";
-import PaletteIcon from "@mui/icons-material/Palette";
-import StraightenIcon from "@mui/icons-material/Straighten";
-import UndoIcon from "@mui/icons-material/Undo";
-import FactoryIcon from "@mui/icons-material/Factory";
-import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
+
 
 // Helper format tiền
 const formatCurrency = (v) =>
@@ -36,7 +28,7 @@ const formatCurrency = (v) =>
     }).format(v || 0);
 
 // Card thống kê
-function StatCard({ title, value, color, Icon }) {
+function StatCard({ title, value, color }) {
     return (
         <Paper
             elevation={2}
@@ -50,20 +42,7 @@ function StatCard({ title, value, color, Icon }) {
                 border: "1px solid rgba(0,0,0,0.04)",
             }}
         >
-            <Box
-                sx={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 2,
-                    bgcolor: `${color}14`,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: color,
-                }}
-            >
-                <Icon fontSize="medium" />
-            </Box>
+            
 
             <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography
@@ -110,7 +89,7 @@ export default function DashboardPage({ setSnack }) {
                 recRes,
             ] = await Promise.all([
                 fetch(`${API_BASE}/api/product-details`),
-                fetchWithAuth(`${API_BASE}/api/orders`),
+                fetchWithAuth(`${API_BASE}/api/orders-all`),
                 fetchWithAuth(`${API_BASE}/api/admin/users`),
                 fetch(`${API_BASE}/api/categories`),
                 fetch(`${API_BASE}/api/colors`),
@@ -171,101 +150,166 @@ export default function DashboardPage({ setSnack }) {
             const recCount = normalizeCount(rec);
 
             // ===== Doanh thu tháng này + top sản phẩm + data cho “chart” =====
-            const now = new Date();
-            const year = now.getFullYear();
-            const month = now.getMonth(); // 0-11
+            // ===== Doanh thu tháng này + top đơn hàng + top sản phẩm (theo màu/size) =====
+const now = new Date();
+const year = now.getFullYear();
+const month = now.getMonth(); // 0-11
 
-            let monthlyRevenue = 0;
-            const revenueByDay = {}; // {1: total, 2: total,...}
-            const productMap = {}; // {productName: {name, qty, revenue}}
+let monthlyRevenue = 0;
 
-            const parseDate = (val) => {
-                if (!val) return null;
-                const d = new Date(val);
-                return isNaN(d.getTime()) ? null : d;
-            };
+// Map userId -> name (dùng khi order không embed user)
+const userNameById = new Map(
+  (uArr || []).map((x) => [
+    x.id ?? x.user_id ?? x._id,
+    x.name ?? x.full_name ?? x.username ?? x.email ?? `User#${x.id}`,
+  ])
+);
 
-            const getOrderTotal = (order) =>
-                Number(
-                    order.total ??
-                        order.amount ??
-                        order.grand_total ??
-                        order.total_price ??
-                        0
-                );
+// Helpers
+const parseDate = (val) => {
+  if (!val) return null;
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? null : d;
+};
 
-            const getOrderItems = (order) =>
-                order.items ??
-                order.order_items ??
-                order.details ??
-                order.order_details ??
-                [];
+const getOrderTotal = (order) =>
+  Number(
+    order?.total_after_discount ??
+      order?.totalAfterDiscount ??
+      order?.total_discounted ??
+      order?.total_price ??
+      order?.total ??
+      order?.amount ??
+      order?.grand_total ??
+      0
+  ) || 0;
 
-            ordersArr.forEach((order) => {
-                const dateStr =
-                    order.created_at ??
-                    order.date ??
-                    order.order_date ??
-                    order.updated_at;
-                const d = parseDate(dateStr);
-                if (!d) return;
-                if (d.getFullYear() !== year || d.getMonth() !== month) return;
+const getOrderItems = (order) =>
+  order.items ??
+  order.order_items ??
+  order.details ??
+  order.order_details ??
+  [];
 
-                const total = getOrderTotal(order);
-                monthlyRevenue += total;
+const getCustomerName = (order) => {
+  // Ưu tiên các field phổ biến
+  const embedded =
+    order?.user?.name ??
+    order?.user?.full_name ??
+    order?.user?.username ??
+    order?.customer?.name ??
+    order?.customer_name ??
+    order?.shipping_name ??
+    order?.receiver_name;
 
-                const day = d.getDate();
-                revenueByDay[day] = (revenueByDay[day] || 0) + total;
+  if (embedded) return embedded;
 
-                const items = getOrderItems(order);
-                if (Array.isArray(items)) {
-                    items.forEach((item) => {
-                        const prod =
-                            item.product?.name ??
-                            item.product?.title ??
-                            item.product_name ??
-                            item.name ??
-                            item.title ??
-                            "Sản phẩm khác";
+  const uid = order?.user_id ?? order?.userId ?? order?.customer_id;
+  if (uid != null && userNameById.has(uid)) return userNameById.get(uid);
 
-                        const qty = Number(item.quantity ?? item.qty ?? 0);
-                        const price = Number(
-                            item.price ??
-                                item.unit_price ??
-                                item.sale_price ??
-                                0
-                        );
-                        const lineTotal = Number(
-                            item.total ??
-                                item.amount ??
-                                item.line_total ??
-                                qty * price
-                        );
+  return "Khách hàng";
+};
 
-                        if (!productMap[prod]) {
-                            productMap[prod] = {
-                                name: prod,
-                                quantity: 0,
-                                revenue: 0,
-                            };
-                        }
-                        productMap[prod].quantity += qty;
-                        productMap[prod].revenue += lineTotal;
-                    });
-                }
-            });
+const getOrderCode = (order) =>
+  order?.code ??
+  order?.order_code ??
+  order?.orderCode ??
+  order?.id ??
+  order?._id ??
+  "—";
 
-            const revenueChartData = Object.keys(revenueByDay)
-                .sort((a, b) => Number(a) - Number(b))
-                .map((day) => ({
-                    day: Number(day),
-                    revenue: revenueByDay[day],
-                }));
+// ===== TOP 5 đơn hàng giá cao nhất trong tháng =====
+const monthOrdersForTop = []; // { id, code, customerName, total, date }
 
-            const topProducts = Object.values(productMap)
-                .filter((p) => p.quantity > 0)
-                .sort((a, b) => b.quantity - a.quantity)
-                .slice(0, 5);
+// ===== TOP sản phẩm theo biến thể (tên + màu + size) trong tháng =====
+const productVariantMap = {}; // key -> { name, color, size, quantity, revenue }
+
+ordersArr.forEach((order) => {
+  const dateStr =
+    order.created_at ?? order.date ?? order.order_date ?? order.updated_at;
+  const d = parseDate(dateStr);
+  if (!d) return;
+
+  // Chỉ lấy dữ liệu TRONG THÁNG HIỆN TẠI
+  if (d.getFullYear() !== year || d.getMonth() !== month) return;
+
+  const total = getOrderTotal(order);
+  monthlyRevenue += total;
+
+  monthOrdersForTop.push({
+    id: order?.id ?? order?._id ?? `${getOrderCode(order)}-${d.getTime()}`,
+    code: getOrderCode(order),
+    customerName: getCustomerName(order),
+    total,
+    date: d,
+  });
+
+  const items = getOrderItems(order);
+  if (!Array.isArray(items)) return;
+
+  items.forEach((item) => {
+    const prodName =
+      item.product?.name ??
+      item.product?.title ??
+      item.product_name ??
+      item.name ??
+      item.title ??
+      item?.product_detail?.product?.name ?? "";
+
+    // Lấy màu/size từ nhiều cấu trúc khác nhau (tùy backend trả về)
+    const colorName =
+      item.color?.name ??
+      item.color_name ??
+      item?.product_detail?.color?.name ??
+      item?.productDetail?.color?.name ??
+      item?.product_detail?.color_name ??
+      "—";
+
+    const sizeName =
+      item.size?.name ??
+      item.size_name ??
+      item?.product_detail?.size?.name ??
+      item?.productDetail?.size?.name ??
+      item?.product_detail?.size_name ??
+      "—";
+
+    const qty = Number(item.quantity ?? item.qty ?? 0) || 0;
+    const price =
+      Number(item.price ?? item.unit_price ?? item.sale_price ?? 0) || 0;
+
+    const lineTotal =
+      Number(item.total ?? item.amount ?? item.line_total) ||
+      qty * price ||
+      0;
+
+    const key = `${prodName}__${colorName}__${sizeName}`;
+
+    if (!productVariantMap[key]) {
+      productVariantMap[key] = {
+        name: prodName,
+        color: colorName,
+        size: sizeName,
+        quantity: 0,
+        revenue: 0,
+      };
+    }
+
+    productVariantMap[key].quantity += qty;
+    productVariantMap[key].revenue += lineTotal;
+  });
+});
+
+// Top 5 orders (giá cao nhất)
+const topOrders = monthOrdersForTop
+  .sort((a, b) => b.total - a.total)
+  .slice(0, 5);
+
+// Top 5 sản phẩm (theo quantity)
+const topProducts = Object.values(productVariantMap)
+  .filter((p) => p.quantity > 0)
+  .sort((a, b) => b.quantity - a.quantity)
+  .slice(0, 5);
+
 
             setStats({
                 products: Array.isArray(p)
@@ -281,7 +325,7 @@ export default function DashboardPage({ setSnack }) {
                 inventoryLogs: invCount,
                 receipts: recCount,
                 monthlyRevenue,
-                revenueChartData,
+                topOrders,
                 topProducts,
             });
         } catch (err) {
@@ -304,67 +348,61 @@ export default function DashboardPage({ setSnack }) {
             key: "products",
             title: "Sản phẩm",
             color: "#FF6B6B",
-            Icon: Inventory2Icon,
+            
         },
         {
             key: "orders",
             title: "Đơn hàng",
             color: "#4ECDC4",
-            Icon: ShoppingCartIcon,
+            
         },
         {
             key: "users",
             title: "Người dùng",
             color: "#45B7D1",
-            Icon: PeopleIcon,
+            
         },
         {
             key: "categories",
             title: "Loại sản phẩm",
             color: "#96CEB4",
-            Icon: CategoryIcon,
+            
         },
         {
             key: "colors",
             title: "Màu sắc",
             color: "#FDCB6E",
-            Icon: PaletteIcon,
+            
         },
         {
             key: "sizes",
             title: "Kích cỡ",
             color: "#DDA0DD",
-            Icon: StraightenIcon,
+            
         },
         {
             key: "returns",
             title: "Phiếu trả hàng",
             color: "#FF7675",
-            Icon: UndoIcon,
+            
         },
         {
             key: "suppliers",
             title: "Nhà cung cấp",
             color: "#74B9FF",
-            Icon: FactoryIcon,
+            
         },
         {
             key: "receipts",
             title: "Phiếu nhập kho",
             color: "#A29BFE",
-            Icon: ReceiptLongIcon,
+            
         },
     ];
 
     const monthlyRevenue = stats?.monthlyRevenue || 0;
-    const revenueData = stats?.revenueChartData || [];
     const topProducts = stats?.topProducts || [];
-    const maxRevenue =
-        revenueData.reduce(
-            (max, item) => (item.revenue > max ? item.revenue : max),
-            0
-        ) || 1; // tránh chia 0
-
+    const topOrders = stats?.topOrders || [];
     return (
         <Box>
             {/* Header */}
@@ -386,7 +424,7 @@ export default function DashboardPage({ setSnack }) {
                         variant="h5"
                         sx={{ fontWeight: 700, mb: 0.5 }}
                     >
-                         Tổng Quan Dashboard
+                         Doanh thu
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                         Doanh thu, sản phẩm, đơn hàng và người dùng trong hệ
@@ -423,7 +461,7 @@ export default function DashboardPage({ setSnack }) {
                                             : "—"
                                     }
                                     color={color}
-                                    Icon={Icon}
+                                    
                                 />
                             </Grid>
                         ))}
@@ -432,271 +470,138 @@ export default function DashboardPage({ setSnack }) {
             </Paper>
 
             {/* Doanh thu + Top sản phẩm */}
-            <Grid container spacing={3} sx={{ mb: 3 }}>
-                {/* Doanh thu tháng này + mini chart */}
-                <Grid item xs={12} md={7}>
-                    <Paper
-                        elevation={1}
-                        sx={{ p: 3, borderRadius: 2, height: "100%" }}
-                    >
-                        <Stack
-                            direction="row"
-                            alignItems="center"
-                            justifyContent="space-between"
-                            sx={{ mb: 2 }}
-                        >
-                            <Box>
-                                <Typography
-                                    variant="subtitle1"
-                                    sx={{ fontWeight: 600 }}
-                                >
-                                    💰 Doanh thu tháng này
-                                </Typography>
-                                <Typography
-                                    variant="body2"
-                                    color="text.secondary"
-                                >
-                                    Tổng doanh thu của các đơn hàng trong tháng
-                                    hiện tại.
-                                </Typography>
-                            </Box>
-                            <Typography
-                                variant="h5"
-                                sx={{ fontWeight: 700, color: "#2E86DE" }}
-                            >
-                                {formatCurrency(monthlyRevenue)}
-                            </Typography>
-                        </Stack>
+            {/* Doanh thu + Top sản phẩm */}
+<Grid container spacing={3} sx={{ mb: 3 }}>
+  {/* Doanh thu tháng này + Top 5 đơn hàng */}
+  <Grid item xs={12} md={7}>
+    <Paper elevation={1} sx={{ p: 3, borderRadius: 2, height: "100%" }}>
+      <Stack
+        direction="row"
+        alignItems="center"
+        justifyContent="space-between"
+        sx={{ mb: 2 }}
+      >
+        <Box>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+            Doanh thu tháng này
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Tổng doanh thu của các đơn hàng trong tháng hiện tại.
+          </Typography>
+        </Box>
 
-                        {revenueData.length ? (
-                            <Box sx={{ mt: 2 }}>
-                                <Box
-                                    sx={{
-                                        height: 220,
-                                        display: "flex",
-                                        alignItems: "flex-end",
-                                        gap: 0.75,
-                                        px: 1,
-                                        borderRadius: 2,
-                                        bgcolor: "#f8fafc",
-                                        border:
-                                            "1px solid rgba(148, 163, 184, 0.3)",
-                                    }}
-                                >
-                                    {revenueData.map((item) => {
-                                        const percent =
-                                            (item.revenue / maxRevenue) * 100;
+        <Typography variant="h5" sx={{ fontWeight: 700, color: "#2E86DE" }}>
+          {formatCurrency(monthlyRevenue)}
+        </Typography>
+      </Stack>
 
-                                        return (
-                                            <Box
-                                                key={item.day}
-                                                sx={{
-                                                    flex: 1,
-                                                    display: "flex",
-                                                    flexDirection: "column",
-                                                    alignItems: "center",
-                                                    justifyContent:
-                                                        "flex-end",
-                                                    gap: 0.5,
-                                                }}
-                                            >
-                                                <Box
-                                                    sx={{
-                                                        width: "70%",
-                                                        borderRadius: 999,
-                                                        bgcolor: "#2E86DE",
-                                                        height: `${percent || 4}%`, // có ít vẫn có bar nhỏ
-                                                        transition:
-                                                            "height 0.3s ease",
-                                                    }}
-                                                />
-                                                <Typography
-                                                    variant="caption"
-                                                    sx={{ fontSize: 10 }}
-                                                >
-                                                    {item.day}
-                                                </Typography>
-                                            </Box>
-                                        );
-                                    })}
-                                </Box>
-                                <Typography
-                                    variant="caption"
-                                    color="text.secondary"
-                                    sx={{ mt: 1, display: "block" }}
-                                >
-                                    Biểu đồ thể hiện doanh thu theo từng ngày
-                                    trong tháng hiện tại (đơn vị: VND).
-                                </Typography>
-                            </Box>
-                        ) : (
-                            <Box
-                                sx={{
-                                    mt: 3,
-                                    textAlign: "center",
-                                    color: "text.secondary",
-                                }}
-                            >
-                                Chưa có dữ liệu doanh thu cho tháng này.
-                            </Box>
-                        )}
-                    </Paper>
-                </Grid>
+      <Divider sx={{ my: 2 }} />
 
-                {/* Top sản phẩm bán chạy */}
-                <Grid item xs={12} md={5}>
-                    <Paper
-                        elevation={1}
-                        sx={{ p: 3, borderRadius: 2, height: "100%" }}
-                    >
-                        <Typography
-                            variant="subtitle1"
-                            sx={{ fontWeight: 600, mb: 1 }}
-                        >
-                            🏆 Top sản phẩm bán chạy
-                        </Typography>
-                        <Typography
-                            variant="body2"
-                            color="text.secondary"
-                            sx={{ mb: 2 }}
-                        >
-                            Dựa trên số lượng bán ra trong các đơn hàng tháng
-                            này.
-                        </Typography>
+      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+        Top 5 đơn hàng giá trị cao nhất (tháng này)
+      </Typography>
 
-                        {topProducts.length ? (
-                            <List dense>
-                                {topProducts.map((prod, idx) => (
-                                    <ListItem
-                                        key={prod.name + idx}
-                                        sx={{
-                                            borderRadius: 1,
-                                            mb: 0.5,
-                                            "&:last-child": { mb: 0 },
-                                            border:
-                                                "1px solid rgba(0,0,0,0.04)",
-                                        }}
-                                    >
-                                        <ListItemAvatar>
-                                            <Avatar
-                                                sx={{
-                                                    bgcolor: "#f5f6fa",
-                                                    color: "#2d3436",
-                                                    fontSize: 14,
-                                                }}
-                                            >
-                                                {idx + 1}
-                                            </Avatar>
-                                        </ListItemAvatar>
-                                        <ListItemText
-                                            primary={prod.name}
-                                            secondary={`Số lượng: ${
-                                                prod.quantity
-                                            } • Doanh thu: ${formatCurrency(
-                                                prod.revenue
-                                            )}`}
-                                            primaryTypographyProps={{
-                                                sx: {
-                                                    fontSize: 14,
-                                                    fontWeight:
-                                                        idx === 0 ? 600 : 500,
-                                                },
-                                            }}
-                                            secondaryTypographyProps={{
-                                                sx: { fontSize: 12 },
-                                            }}
-                                        />
-                                    </ListItem>
-                                ))}
-                            </List>
-                        ) : (
-                            <Box
-                                sx={{
-                                    mt: 2,
-                                    textAlign: "center",
-                                    color: "text.secondary",
-                                }}
-                            >
-                                Chưa có dữ liệu top sản phẩm cho tháng này.
-                            </Box>
-                        )}
-                    </Paper>
-                </Grid>
-            </Grid>
+      {topOrders.length ? (
+        <List dense>
+          {topOrders.map((o, idx) => (
+            <ListItem
+              key={o.id}
+              sx={{
+                borderRadius: 1,
+                mb: 0.5,
+                border: "1px solid rgba(0,0,0,0.04)",
+                "&:last-child": { mb: 0 },
+              }}
+              secondaryAction={
+                <Typography sx={{ fontWeight: 700 }}>
+                  {formatCurrency(o.total)}
+                </Typography>
+              }
+            >
+              <ListItemAvatar>
+                <Avatar
+                  sx={{
+                    bgcolor: "#f5f6fa",
+                    color: "#2d3436",
+                    fontSize: 14,
+                  }}
+                >
+                  {idx + 1}
+                </Avatar>
+              </ListItemAvatar>
 
-            {/* Thông tin & gợi ý (giữ phần cũ) */}
-            <Grid container spacing={3}>
-                <Grid item xs={12} md={7}>
-                    <Paper
-                        elevation={1}
-                        sx={{ p: 3, borderRadius: 2, height: "100%" }}
-                    >
-                        <Typography
-                            variant="subtitle1"
-                            sx={{ fontWeight: 600, mb: 1 }}
-                        >
-                            ℹ️ Thông tin
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                            Bảng điều khiển này hiển thị tóm tắt số lượng:
-                            <b> Sản phẩm, Đơn hàng, Người dùng, Loại, Màu, Kích
-                            cỡ, Phiếu trả, Nhà cung cấp</b> và
-                            <b> Phiếu nhập kho</b>. Bạn có thể truy cập từng
-                            mục ở menu bên trái để xem chi tiết và quản lý dữ
-                            liệu. Đây là điểm xuất phát nhanh để nắm tình hình
-                            tổng quan hệ thống.
-                        </Typography>
-                    </Paper>
-                </Grid>
+              <ListItemText
+                primary={o.customerName}
+                secondary={o.date ? o.date.toLocaleDateString("vi-VN") : ""}
+                primaryTypographyProps={{
+                  sx: { fontSize: 14, fontWeight: idx === 0 ? 700 : 600 },
+                }}
+                secondaryTypographyProps={{ sx: { fontSize: 12 } }}
+              />
+            </ListItem>
+          ))}
+        </List>
+      ) : (
+        <Box sx={{ mt: 1, textAlign: "center", color: "text.secondary" }}>
+          Chưa có dữ liệu đơn hàng trong tháng này.
+        </Box>
+      )}
+    </Paper>
+  </Grid>
 
-                <Grid item xs={12} md={5}>
-                    <Paper
-                        elevation={1}
-                        sx={{ p: 3, borderRadius: 2, height: "100%" }}
-                    >
-                        <Typography
-                            variant="subtitle1"
-                            sx={{ fontWeight: 600, mb: 1 }}
-                        >
-                            ✅ Gợi ý sử dụng Dashboard
-                        </Typography>
-                        <Stack spacing={1.2}>
-                            <Typography
-                                variant="body2"
-                                color="text.secondary"
-                            >
-                                • Nếu số <b>đơn hàng</b> tăng mạnh nhưng{" "}
-                                <b>phiếu nhập kho</b> ít, hãy kiểm tra lại tồn
-                                kho để tránh hết hàng.
-                            </Typography>
-                            <Typography
-                                variant="body2"
-                                color="text.secondary"
-                            >
-                                • Số <b>phiếu trả hàng</b> cao có thể là dấu
-                                hiệu sản phẩm lỗi hoặc mô tả chưa rõ ràng.
-                            </Typography>
-                            <Typography
-                                variant="body2"
-                                color="text.secondary"
-                            >
-                                • Thường xuyên kiểm tra <b>loại, màu, kích
-                                cỡ</b> để đảm bảo danh mục luôn gọn gàng, không
-                                trùng lặp.
-                            </Typography>
-                        </Stack>
-                        <Divider sx={{ my: 2 }} />
-                        <Typography
-                            variant="caption"
-                            color="text.disabled"
-                        >
-                            Sau này bạn có thể thêm các thống kê chi tiết hơn
-                            (doanh thu theo tuần, theo kênh bán hàng, v.v.)
-                            ngay tại Dashboard này.
-                        </Typography>
-                    </Paper>
-                </Grid>
-            </Grid>
+  {/* Top sản phẩm bán chạy (theo màu/size) */}
+  <Grid item xs={12} md={5}>
+    <Paper elevation={1} sx={{ p: 3, borderRadius: 2, height: "100%" }}>
+      <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
+        Top sản phẩm bán chạy
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        Dựa trên số lượng bán ra trong các đơn hàng tháng này.
+      </Typography>
+
+      {topProducts.length ? (
+        <List dense>
+          {topProducts.map((prod, idx) => (
+            <ListItem
+              key={`${prod.name}-${prod.color}-${prod.size}-${idx}`}
+              sx={{
+                borderRadius: 1,
+                mb: 0.5,
+                border: "1px solid rgba(0,0,0,0.04)",
+                "&:last-child": { mb: 0 },
+              }}
+            >
+              <ListItemAvatar>
+                <Avatar
+                  sx={{ bgcolor: "#f5f6fa", color: "#2d3436", fontSize: 14 }}
+                >
+                  {idx + 1}
+                </Avatar>
+              </ListItemAvatar>
+
+              <ListItemText
+                primary={prod.name}
+                secondary={`Màu: ${prod.color} • Size: ${prod.size} • Lượt bán: ${prod.quantity} • Doanh thu: ${formatCurrency(prod.revenue)}`}
+                primaryTypographyProps={{
+                  sx: { fontSize: 14, fontWeight: idx === 0 ? 700 : 600 },
+                }}
+                secondaryTypographyProps={{ sx: { fontSize: 12 } }}
+              />
+            </ListItem>
+          ))}
+        </List>
+      ) : (
+        <Box sx={{ mt: 2, textAlign: "center", color: "text.secondary" }}>
+          Chưa có dữ liệu top sản phẩm cho tháng này.
+        </Box>
+      )}
+    </Paper>
+  </Grid>
+</Grid>
+
+
+
+            
         </Box>
     );
 }

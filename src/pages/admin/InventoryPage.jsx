@@ -32,22 +32,29 @@ const API_BASE = "http://127.0.0.1:8000";
 // mapping màu theo type
 const TYPE_COLOR = {
     receipt: "success",
-    sale: "error",
+    
     adjustment: "warning",
     revert_receipt: "info",
-    import: "secondary",
+    
     order: "primary",
     other: "default"
+};
+const TYPE_LABEL = {
+  receipt: "Nhập kho",
+  order: "Đơn hàng",
+  adjustment: "Điều chỉnh",
+  revert_receipt: "Hoàn tác phiếu nhập",
+  other: "Khác",
 };
 
 const TYPE_OPTIONS = [
     { value: "", label: "Tất cả" },
-    { value: "receipt", label: "Receipt (nhập kho)" },
-    { value: "sale", label: "Sale (bán ra)" },
-    { value: "adjustment", label: "Adjustment (điều chỉnh)" },
-    { value: "revert_receipt", label: "Revert receipt" },
-    { value: "import", label: "Import" },
-    { value: "order", label: "Order" },
+    { value: "receipt", label: "Nhập Kho" },
+    
+    { value: "adjustment", label: "Điều chỉnh trực tiếp" },
+    { value: "revert_receipt", label: "Hoàn tác phiếu nhập" },
+    
+    { value: "order", label: "Đơn hàng bán ra" },
     { value: "other", label: "Khác" }
 ];
 
@@ -213,7 +220,7 @@ export default function InventoryPage({ setSnack }) {
                         startIcon={<AddIcon />}
                         onClick={() => setAdjustOpen(true)}
                     >
-                        Create adjust
+                        Điều chỉnh tồn kho
                     </Button>
                 </Stack>
             </Stack>
@@ -238,7 +245,7 @@ export default function InventoryPage({ setSnack }) {
 
                     <TextField
                         size="small"
-                        label="Product detail ID"
+                        label="Mã chi tiết sản phẩm"
                         sx={{ minWidth: 180 }}
                         value={filters.productDetailId}
                         onChange={(e) => handleFilterChange("productDetailId", e.target.value)}
@@ -360,7 +367,7 @@ export default function InventoryPage({ setSnack }) {
                                     <TableCell>
                                         <Chip
                                             size="small"
-                                            label={row.type || "-"}
+                                            label={TYPE_LABEL[row.type] || "-"}
                                             color={TYPE_COLOR[row.type] || "default"}
                                         />
                                     </TableCell>

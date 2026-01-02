@@ -75,6 +75,63 @@ export default function PaymentPage() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
+  function sanitizePhone(value) {
+  if (!value) return "";
+  return String(value).replace(/\D/g, "").slice(0, 10);
+}
+  useEffect(() => {
+    // 1) đọc user từ localStorage
+    let storedUser = null;
+    try {
+      const raw = localStorage.getItem("user");
+      storedUser = raw ? JSON.parse(raw) : null;
+    } catch {}
+
+    // 2) đọc addresses từ localStorage (giống AccountPage)
+    let storedAddresses = [];
+    try {
+      storedAddresses = JSON.parse(localStorage.getItem("addresses") || "[]");
+    } catch {}
+
+    const defaultAddr =
+      storedAddresses.find((a) => a?.is_default) || storedAddresses[0] || null;
+
+    // 3) prefill (chỉ fill nếu input đang rỗng để không ghi đè người dùng đang gõ)
+    if (storedUser) {
+      setName((prev) => prev || storedUser?.name || "");
+      setEmail((prev) => prev || storedUser?.email || "");
+      setPhone((prev) => prev || sanitizePhone(storedUser?.phone || defaultAddr?.phone || ""));
+      setAddress((prev) => prev || defaultAddr?.address || storedUser?.address || "");
+    } else if (defaultAddr) {
+      // nếu không có user nhưng có address (hiếm) thì vẫn fill address/phone
+      setPhone((prev) => prev || sanitizePhone(defaultAddr?.phone || ""));
+      setAddress((prev) => prev || defaultAddr?.address || "");
+    }
+
+    // 4) (khuyến nghị) nếu đã đăng nhập thì fetch /api/me để lấy dữ liệu mới nhất
+    //    -> tránh trường hợp localStorage "user" cũ
+    const token = localStorage.getItem("access_token");
+    if (!token) return;
+
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+
+        const me = await res.json();
+        localStorage.setItem("user", JSON.stringify(me));
+
+        setName((prev) => prev || me?.name || "");
+        setEmail((prev) => prev || me?.email || "");
+        setPhone((prev) => prev || sanitizePhone(me?.phone || ""));
+        // nếu BE có address trong /api/me thì tự fill luôn
+        setAddress((prev) => prev || me?.address || "");
+      } catch {}
+    })();
+  }, [API_BASE]);
+
 
   // PAYMENT
   const [paymentMethod, setPaymentMethod] = useState("cod");
@@ -101,7 +158,7 @@ export default function PaymentPage() {
   const validateForm = () => {
     if (!name.trim()) return "Vui lòng nhập họ tên người nhận.";
     if (!email || !/^\S+@\S+\.\S+$/.test(email)) return "Email không hợp lệ.";
-    if (!phone || phone.trim().length < 6) return "Số điện thoại không hợp lệ.";
+    if (!phone || phone.trim().length > 10) return "Số điện thoại không hợp lệ.";
     if (!address || address.trim().length < 6) return "Vui lòng nhập địa chỉ giao hàng.";
 
   
@@ -210,6 +267,10 @@ discount_id: discountId,
   }
 };
 
+function sanitizePhone(value) {
+  if (!value) return "";
+  return String(value).replace(/\D/g, "").slice(0, 10); // chỉ số + tối đa 10 ký tự
+}
 
 
 
@@ -266,7 +327,8 @@ discount_id: discountId,
                     label="Số điện thoại"
                     value={phone}
                     fullWidth
-                    onChange={(e) => setPhone(e.target.value)}
+                    onChange={(e) => setPhone(sanitizePhone(e.target.value))}
+                    inputProps={{ inputMode: "numeric", maxLength: 10 }}
                     InputProps={{ sx: { borderRadius: 0 } }}
                   />
                   <TextField

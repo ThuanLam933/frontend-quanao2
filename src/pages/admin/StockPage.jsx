@@ -62,7 +62,7 @@ export default function StockPage({ setSnack }) {
     });
 
     const [viewReceipt, setViewReceipt] = React.useState(null);
-
+    const [viewLoading, setViewLoading] = React.useState(false)
     const [search, setSearch] = React.useState("");
     const [page, setPage] = React.useState(1);
 
@@ -107,6 +107,33 @@ export default function StockPage({ setSnack }) {
             setLoading(false);
         }
     }, [setSnack]);
+    const openReceiptDetail = React.useCallback(
+        async (receiptId) => {
+            setViewLoading(true);
+            try {
+            const token = getStoredToken();
+            const res = await fetch(`${API_BASE}/api/admin/receipts/${receiptId}`, {
+                method: "GET",
+                headers: {
+                Accept: "application/json",
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+            });
+
+            if (!res.ok) throw new Error("fetch receipt detail failed");
+
+            const data = await res.json();
+            setViewReceipt(data);
+            } catch (err) {
+            console.error(err);
+            setSnack({ severity: "error", message: "Không tải được chi tiết phiếu nhập" });
+            } finally {
+            setViewLoading(false);
+            }
+        },
+        [setSnack]
+    );
+
 
     const fetchOptions = React.useCallback(async () => {
         setOptsLoading(true);
@@ -493,11 +520,9 @@ export default function StockPage({ setSnack }) {
             >
                 <Box>
                     <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                        Stock Entries (Receipts)
+                        Quản lý phiếu nhập kho và nhà cung cấp
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                        Quản lý phiếu nhập kho và nhà cung cấp.
-                    </Typography>
+                    
                 </Box>
                 <Stack direction="row" spacing={1}>
                     <Button
@@ -505,14 +530,14 @@ export default function StockPage({ setSnack }) {
                         startIcon={<LocalShippingIcon />}
                         onClick={openSupplierCreate}
                     >
-                        Tạo supplier
+                        Thêm nhà cung cấp
                     </Button>
                     <Button
                         variant="contained"
                         startIcon={<AddIcon />}
                         onClick={() => setOpenCreate(true)}
                     >
-                        Create receipt
+                        Tạo phiếu nhập kho
                     </Button>
                 </Stack>
             </Stack>
@@ -535,7 +560,7 @@ export default function StockPage({ setSnack }) {
                         <TextField
                             size="small"
                             fullWidth
-                            placeholder="Tìm theo ID hoặc tên supplier..."
+                            placeholder="Tìm theo ID hoặc tên nhà cung cấp"
                             value={search}
                             onChange={(e) => {
                                 setSearch(e.target.value);
@@ -574,9 +599,9 @@ export default function StockPage({ setSnack }) {
                                 <TableCell align="right" sx={{ width: 60 }}>
                                     #
                                 </TableCell>
-                                <TableCell>Supplier</TableCell>
-                                <TableCell>Import date</TableCell>
-                                <TableCell align="right">Total</TableCell>
+                                <TableCell>Nhà cung cấp</TableCell>
+                                <TableCell>Ngày nhập kho</TableCell>
+                                <TableCell align="right">Tổng tiền</TableCell>
                                 <TableCell
                                     align="right"
                                     sx={{ width: 130 }}
@@ -608,15 +633,12 @@ export default function StockPage({ setSnack }) {
                                                 "—"}
                                         </TableCell>
                                         <TableCell>
-                                            {e.import_date
-                                                ? new Date(
-                                                      e.import_date
-                                                  ).toLocaleString("vi-VN")
-                                                : e.created_at
-                                                ? new Date(
-                                                      e.created_at
-                                                  ).toLocaleString("vi-VN")
+                                            {e.created_at
+                                                ? new Date(e.created_at).toLocaleString("vi-VN")
+                                                : e.import_date
+                                                ? new Date(e.import_date).toLocaleDateString("vi-VN")
                                                 : "—"}
+
                                         </TableCell>
                                         <TableCell align="right">
                                             {e.total_price
@@ -633,13 +655,12 @@ export default function StockPage({ setSnack }) {
                                             >
                                                 <Tooltip title="Xem chi tiết">
                                                     <IconButton
-                                                        size="small"
-                                                        onClick={() =>
-                                                            setViewReceipt(e)
-                                                        }
-                                                    >
-                                                        <VisibilityIcon fontSize="small" />
-                                                    </IconButton>
+  size="small"
+  onClick={() => openReceiptDetail(e.id)}
+>
+  <VisibilityIcon fontSize="small" />
+</IconButton>
+
                                                 </Tooltip>
                                                 <Tooltip title="Xóa phiếu">
                                                     <IconButton
@@ -711,7 +732,7 @@ export default function StockPage({ setSnack }) {
                             <Stack spacing={2}>
                                 <TextField
                                     select
-                                    label="Supplier (bắt buộc)"
+                                    label="Nhà cung cấp"
                                     value={form.suppliers_id}
                                     onChange={(e) =>
                                         setForm({
@@ -722,7 +743,7 @@ export default function StockPage({ setSnack }) {
                                     helperText={
                                         optsLoading
                                             ? "Loading suppliers..."
-                                            : "Chọn supplier có sẵn. Nếu chưa có hãy bấm 'Tạo supplier'."
+                                            : "Chọn nhà cung cấp có sẵn. Nếu chưa có hãy bấm 'thêm nhà cung cấp'."
                                     }
                                     fullWidth
                                 >
@@ -734,21 +755,7 @@ export default function StockPage({ setSnack }) {
                                     ))}
                                 </TextField>
 
-                                <TextField
-                                    label="Ghi chú supplier (tuỳ chọn)"
-                                    placeholder="vd: supplier tạm thời..."
-                                    value={form.supplier_manual.name}
-                                    onChange={(e) =>
-                                        setForm({
-                                            ...form,
-                                            supplier_manual: {
-                                                ...form.supplier_manual,
-                                                name: e.target.value,
-                                            },
-                                        })
-                                    }
-                                    fullWidth
-                                />
+                                
                             </Stack>
                         </Paper>
 
@@ -1018,104 +1025,75 @@ export default function StockPage({ setSnack }) {
                     {viewReceipt ? `Receipt #${viewReceipt.id}` : "Receipt"}
                 </DialogTitle>
                 <DialogContent dividers>
-                    {viewReceipt && (
-                        <Box>
-                            <Typography variant="body2">
-                                Supplier:{" "}
-                                {viewReceipt.supplier?.name ??
-                                    viewReceipt.suppliers_id ??
-                                    "—"}
-                            </Typography>
-                            <Typography variant="body2">
-                                Import date:{" "}
-                                {viewReceipt.import_date
-                                    ? new Date(
-                                          viewReceipt.import_date
-                                      ).toLocaleString("vi-VN")
-                                    : viewReceipt.created_at
-                                    ? new Date(
-                                          viewReceipt.created_at
-                                      ).toLocaleString("vi-VN")
-                                    : "—"}
-                            </Typography>
+  {viewLoading ? (
+    <Box sx={{ py: 4, display: "flex", justifyContent: "center" }}>
+      <CircularProgress />
+    </Box>
+  ) : viewReceipt ? (
+    <Box>
+      <Typography variant="body2">
+        Supplier:{" "}
+        {viewReceipt.supplier?.name ?? viewReceipt.suppliers_id ?? "—"}
+      </Typography>
 
-                            <Box sx={{ mt: 2 }}>
-                                <TableContainer>
-                                    <Table size="small">
-                                        <TableHead>
-                                            <TableRow>
-                                                <TableCell>Product</TableCell>
-                                                <TableCell>Color</TableCell>
-                                                <TableCell>Size</TableCell>
-                                                <TableCell align="right">
-                                                    Qty
-                                                </TableCell>
-                                                <TableCell align="right">
-                                                    Purchase price
-                                                </TableCell>
-                                                <TableCell align="right">
-                                                    Subtotal
-                                                </TableCell>
-                                            </TableRow>
-                                        </TableHead>
-                                        <TableBody>
-                                            {(viewReceipt.details || []).map(
-                                                (d) => (
-                                                    <TableRow
-                                                        key={
-                                                            d.id ??
-                                                            `${d.product_detail_id}_${Math.random()}`
-                                                        }
-                                                    >
-                                                        <TableCell>
-                                                            {d.product_detail
-                                                                ?.product
-                                                                ?.name ??
-                                                                `#${d.product_detail_id}`}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {d.product_detail
-                                                                ?.color?.name ??
-                                                                "—"}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {d.product_detail
-                                                                ?.size?.name ??
-                                                                "—"}
-                                                        </TableCell>
-                                                        <TableCell align="right">
-                                                            {d.quantity}
-                                                        </TableCell>
-                                                        <TableCell align="right">
-                                                            {d.price
-                                                                ? formatCurrency(
-                                                                      d.price
-                                                                  )
-                                                                : "—"}
-                                                        </TableCell>
-                                                        <TableCell align="right">
-                                                            {d.subtotal
-                                                                ? formatCurrency(
-                                                                      d.subtotal
-                                                                  )
-                                                                : d.quantity &&
-                                                                  d.price
-                                                                ? formatCurrency(
-                                                                      d.quantity *
-                                                                          d.price
-                                                                  )
-                                                                : "—"}
-                                                        </TableCell>
-                                                    </TableRow>
-                                                )
-                                            )}
-                                        </TableBody>
-                                    </Table>
-                                </TableContainer>
-                            </Box>
-                        </Box>
-                    )}
-                </DialogContent>
+      <Typography variant="body2">
+        Import time:{" "}
+        {viewReceipt.created_at
+          ? new Date(viewReceipt.created_at).toLocaleString("vi-VN")
+          : viewReceipt.import_date
+          ? new Date(viewReceipt.import_date).toLocaleDateString("vi-VN")
+          : "—"}
+      </Typography>
+
+      <Box sx={{ mt: 2 }}>
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Product</TableCell>
+                <TableCell>Color</TableCell>
+                <TableCell>Size</TableCell>
+                <TableCell align="right">Qty</TableCell>
+                <TableCell align="right">Purchase price</TableCell>
+                <TableCell align="right">Subtotal</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {(viewReceipt.details || []).map((d) => {
+                // Ưu tiên lấy detail đầy đủ từ productDetails đã fetchOptions
+                const fullDetail = findDetail(d.product_detail_id) || d.productDetail;
+
+                return (
+                    <TableRow key={d.id ?? `${d.product_detail_id}_${Math.random()}`}>
+                    <TableCell>
+                        {fullDetail?.product?.name ?? `#${d.product_detail_id}`}
+                    </TableCell>
+                    <TableCell>{fullDetail?.color?.name ?? "—"}</TableCell>
+                    <TableCell>{fullDetail?.size?.name ?? "—"}</TableCell>
+
+                    <TableCell align="right">{d.quantity}</TableCell>
+                    <TableCell align="right">
+                        {d.price ? formatCurrency(d.price) : "—"}
+                    </TableCell>
+                    <TableCell align="right">
+                        {d.subtotal
+                        ? formatCurrency(d.subtotal)
+                        : d.quantity && d.price
+                        ? formatCurrency(d.quantity * d.price)
+                        : "—"}
+                    </TableCell>
+                    </TableRow>
+                );
+                })}
+
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Box>
+    </Box>
+  ) : null}
+</DialogContent>
+
                 <DialogActions>
                     <Button onClick={() => setViewReceipt(null)}>Close</Button>
                 </DialogActions>
@@ -1134,11 +1112,11 @@ export default function StockPage({ setSnack }) {
                     },
                 }}
             >
-                <DialogTitle>Create Supplier (Quick)</DialogTitle>
+                <DialogTitle>Thêm Nhà Cung Cấp</DialogTitle>
                 <DialogContent>
                     <Stack spacing={2} sx={{ mt: 1 }}>
                         <TextField
-                            label="Name"
+                            label="Tên nhà cung cấp"
                             fullWidth
                             value={supplierForm.name}
                             onChange={(e) =>
@@ -1149,7 +1127,7 @@ export default function StockPage({ setSnack }) {
                             }
                         />
                         <TextField
-                            label="Phone"
+                            label="Số điện thoại"
                             fullWidth
                             value={supplierForm.phone}
                             inputProps={{ maxLength: 10 }}
@@ -1184,7 +1162,7 @@ export default function StockPage({ setSnack }) {
                             }
                         />
                         <TextField
-                            label="Address"
+                            label="Địa chỉ"
                             fullWidth
                             value={supplierForm.address}
                             onChange={(e) =>
@@ -1194,25 +1172,19 @@ export default function StockPage({ setSnack }) {
                                 })
                             }
                         />
-                        <Typography
-                            variant="caption"
-                            color="text.secondary"
-                        >
-                            Supplier sẽ được tạo và tự động chọn cho form tạo
-                            phiếu.
-                        </Typography>
+                        
                     </Stack>
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setOpenSupplierModal(false)}>
-                        Cancel
+                        Hủy
                     </Button>
                     <Button
                         variant="contained"
                         onClick={handleCreateSupplier}
                         disabled={supplierCreating}
                     >
-                        {supplierCreating ? "Đang tạo..." : "Create supplier"}
+                        {supplierCreating ? "Đang tạo..." : "Tạo nhà cung cấp"}
                     </Button>
                 </DialogActions>
             </Dialog>

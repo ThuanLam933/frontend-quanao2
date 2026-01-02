@@ -92,7 +92,10 @@ export default function RegisterPage() {
       setLoading(false);
     }
   };
-
+function sanitizePhone(value) {
+  if (!value) return "";
+  return String(value).replace(/\D/g, "").slice(0, 10); // chỉ số + tối đa 10 ký tự
+}
   return (
     <ThemeProvider theme={theme}>
       <Box sx={{ minHeight: "100vh", background: "linear-gradient(135deg, #0d0d0d 40%, #1E3A5F 100%)", display: "flex", alignItems: "center", justifyContent: "center", p: 2 }}>
@@ -112,7 +115,7 @@ export default function RegisterPage() {
 
                   <TextField margin="normal" required fullWidth id="email" label="Email" variant="outlined" value={email} onChange={(e) => setEmail(e.target.value)} InputLabelProps={{ style: { color: "#90CAF9" } }} InputProps={{ style: { color: "white" } }} />
 
-                  <TextField margin="normal" fullWidth id="phone" label="Số điện thoại (tùy chọn)" variant="outlined" value={phone} onChange={(e) => setPhone(e.target.value)} InputLabelProps={{ style: { color: "#90CAF9" } }} InputProps={{ style: { color: "white" } }} />
+                  <TextField margin="normal" fullWidth id="phone" label="Số điện thoại (tùy chọn)" variant="outlined" value={phone} onChange={(e) => setPhone(sanitizePhone(e.target.value))}  inputProps={{ inputMode: "numeric", maxLength: 10 }} InputLabelProps={{ style: { color: "#90CAF9" } }} InputProps={{ style: { color: "white" } }} />
 
                   <TextField margin="normal" required fullWidth name="password" label="Mật khẩu" type="password" variant="outlined" value={password} onChange={(e) => setPassword(e.target.value)} InputLabelProps={{ style: { color: "#90CAF9" } }} InputProps={{ style: { color: "white" } }} />
 
@@ -127,8 +130,8 @@ export default function RegisterPage() {
                   </Button>
 
                   <Stack direction="row" justifyContent="space-between" sx={{ mt: 1 }}>
-                    <Link href="/login" variant="body2" sx={{ color: "#64B5F6" }}>Đã có tài khoản? Đăng nhập</Link>
-                    <Link href="/" variant="body2" sx={{ color: "#64B5F6" }}>Quay về trang chủ</Link>
+                    <Link href="/login" variant="body2" sx={{ color: "#64B5F6" }}>Đã có tài khoản</Link>
+                    {/* <Link href="/" variant="body2" sx={{ color: "#64B5F6" }}>Quay về trang chủ</Link> */}
                   </Stack>
                 </Stack>
               </Box>

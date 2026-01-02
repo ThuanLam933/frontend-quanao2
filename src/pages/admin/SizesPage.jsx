@@ -77,12 +77,12 @@ function SizeEditDialog({ open, onClose, item, onSave, slugify }) {
     return (
         <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
             <DialogTitle>
-                {form.id ? "Edit size" : "Create size"}
+                {form.id ? "Edit size" : "THêm kích cỡ sản phẩm"}
             </DialogTitle>
             <DialogContent>
                 <Stack spacing={2} sx={{ mt: 1 }}>
                     <TextField
-                        label="Name"
+                        label="Tên kích cỡ"
                         fullWidth
                         required
                         value={form.name}
@@ -93,14 +93,14 @@ function SizeEditDialog({ open, onClose, item, onSave, slugify }) {
                         fullWidth
                         value={form.slug}
                         onChange={(e) => onSlugChange(e.target.value)}
-                        helperText="Slug sẽ được tạo tự động, trừ khi bạn chỉnh tay."
+                        
                     />
                 </Stack>
             </DialogContent>
             <DialogActions>
                 <Button onClick={onClose} disabled={saving}>Cancel</Button>
                 <Button variant="contained" onClick={handleSave} disabled={saving}>
-                    {saving ? "Saving..." : "Save"}
+                    {saving ? "Saving..." : "Lưu"}
                 </Button>
             </DialogActions>
         </Dialog>
@@ -249,15 +249,13 @@ export default function SizesPage({ setSnack }) {
             >
                 <Box>
                     <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                        Sizes
+                        Quản lý kích cỡ sản phẩm
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                        Quản lý kích cỡ sản phẩm.
-                    </Typography>
+                    
                 </Box>
 
                 <Button variant="contained" startIcon={<AddIcon />} onClick={onCreate}>
-                    Create size
+                    Thêm kích cỡ
                 </Button>
             </Stack>
 
@@ -274,7 +272,7 @@ export default function SizesPage({ setSnack }) {
                         <TextField
                             size="small"
                             fullWidth
-                            placeholder="Tìm theo tên hoặc slug…"
+                            placeholder="Tìm kiếm"
                             value={search}
                             onChange={(e) => {
                                 setSearch(e.target.value);
@@ -312,7 +310,7 @@ export default function SizesPage({ setSnack }) {
                         <TableHead>
                             <TableRow>
                                 <TableCell align="right" sx={{ width: 60 }}>#</TableCell>
-                                <TableCell>Name</TableCell>
+                                <TableCell>Tên màu sản phẩm</TableCell>
                                 <TableCell align="right" sx={{ width: 160 }}>
                                     Actions
                                 </TableCell>

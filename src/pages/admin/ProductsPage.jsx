@@ -1,5 +1,5 @@
 // src/pages/admin/ProductsPage.jsx
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   Box,
   Button,
@@ -138,7 +138,8 @@ export default function ProductsPage({ setSnack }) {
         item.status === 1 || item.status === "1" || item.status === true ? 1 : 0,
       categories_id:
         item.categories_id ?? item.category_id ?? item.category?.id ?? "",
-      image_url: item.image_url ?? null,
+      image_url: item.image_url ?? item.image ?? item.thumbnail ?? null,
+
     });
     setEditOpen(true);
   };
@@ -149,7 +150,7 @@ export default function ProductsPage({ setSnack }) {
       description: "",
       status: 0,
       categories_id: "",
-      image_url: "",
+      image_url: null,
     });
     setEditOpen(true);
   };
@@ -204,15 +205,29 @@ export default function ProductsPage({ setSnack }) {
       delete payload.detail_status;
       delete payload.images; // đề phòng có field images trong obj
 
-      Object.keys(payload).forEach((k) => {
-        const v = payload[k];
-        if (v !== undefined && v !== null) fd.append(k, v);
-      });
+      const hasNewImage = !!(files && files.length > 0);
 
-      // Ảnh đại diện: chỉ lấy tấm đầu tiên trong files
-      if (files && files.length > 0) {
-        fd.append("image", files[0], files[0].name);
-      }
+// Có ảnh mới thì không gửi image_url (tránh backend bị “đè”)
+if (hasNewImage) {
+  delete payload.image_url;
+}
+
+// Append tất cả field còn lại
+Object.keys(payload).forEach((k) => {
+  const v = payload[k];
+  if (v === undefined || v === null) return;
+
+  // Tránh gửi image_url rỗng
+  if (k === "image_url" && String(v).trim() === "") return;
+
+  fd.append(k, v);
+});
+
+// Nếu có ảnh mới thì gửi file
+if (hasNewImage) {
+  fd.append("image", files[0], files[0].name);
+}
+
 
       const res = await fetch(endpoint, {
         method: "POST", // backend của bạn dùng POST cho cả create & update
@@ -381,7 +396,7 @@ export default function ProductsPage({ setSnack }) {
       {/* Header: title + search + buttons */}
       <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
         <Typography variant="h6" sx={{ whiteSpace: "nowrap" }}>
-          Products
+          Sản Phẩm
         </Typography>
 
         <Box sx={{ flex: 1 }}>
@@ -665,11 +680,13 @@ function ProductEditDialog({
   const [files, setFiles] = useState([]);
   const [previews, setPreviews] = useState([]);
   const [saving, setSaving] = useState(false);
+  const originalImageUrlRef = useRef("");
 
   useEffect(() => {
     setForm(item ? { ...item } : null);
     setFiles([]);
     setPreviews([]);
+    originalImageUrlRef.current = item?.image_url ?? item?.image ?? item?.thumbnail ?? "";
   }, [item]);
 
   useEffect(() => {
@@ -725,6 +742,14 @@ function ProductEditDialog({
 
       if (payload.description === undefined || payload.description === null)
         payload.description = "";
+      const hasNewImage = !!(files && files.length > 0);
+      if(!hasNewImage) {
+        if(!payload.image_url || String(payload.image_url).trim()==="") {
+          payload.image_url = originalImageUrlRef.current || payload.image_url || null;
+        }
+      }else{
+        delete payload.image_url;
+      }
 
       await onSave(payload, files);
     } finally {

@@ -78,12 +78,12 @@ function ColorEditDialog({ open, onClose, item, onSave, slugify }) {
     return (
         <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
             <DialogTitle>
-                {form.id ? "Edit color" : "Create color"}
+                {form.id ? "Edit color" : "Thêm màu sản phẩm"}
             </DialogTitle>
             <DialogContent>
                 <Stack spacing={2} sx={{ mt: 1 }}>
                     <TextField
-                        label="Name"
+                        label="Tên màu sản phẩm"
                         fullWidth
                         required
                         value={form.name || ""}
@@ -94,7 +94,7 @@ function ColorEditDialog({ open, onClose, item, onSave, slugify }) {
                         fullWidth
                         value={form.slug ?? ""}
                         onChange={(e) => onSlugChange(e.target.value)}
-                        helperText="Nếu muốn slug khác mặc định, chỉnh tay vào đây."
+                        
                     />
                 </Stack>
             </DialogContent>
@@ -107,7 +107,7 @@ function ColorEditDialog({ open, onClose, item, onSave, slugify }) {
                     onClick={handleSaveClick}
                     disabled={saving}
                 >
-                    {saving ? "Saving..." : "Save"}
+                    {saving ? "Saving..." : "Lưu"}
                 </Button>
             </DialogActions>
         </Dialog>
@@ -257,18 +257,16 @@ export default function ColorsPage({ setSnack }) {
             >
                 <Box>
                     <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                        Colors
+                        Quản lý màu sản phẩm
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                        Quản lý màu sản phẩm dùng trong bộ lọc & hiển thị.
-                    </Typography>
+                    
                 </Box>
                 <Button
                     variant="contained"
                     startIcon={<AddIcon />}
                     onClick={onCreate}
                 >
-                    Create color
+                    Thêm màu sản phẩm
                 </Button>
             </Stack>
 
@@ -290,7 +288,7 @@ export default function ColorsPage({ setSnack }) {
                         <TextField
                             size="small"
                             fullWidth
-                            placeholder="Tìm theo tên hoặc slug..."
+                            placeholder="Tìm kiểm"
                             value={search}
                             onChange={(e) => {
                                 setSearch(e.target.value);
@@ -332,7 +330,7 @@ export default function ColorsPage({ setSnack }) {
                                 >
                                     #
                                 </TableCell>
-                                <TableCell>Name</TableCell>
+                                <TableCell>Tên màu sản phẩm</TableCell>
                                 <TableCell
                                     align="right"
                                     sx={{ width: 160 }}

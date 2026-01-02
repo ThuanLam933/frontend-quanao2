@@ -100,6 +100,9 @@ export default function HomePage() {
   try {
     const results = await Promise.all(
       productList.map(async (p) => {
+        // ✅ ngưng bán thì khỏi gọi API variants
+        if (Number(p.status) !== 1) return [p.id, null];
+
         const res = await fetch(`${API_BASE}/api/product-details?product_id=${p.id}`);
         if (!res.ok) return [p.id, null];
 
@@ -110,8 +113,7 @@ export default function HomePage() {
           .filter((d) => (d.quantity ?? 0) > 0)
           .map((d) => {
             const original = Number(d.price) || 0;
-            const final =
-              d.has_discount && d.final_price ? Number(d.final_price) : original;
+            const final = d.has_discount && d.final_price ? Number(d.final_price) : original;
 
             return {
               variantId: d.id,
@@ -126,7 +128,6 @@ export default function HomePage() {
 
         if (!inStock.length) return [p.id, null];
 
-        // rẻ nhất theo final_price
         const cheapest = inStock.reduce((min, v) =>
           v.final_price < min.final_price ? v : min
         );
@@ -142,9 +143,12 @@ export default function HomePage() {
 
     setMinVariantMap(map);
 
-    // cập nhật lại products để UI render “Giá từ …” chuẩn
+    // ✅ update products chuẩn
     setProducts((prev) =>
       prev.map((p) => {
+        if (Number(p.status) !== 1) {
+          return { ...p, in_stock: false }; // ✅ ngưng bán coi như không mua
+        }
         const cheapest = map[p.id];
         if (!cheapest) return { ...p, in_stock: false };
         return {
@@ -161,6 +165,7 @@ export default function HomePage() {
     console.warn("fetchMinVariantsInStock error:", e);
   }
 }, []);
+
   const fetchProducts = useCallback(async () => {
     setLoadingProducts(true);
     setError(null);
@@ -206,6 +211,7 @@ export default function HomePage() {
           final_price: cheapest?.final_price ?? null,
           has_discount: cheapest?.has_discount ?? false,
           discount_percent: cheapest?.discount_percent ?? 0,
+          status: Number(p.status ?? 1),
           rating: typeof p.rating === "number" ? p.rating : 0,
           categories_id: p.categories_id ?? p.category_id ?? null,
           image_url:
@@ -326,6 +332,11 @@ export default function HomePage() {
       if (!res.ok) {
         throw new Error(`Fetch product details failed: ${res.status}`);
       }
+      if (Number(p.status) !== 1) {
+  setSnack({ severity: "warning", message: "Sản phẩm đã ngưng bán." });
+  return;
+}
+
 
       const data = await res.json();
       const variantsRaw = Array.isArray(data) ? data : [];
@@ -606,152 +617,155 @@ export default function HomePage() {
           ) : (
             <>
               <Grid container spacing={3}>
-                {currentPageProducts.length === 0 ? (
-                  <Grid item xs={12}>
-                    <Typography textAlign="center">
-                      Không tìm thấy sản phẩm.
-                    </Typography>
-                  </Grid>
-                ) : (
-                  currentPageProducts.map((p) => (
-                    <Grid item xs={12} sm={6} md={4} key={p.id}>
-                      <Card
-                        elevation={0}
-                        sx={{
-                          border: "1px solid #e0e0e0",
-                          boxShadow: "none",
-                          borderRadius: 0,
-                          transition: "0.25s ease",
-                          "&:hover": {
-                            transform: "translateY(-3px)",
-                          },
-                        }}
-                      >
-                        <CardMedia
-                          component="img"
-                          image={p.image_url || "/images/placeholder.jpg"}
-                          sx={{
-                            height: 320,
-                            objectFit: "cover",
-                            transition: "transform 0.35s ease",
-                            "&:hover": {
-                              transform: "scale(1.02)",
-                            },
-                          }}
-                        />
+  {currentPageProducts.length === 0 ? (
+    <Grid item xs={12}>
+      <Typography textAlign="center">Không tìm thấy sản phẩm.</Typography>
+    </Grid>
+  ) : (
+    currentPageProducts.map((p) => {
+      const isStopped = Number(p.status) !== 1;
 
-                        <CardContent sx={{ pt: 1.5, pb: 1.5 }}>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <Typography
-                              variant="subtitle1"
-                              sx={{
-                                fontWeight: 600,
-                                textTransform: "uppercase",
-                                letterSpacing: 0.5,
-                                fontSize: 14,
-                              }}
-                            >
-                              {p.name}
-                            </Typography>
+      return (
+        <Grid item xs={12} sm={6} md={4} key={p.id}>
+          <Card
+            elevation={0}
+            sx={{
+              border: "1px solid #e0e0e0",
+              boxShadow: "none",
+              borderRadius: 0,
+              transition: "0.25s ease",
+              "&:hover": { transform: "translateY(-3px)" },
+            }}
+          >
+            <CardMedia
+              component="img"
+              image={p.image_url || "/images/placeholder.jpg"}
+              sx={{
+                height: 320,
+                objectFit: "cover",
+                transition: "transform 0.35s ease",
+                "&:hover": { transform: "scale(1.02)" },
+              }}
+            />
 
-                            {p.has_discount && p.discount_percent > 0 && (
-                              <Box
-                                sx={{
-                                  fontSize: 14,
-                                  fontWeight: 700,
-                                  color: "#fff",
-                                  backgroundColor: "secondary.main",
-                                  px: 0.8,
-                                  py: 0.2,
-                                  borderRadius: "2px",
-                                  lineHeight: 1,
-                                }}
-                              >
-                                -{p.discount_percent}%
-                              </Box>
-                            )}
-                          </Box>
+            <CardContent sx={{ pt: 1.5, pb: 1.5 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <Typography
+                  variant="subtitle1"
+                  sx={{
+                    fontWeight: 600,
+                    textTransform: "uppercase",
+                    letterSpacing: 0.5,
+                    fontSize: 14,
+                  }}
+                >
+                  {p.name}
+                </Typography>
 
-                          <Typography variant="body2" sx={{ color: "#777", mt: 0.5 }}>
-                            {(p.rating ?? 0).toFixed(1)} ★
-                          </Typography>
-
-                          <Box sx={{ mt: 1 }}>
-                            {p.in_stock === false ? (
-                              <Typography sx={{ fontSize: 14, fontWeight: 700, color: "#999" }}>
-                                Hết hàng
-                              </Typography>
-                            ) : p.has_discount ? (
-                              <>
-                                <Typography
-                                  sx={{
-                                    fontSize: 20,
-                                    color: "#999",
-                                    textDecoration: "line-through",
-                                  }}
-                                >
-                                  {formatPrice(p.original_price)}
-                                </Typography>
-
-                                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                  <Typography
-                                    sx={{
-                                      fontSize: 16,
-                                      fontWeight: 700,
-                                      color: "secondary.main",
-                                    }}
-                                  >
-                                    {formatPrice(p.final_price)}
-                                  </Typography>
-                                </Box>
-                              </>
-                            ) : (
-                              <Typography sx={{ fontSize: 16, fontWeight: 700 }}>
-                                {formatPrice(p.final_price ?? p.original_price)}
-                              </Typography>
-                            )}
-                          </Box>
-                        </CardContent>
-
-                        <CardActions sx={{ px: 2, pb: 2, pt: 0 }}>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            sx={{
-                              borderRadius: 0,
-                              borderColor: "#111",
-                              textTransform: "none",
-                              fontSize: 13,
-                              px: 2.5,
-                            }}
-                            onClick={() => navigate(`/product/${p.id}`)}
-                          >
-                            Xem
-                          </Button>
-
-                          <Button
-                            size="small"
-                            variant="contained"
-                            sx={{
-                              bgcolor: "#111",
-                              color: "#fff",
-                              borderRadius: 0,
-                              textTransform: "none",
-                              fontSize: 13,
-                              px: 2.5,
-                              ml: 1,
-                              "&:hover": { bgcolor: "#000" },
-                            }}
-                            onClick={() => handleAddToCart(p)}
-                          >
-                            Thêm giỏ
-                          </Button>
-                        </CardActions>
-                      </Card>
-                    </Grid>
-                  ))
+                {p.has_discount && p.discount_percent > 0 && !isStopped && (
+                  <Box
+                    sx={{
+                      fontSize: 14,
+                      fontWeight: 700,
+                      color: "#fff",
+                      backgroundColor: "secondary.main",
+                      px: 0.8,
+                      py: 0.2,
+                      borderRadius: "2px",
+                      lineHeight: 1,
+                    }}
+                  >
+                    -{p.discount_percent}%
+                  </Box>
                 )}
-              </Grid>
+              </Box>
+
+              <Typography variant="body2" sx={{ color: "#777", mt: 0.5 }}>
+                {(p.rating ?? 0).toFixed(1)} ★
+              </Typography>
+
+              <Box sx={{ mt: 1 }}>
+                {isStopped ? (
+                  <Typography sx={{ fontSize: 14, fontWeight: 700, color: "#999" }}>
+                    Hết bán
+                  </Typography>
+                ) : p.in_stock === false ? (
+                  <Typography sx={{ fontSize: 14, fontWeight: 700, color: "#999" }}>
+                    Hết hàng
+                  </Typography>
+                ) : p.has_discount ? (
+                  <>
+                    <Typography
+                      sx={{
+                        fontSize: 20,
+                        color: "#999",
+                        textDecoration: "line-through",
+                      }}
+                    >
+                      {formatPrice(p.original_price)}
+                    </Typography>
+
+                    <Typography
+                      sx={{
+                        fontSize: 16,
+                        fontWeight: 700,
+                        color: "secondary.main",
+                      }}
+                    >
+                      {formatPrice(p.final_price)}
+                    </Typography>
+                  </>
+                ) : (
+                  <Typography sx={{ fontSize: 16, fontWeight: 700 }}>
+                    {formatPrice(p.final_price ?? p.original_price)}
+                  </Typography>
+                )}
+              </Box>
+            </CardContent>
+
+            <CardActions sx={{ px: 2, pb: 2, pt: 0 }}>
+              <Button
+                size="small"
+                variant="outlined"
+                sx={{
+                  borderRadius: 0,
+                  borderColor: "#111",
+                  textTransform: "none",
+                  fontSize: 13,
+                  px: 2.5,
+                }}
+                onClick={() => navigate(`/product/${p.id}`)}
+              >
+                Xem
+              </Button>
+
+              <Button
+                size="small"
+                variant="contained"
+                disabled={isStopped || p.in_stock === false}
+                sx={{
+                  bgcolor: "#111",
+                  color: "#fff",
+                  borderRadius: 0,
+                  textTransform: "none",
+                  fontSize: 13,
+                  px: 2.5,
+                  ml: 1,
+                  "&:hover": { bgcolor: "#000" },
+                  "&.Mui-disabled": { bgcolor: "#ccc", color: "#666" },
+                }}
+                onClick={() => handleAddToCart(p)}
+              >
+                Thêm giỏ
+              </Button>
+            </CardActions>
+          </Card>
+        </Grid>
+      );
+    })
+  )}
+</Grid>
+
 
               <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
                 <Pagination

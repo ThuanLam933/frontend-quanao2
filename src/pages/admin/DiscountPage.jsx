@@ -83,26 +83,34 @@ export default function DiscountPage({ setSnack }) {
 
   return (
     <Box>
-      <Typography variant="h5" sx={{ mb: 2 }}>
-        Quản lý mã giảm giá đơn hàng
-      </Typography>
+      <Stack
+  direction="row"
+  alignItems="center"
+  justifyContent="space-between"
+  sx={{ mb: 2 }}
+>
+  <Typography variant="h5" sx={{ mb: 0 }}>
+    Quản lý mã giảm giá đơn hàng
+  </Typography>
 
-      <Stack direction="row" spacing={1}>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => {
-            setEditing(null);
-            setDialogOpen(true);
-          }}
-        >
-          Thêm mã giảm
-        </Button>
+  <Stack direction="row" spacing={1} alignItems="center">
+    <Button
+      variant="contained"
+      startIcon={<AddIcon />}
+      onClick={() => {
+        setEditing(null);
+        setDialogOpen(true);
+      }}
+    >
+      Thêm mã giảm
+    </Button>
 
-        <Button variant="outlined" onClick={fetchDiscounts} disabled={loading}>
-          {loading ? "Đang tải..." : "Tải lại"}
-        </Button>
-      </Stack>
+    <Button variant="outlined" onClick={fetchDiscounts} disabled={loading}>
+      {loading ? "Đang tải..." : "Tải lại"}
+    </Button>
+  </Stack>
+</Stack>
+
 
       <Paper sx={{ mt: 3 }}>
         <TableContainer>

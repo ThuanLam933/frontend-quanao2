@@ -43,6 +43,16 @@ const STATUS_COLOR = {
 };
 
 const PAGE_SIZE = 12;
+const getOrderTotal = (x) =>
+  x?.total_after_discount ??
+  x?.totalAfterDiscount ??
+  x?.total_discounted ??
+  x?.total_price;
+
+const formatVND = (v) =>
+  v != null && v !== ""
+    ? Number(v).toLocaleString("vi-VN") + "₫"
+    : "—";
 
 export default function OrdersPage({ setSnack }) {
     const [orders, setOrders] = useState([]);
@@ -138,11 +148,9 @@ export default function OrdersPage({ setSnack }) {
             >
                 <Box>
                     <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                        Orders (Admin)
+                        Quản lý đơn hàng
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                        Quản lý các đơn hàng của khách trong hệ thống.
-                    </Typography>
+                    
                 </Box>
 
                 <Button
@@ -213,10 +221,10 @@ export default function OrdersPage({ setSnack }) {
                                     #
                                 </TableCell>
                                 <TableCell>User</TableCell>
-                                <TableCell>Customer Name</TableCell>
-                                <TableCell align="right">Total</TableCell>
-                                <TableCell>Payment</TableCell>
-                                <TableCell>Status</TableCell>
+                                <TableCell>Tên </TableCell>
+                                <TableCell align="right">Giá tiền</TableCell>
+                                <TableCell>Phương thức thanh toán</TableCell>
+                                <TableCell>Trạng thái</TableCell>
                                 <TableCell align="right" sx={{ width: 160 }}>
                                     Actions
                                 </TableCell>
@@ -231,18 +239,9 @@ export default function OrdersPage({ setSnack }) {
                                     </TableCell>
                                     <TableCell>{o.name ?? "—"}</TableCell>
                                     <TableCell align="right">
-  {(() => {
-    const total =
-      o.total_after_discount ??
-      o.totalAfterDiscount ??
-      o.total_discounted ??
-      o.total_price; // fallback cuối cùng
+                                    {formatVND(getOrderTotal(o))}
+                                    </TableCell>
 
-    return total != null
-      ? Number(total).toLocaleString("vi-VN") + "₫"
-      : "—";
-  })()}
-</TableCell>
 
                                     <TableCell>
                                         <Chip
@@ -451,45 +450,43 @@ const totalAfterDiscount =
                 <Grid container spacing={2} sx={{ mb: 2 }}>
                     <Grid item xs={12} md={6}>
                         <Typography variant="subtitle2" gutterBottom>
-                            Customer info
+                            Thông tin
                         </Typography>
                         <Typography variant="body2">
                             Email: {sel?.user?.email ?? sel?.email ?? "—"}
                         </Typography>
                         <Typography variant="body2">
-                            Phone: {sel?.phone ?? "—"}
+                            Số điện thoại: {sel?.phone ?? "—"}
                         </Typography>
                         <Typography variant="body2">
-                            Address: {sel?.address ?? "—"}
+                            Địa chỉ: {sel?.address ?? "—"}
                         </Typography>
                         {sel?.name && (
                             <Typography variant="body2">
-                                Customer name: {sel.name}
+                                Khách hàng: {sel.name}
                             </Typography>
                         )}
                     </Grid>
                     <Grid item xs={12} md={6}>
-                        <Typography variant="subtitle2" gutterBottom>
-                            Payment
-                        </Typography>
+                        
                         <Typography variant="body2">
-                            Method: {sel?.payment_method ?? "—"}
+                            Phương thức thanh toán: {sel?.payment_method ?? "—"}
                         </Typography>
                         {sel?.created_at && (
                             <Typography variant="body2">
-                                Created at:{" "}
+                                Đơn được tạo:{" "}
                                 {new Date(sel.created_at).toLocaleString(
                                     "vi-VN"
                                 )}
                             </Typography>
                         )}
                         <Typography variant="body2" sx={{ mt: 1 }}>
-  Subtotal: <strong>{formatCurrency(subtotal)}</strong>
+  Giá gốc: <strong>{formatCurrency(subtotal)}</strong>
 </Typography>
 
 {discountCode && (
   <Typography variant="body2">
-    Discount code: <strong>{discountCode}</strong>
+    Mã giảm giá: <strong>{discountCode}</strong>
   </Typography>
 )}
 
@@ -498,10 +495,11 @@ const totalAfterDiscount =
     Discount: <strong>-{formatCurrency(discountAmount)}</strong>
   </Typography>
 )}
-
 <Typography variant="body2" sx={{ mt: 0.5 }}>
-  Total after discount: <strong>{formatCurrency(totalAfterDiscount)}</strong>
+  Tổng: <strong>{formatVND(getOrderTotal(sel))}</strong>
 </Typography>
+
+
 
                     </Grid>
                 </Grid>
@@ -522,11 +520,11 @@ const totalAfterDiscount =
                     <Table size="small">
   <TableHead>
     <TableRow>
-      <TableCell>Product</TableCell>
-      <TableCell>Variant</TableCell>
-      <TableCell align="right">Qty</TableCell>
-      <TableCell align="right">Price</TableCell>
-      <TableCell align="right">Total</TableCell>
+      <TableCell>Sản phẩm</TableCell>
+      <TableCell>Loại sản phẩm</TableCell>
+      <TableCell align="right">Số lượng</TableCell>
+      <TableCell align="right">Giá</TableCell>
+      <TableCell align="right">Tổng</TableCell>
     </TableRow>
   </TableHead>
 
@@ -602,8 +600,8 @@ const totalAfterDiscount =
           <TableCell>
             <Typography variant="body2" color="text.secondary">
               {[
-                colorName && `Color: ${colorName}`,
-                sizeName && `Size: ${sizeName}`,
+                colorName && `Màu sắc: ${colorName}`,
+                sizeName && `Kích thước: ${sizeName}`,
               ]
                 .filter(Boolean)
                 .join(" • ") || "—"}
@@ -655,6 +653,7 @@ const totalAfterDiscount =
 
                 )}
             </DialogContent>
+            
             <DialogActions>
                 <Button onClick={onClose}>Close</Button>
             </DialogActions>

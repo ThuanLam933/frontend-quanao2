@@ -78,12 +78,12 @@ function CategoryEditDialog({ open, onClose, item, onSave, slugify }) {
     return (
         <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
             <DialogTitle>
-                {form.id ? "Edit category" : "Create category"}
+                {form.id ? "Edit category" : "Thêm loại sản phẩm"}
             </DialogTitle>
             <DialogContent>
                 <Stack spacing={2} sx={{ mt: 1 }}>
                     <TextField
-                        label="Name"
+                        label="Tên loại sản phẩm"
                         fullWidth
                         required
                         value={form.name || ""}
@@ -94,10 +94,10 @@ function CategoryEditDialog({ open, onClose, item, onSave, slugify }) {
                         fullWidth
                         value={form.slug ?? ""}
                         onChange={(e) => onSlugChange(e.target.value)}
-                        helperText="Nếu muốn slug khác mặc định, chỉnh tay vào đây."
+                        
                     />
                     <TextField
-                        label="Description"
+                        label="Ghi chú"
                         fullWidth
                         multiline
                         minRows={3}
@@ -323,8 +323,8 @@ export default function CategoriesPage({ setSnack }) {
                         <TableHead>
                             <TableRow>
                                 <TableCell width={60}>#</TableCell>
-                                <TableCell>Name</TableCell>
-                                <TableCell>Description</TableCell>
+                                <TableCell>Tên loại sản phẩm</TableCell>
+                                {/* <TableCell>Description</TableCell> */}
                                 <TableCell align="right" width={160}>
                                     Actions
                                 </TableCell>
@@ -340,7 +340,7 @@ export default function CategoriesPage({ setSnack }) {
                                         </Typography>
                                     </TableCell>
                                     
-                                    <TableCell>
+                                    {/* <TableCell>
                                         <Typography
                                             variant="body2"
                                             color="text.secondary"
@@ -348,7 +348,7 @@ export default function CategoriesPage({ setSnack }) {
                                         >
                                             {c.description ?? "-"}
                                         </Typography>
-                                    </TableCell>
+                                    </TableCell> */}
                                     <TableCell align="right">
                                         <Stack direction="row" spacing={0.5} justifyContent="flex-end">
                                             

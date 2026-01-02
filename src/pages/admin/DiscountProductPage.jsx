@@ -26,13 +26,46 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 
 import { API_BASE } from "../AdminPanel";
+const parseIso = (s) => {
+  if (!s) return null;
+  const normalized = String(s).replace(/\.\d+Z$/, "Z");
+  const d = new Date(normalized);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
 
+const formatDateTimeVN = (isoString) => {
+  const d = parseIso(isoString);
+  if (!d) return "—";
+  return new Intl.DateTimeFormat("vi-VN", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(d);
+};
+
+const toDatetimeLocalValue = (isoString) => {
+  const d = parseIso(isoString);
+  if (!d) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+    d.getHours()
+  )}:${pad(d.getMinutes())}`;
+};
+
+const fromDatetimeLocalToIso = (value) => {
+  if (!value) return null;
+  return new Date(value).toISOString();
+};
 export default function DiscountProductPage({ setSnack }) {
   const [discounts, setDiscounts] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  // Drop phần microseconds kiểu .000000Z để Date parse ổn định hơn
+
+
+
+
 
   // ================= FETCH =================
   const fetchDiscounts = useCallback(async () => {
@@ -89,20 +122,27 @@ export default function DiscountProductPage({ setSnack }) {
 
   return (
     <Box>
-      <Typography variant="h5" sx={{ mb: 2 }}>
-        Quản lý mã giảm giá
-      </Typography>
+      <Stack
+  direction="row"
+  alignItems="center"
+  justifyContent="space-between"
+  sx={{ mb: 2 }}
+>
+  <Typography variant="h5">Quản lý mã giảm giá</Typography>
 
-      <Button
-        variant="contained"
-        startIcon={<AddIcon />}
-        onClick={() => {
-          setEditing(null);
-          setDialogOpen(true);
-        }}
-      >
-        Thêm mã giảm
-      </Button>
+  <Button
+    variant="contained"
+    startIcon={<AddIcon />}
+    onClick={() => {
+      setEditing(null);
+      setDialogOpen(true);
+    }}
+  >
+    Thêm mã giảm
+  </Button>
+</Stack>
+
+
 
       <Paper sx={{ mt: 3 }}>
         <TableContainer>
@@ -135,9 +175,8 @@ export default function DiscountProductPage({ setSnack }) {
                     </TableCell>
 
                     <TableCell>
-                      {d.start_at || "—"} → {d.end_at || "—"}
+                     {formatDateTimeVN(d.start_at)} → {formatDateTimeVN(d.end_at)}
                     </TableCell>
-
                     <TableCell>
                       {d.is_active ? (
                         <Chip label="Đang bật" color="success" size="small" />
@@ -194,7 +233,7 @@ export default function DiscountProductPage({ setSnack }) {
 
 function DiscountDialog({ open, onClose, editing, refresh, setSnack }) {
   const isEdit = !!editing;
-
+  
   const [form, setForm] = useState({
     type: "percent",
     value: "",
@@ -208,8 +247,8 @@ function DiscountDialog({ open, onClose, editing, refresh, setSnack }) {
       setForm({
         type: editing.type,
         value: editing.value,
-        start_at: editing.start_at ?? "",
-        end_at: editing.end_at ?? "",
+        start_at: toDatetimeLocalValue(editing.start_at),
+        end_at: toDatetimeLocalValue(editing.end_at),
         is_active: editing.is_active ? 1 : 0,
       });
     } else {

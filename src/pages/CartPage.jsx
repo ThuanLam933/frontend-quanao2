@@ -56,6 +56,9 @@ export default function CartPage() {
   
   // product_id -> list variants
   const [variantsMap, setVariantsMap] = useState({});
+  // product_id -> status number (1 = bán, khác 1 = ngưng bán)
+  const [productStatusMap, setProductStatusMap] = useState({});
+
    // ===== DISCOUNT (order) =====
 const [discountCode, setDiscountCode] = useState("");
 const [discount, setDiscount] = useState(null); 
@@ -199,81 +202,132 @@ const invalidateDiscount = (showMessage = false) => {
 
 
   // ----------------- LOAD VARIANTS FOR ITEMS -----------------
-  useEffect(() => {
-    const productIds = Array.from(
-      new Set(items.map((it) => it.product_id).filter(Boolean))
-    );
-    if (!productIds.length) return;
+  // ----------------- LOAD VARIANTS + PRODUCT STATUS FOR ITEMS -----------------
+useEffect(() => {
+  const productIds = Array.from(
+    new Set(items.map((it) => it.product_id).filter(Boolean))
+  );
+  if (!productIds.length) return;
 
-    let cancelled = false;
+  let cancelled = false;
 
-    const fetchVariants = async () => {
-      try {
-        const results = await Promise.all(
-          productIds.map(async (pid) => {
+  const fetchVariantsAndStatus = async () => {
+    try {
+      const results = await Promise.all(
+        productIds.map(async (pid) => {
+          try {
+            // 1) fetch product để lấy status
+            let status = 1;
             try {
-              const res = await fetch(
-                `${API_BASE}/api/product-details?product_id=${pid}`
-              );
-              if (!res.ok) return [pid, []];
-              const data = await res.json();
-              const arr = Array.isArray(data) ? data : [];
+              const pRes = await fetch(`${API_BASE}/api/products/${pid}`);
+              if (pRes.ok) {
+                const pData = await pRes.json();
+                status = Number(pData?.status ?? 1);
+              }
+            } catch {}
 
-              const normalized = arr.map((d) => {
+            // 2) fetch variants
+            const res = await fetch(
+              `${API_BASE}/api/product-details?product_id=${pid}`
+            );
+            if (!res.ok) return [pid, status, []];
+
+            const data = await res.json();
+            const arr = Array.isArray(data) ? data : [];
+
+            const normalized = arr.map((d) => {
               const original = Number(d.price ?? 0);
               const final =
-      d.has_discount && d.final_price
-      ? Number(d.final_price)
-      : original;
+                d.has_discount && d.final_price ? Number(d.final_price) : original;
 
-        return {
-          id: d.id,
-          product_id: d.product_id,
+              return {
+                id: d.id,
+                product_id: d.product_id,
+                original_price: original,
+                final_price: final,
+                has_discount: !!d.has_discount,
+                quantity: Number(d.quantity ?? 0),
+                size_name: d.size?.name ?? null,
+                color_name: d.color?.name ?? null,
+                image_url:
+                  (Array.isArray(d.images) && d.images[0]?.full_url) ||
+                  d.product?.image_url ||
+                  null,
+              };
+            });
 
-          original_price: original,
-          final_price: final,
-          has_discount: !!d.has_discount,
+            return [pid, status, normalized];
+          } catch {
+            return [pid, 1, []];
+          }
+        })
+      );
 
-          quantity: d.quantity ?? 0,
-          size_name: d.size?.name ?? null,
-          color_name: d.color?.name ?? null,
-          image_url:
-            (Array.isArray(d.images) && d.images[0]?.full_url) ||
-            d.product?.image_url ||
-            null,
-        };
+      if (cancelled) return;
+
+      // update variantsMap
+      setVariantsMap((prev) => {
+        const next = { ...prev };
+        for (const [pid, _status, list] of results) next[pid] = list;
+        return next;
       });
 
+      // update productStatusMap
+      setProductStatusMap((prev) => {
+        const next = { ...prev };
+        for (const [pid, status] of results) next[pid] = status;
+        return next;
+      });
+    } catch (e) {
+      console.warn("Load variants/status for cart failed", e);
+    }
+  };
 
-              return [pid, normalized];
-            } catch {
-              return [pid, []];
-            }
-          })
-        );
+  fetchVariantsAndStatus();
 
-        if (cancelled) return;
+  return () => {
+    cancelled = true;
+  };
+}, [items]);
 
-        setVariantsMap((prev) => {
-          const next = { ...prev };
-          for (const [pid, list] of results) {
-            next[pid] = list;
-          }
-          return next;
-        });
-      } catch (e) {
-        console.warn("Load variants for cart failed", e);
-      }
-    };
-
-    fetchVariants();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [items]);
 
   const getVariantsForProduct = (productId) => variantsMap[productId] || [];
+  const getProductStatus = (productId) => Number(productStatusMap[productId] ?? 1);
+
+const findVariantForItem = (it) => {
+  const vars = getVariantsForProduct(it.product_id);
+
+  // ưu tiên match theo product_detail_id
+  let v = vars.find((x) => x.id === it.product_detail_id);
+  if (v) return v;
+
+  // fallback match theo size + color
+  v = vars.find(
+    (x) => x.size_name === it.size_name && x.color_name === it.color_name
+  );
+
+  return v || null;
+};
+
+const getItemIssue = (it) => {
+  const status = getProductStatus(it.product_id);
+  if (status !== 1) return { ok: false, reason: "Hết bán" };
+
+  const v = findVariantForItem(it);
+  if (!v) return { ok: false, reason: "Không tồn tại biến thể" };
+
+  if (Number(v.quantity ?? 0) <= 0) return { ok: false, reason: "Hết hàng" };
+
+  const want = Number(it.qty ?? 1);
+  if (want > Number(v.quantity ?? 0))
+    return { ok: false, reason: `Chỉ còn ${Number(v.quantity ?? 0)}` };
+
+  return { ok: true, reason: "" };
+};
+
+const invalidItems = useMemo(() => {
+  return items.filter((it) => !getItemIssue(it).ok);
+}, [items, variantsMap, productStatusMap]);
 
   const getSizesForItem = (it) => {
     const vars = getVariantsForProduct(it.product_id);
@@ -401,40 +455,70 @@ const invalidateDiscount = (showMessage = false) => {
   };
 
   // ----------------- LOCAL QTY ACTIONS -----------------
-  const addQty = (id) => {
-  invalidateDiscount(true); // ✅ thêm dòng này
+  const getMaxQtyForItem = (it) => {
+  const status = getProductStatus(it.product_id);
+  if (status !== 1) return 0;
+  const v = findVariantForItem(it);
+  return Number(v?.quantity ?? 0);
+};
 
+const addQty = (id) => {
+  invalidateDiscount(true);
+
+  const next = items.map((i) => {
+    if (i.id !== id) return i;
+
+    const maxQty = getMaxQtyForItem(i);
+    if (maxQty <= 0) {
+      setSnack({ severity: "warning", message: "Sản phẩm này không còn mua được." });
+      return i;
+    }
+
+    const cur = Number(i.qty) || 1;
+    if (cur + 1 > maxQty) {
+      setSnack({ severity: "warning", message: `Chỉ còn ${maxQty} sản phẩm.` });
+      return i;
+    }
+    return { ...i, qty: cur + 1 };
+  });
+
+  setItems(next);
+  saveAndBroadcast(next);
+};
+
+const subQty = (id) => {
+  invalidateDiscount(true);
   const next = items.map((i) =>
-    i.id === id ? { ...i, qty: (Number(i.qty) || 1) + 1 } : i
+    i.id === id ? { ...i, qty: Math.max(1, (Number(i.qty) || 1) - 1) } : i
   );
   setItems(next);
   saveAndBroadcast(next);
 };
 
+const updateQty = (id, value) => {
+  invalidateDiscount(true);
 
-  const subQty = (id) => {
-  invalidateDiscount(true); // ✅ thêm dòng này
+  const next = items.map((i) => {
+    if (i.id !== id) return i;
 
-  const next = items.map((i) =>
-    i.id === id
-      ? { ...i, qty: Math.max(1, (Number(i.qty) || 1) - 1) }
-      : i
-  );
+    const maxQty = getMaxQtyForItem(i);
+    if (maxQty <= 0) {
+      setSnack({ severity: "warning", message: "Sản phẩm này không còn mua được." });
+      return i;
+    }
+
+    const q = Math.max(1, Math.floor(Number(value || 1)));
+    if (q > maxQty) {
+      setSnack({ severity: "warning", message: `Chỉ còn ${maxQty} sản phẩm.` });
+      return { ...i, qty: maxQty };
+    }
+    return { ...i, qty: q };
+  });
+
   setItems(next);
   saveAndBroadcast(next);
 };
 
-
-  const updateQty = (id, value) => {
-  invalidateDiscount(true); // ✅ thêm dòng này
-
-  const q = Math.max(1, Number(value || 1));
-  const next = items.map((i) =>
-    i.id === id ? { ...i, qty: q } : i
-  );
-  setItems(next);
-  saveAndBroadcast(next);
-};
 
 
   const removeItem = (id) => {
@@ -461,7 +545,7 @@ const invalidateDiscount = (showMessage = false) => {
   setDiscountCode("");
   localStorage.removeItem(DISCOUNT_KEY);
 
-  setSnack({ severity: "info", message: "Giỏ hàng đã được làm rỗng" });
+  setSnack({ severity: "info", message: "Giỏ hàng đã xóa" });
 };
 
 
@@ -481,21 +565,26 @@ const invalidateDiscount = (showMessage = false) => {
 
 
   const handleCheckout = () => {
-    if (items.length === 0) {
-      setSnack({
-        severity: "warning",
-        message: "Giỏ hàng trống",
-      });
-      return;
-    }
+  if (items.length === 0) {
+    setSnack({ severity: "warning", message: "Giỏ hàng trống" });
+    return;
+  }
+
+  // ✅ CHẶN nếu có item không hợp lệ (hết bán / hết hàng / vượt tồn)
+  if (invalidItems.length > 0) {
+    const first = invalidItems[0];
+    const issue = getItemIssue(first);
     setSnack({
-      severity: "success",
-      message: "Chuyển đến trang thanh toán...",
+      severity: "warning",
+      message: `Không thể thanh toán: "${first.name}" - ${issue.reason}. Vui lòng cập nhật giỏ hàng.`,
     });
-    setTimeout(() => {
-      navigate("/payment");
-    }, 400);
-  };
+    return;
+  }
+
+  setSnack({ severity: "success", message: "Chuyển đến trang thanh toán..." });
+  setTimeout(() => navigate("/payment"), 400);
+};
+
   const applyDiscount = async () => {
   const code = discountCode.trim();
   if (!code) {
@@ -507,6 +596,14 @@ const invalidateDiscount = (showMessage = false) => {
     setSnack({ severity: "warning", message: "Giỏ hàng trống" });
     return;
   }
+  if (invalidItems.length > 0) {
+  setSnack({
+    severity: "warning",
+    message: "Giỏ hàng có sản phẩm không hợp lệ (hết bán/hết hàng). Vui lòng cập nhật trước khi áp mã.",
+  });
+  return;
+}
+
 
   setApplyingDiscount(true);
   try {
@@ -648,7 +745,8 @@ const removeDiscount = () => {
                     {items.map((it, index) => {
                       const sizes = getSizesForItem(it);
                       const colors = getColorsForItem(it);
-
+                      const issue = getItemIssue(it);
+                      const disabledItem = !issue.ok;
                       return (
                         <React.Fragment key={it.id ?? index}>
                           <ListItem
@@ -689,6 +787,16 @@ const removeDiscount = () => {
                                 }}
                               >
                                 {it.name}
+                                {!issue.ok && (
+                                  <Chip label={issue.reason}
+                                  size="small"
+                                  sx={{borderRadius: 0,
+                                    ml:1,
+                                    bgcolor: "#eee",
+                                    color: "#777",
+                                    fontWeight: 700,
+                                  }}></Chip>
+                                )}
                               </Typography>
 
                               {/* SIZE + COLOR TEXT */}
@@ -757,7 +865,7 @@ const removeDiscount = () => {
                                   <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
                                     {sizes.map((size) => {
                                       const selected = size === it.size_name;
-                                      const disabled = !hasStockForSize(
+                                      const disabled = disabledItem || !hasStockForSize(
                                         it.product_id,
                                         size
                                       );
@@ -815,7 +923,7 @@ const removeDiscount = () => {
                                     {colors.map((color) => {
                                       const selected =
                                         color === it.color_name;
-                                      const disabled = !hasStockForSizeColor(
+                                      const disabled = disabledItem || !hasStockForSizeColor(
                                         it.product_id,
                                         it.size_name,
                                         color
@@ -878,7 +986,7 @@ const removeDiscount = () => {
                                 >
                                   <IconButton
                                     size="small"
-                                    onClick={() => subQty(it.id)}
+                                    onClick={() => subQty(it.id)} disabled={disabledItem}
                                   >
                                     <RemoveCircleOutlineIcon fontSize="small" />
                                   </IconButton>
@@ -1079,7 +1187,7 @@ const removeDiscount = () => {
                     variant="contained"
                     size="large"
                     onClick={handleCheckout}
-                    disabled={items.length === 0}
+                    disabled={items.length === 0 || invalidItems.length > 0}
                     sx={{
                       borderRadius: 0,
                       backgroundColor: "#DD002A",

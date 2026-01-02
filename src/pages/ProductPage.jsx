@@ -26,10 +26,7 @@ const theme = createTheme({
     background: { default: "#FFFFFF", paper: "#FFFFFF" },
     primary: { main: "#111111" },
     secondary: { main: "#DD002A" },
-    text: {
-      primary: "#111111",
-      secondary: "#666666",
-    },
+    text: { primary: "#111111", secondary: "#666666" },
   },
   shape: { borderRadius: 0 },
   typography: {
@@ -69,15 +66,15 @@ export default function ProductPage() {
     return url.startsWith("http") ? url : `${API_BASE}/storage/${url}`;
   };
 
+  const isStopped = useMemo(() => Number(product?.status ?? 1) !== 1, [product]);
+
   // ✅ HELPER DUY NHẤT ĐỂ SET VARIANT (QUAN TRỌNG)
   const selectVariant = (v) => {
     if (!v) return;
 
     const original = normalizePrice(v.price);
     const final =
-      v.has_discount && v.final_price
-        ? normalizePrice(v.final_price)
-        : original;
+      v.has_discount && v.final_price ? normalizePrice(v.final_price) : original;
 
     setSelectedVariant({
       ...v,
@@ -85,9 +82,7 @@ export default function ProductPage() {
       final_price: final,
       has_discount: !!v.has_discount,
       discount_percent:
-        original > 0
-          ? Math.round(((original - final) / original) * 100)
-          : 0,
+        original > 0 ? Math.round(((original - final) / original) * 100) : 0,
     });
   };
 
@@ -98,14 +93,14 @@ export default function ProductPage() {
       const res = await fetch(`${API_BASE}/api/products/${id}`);
       const p = await res.json();
 
-      setProduct(p);
+      // ✅ normalize status về number
+      const normalizedProduct = { ...p, status: Number(p.status ?? 1) };
+      setProduct(normalizedProduct);
 
       const normalizedVariants = (p.details || []).map((v) => {
         const original = normalizePrice(v.price);
         const final =
-          v.has_discount && v.final_price
-            ? normalizePrice(v.final_price)
-            : original;
+          v.has_discount && v.final_price ? normalizePrice(v.final_price) : original;
 
         return {
           ...v,
@@ -113,23 +108,32 @@ export default function ProductPage() {
           final_price: final,
           has_discount: !!v.has_discount,
           discount_percent:
-            original > 0
-              ? Math.round(((original - final) / original) * 100)
-              : 0,
+            original > 0 ? Math.round(((original - final) / original) * 100) : 0,
+          quantity: Number(v.quantity ?? 0),
         };
       });
 
       setVariants(normalizedVariants);
 
-      const first = normalizedVariants[0];
-      if (first) {
-        setSelectedSize(first.size?.name);
-        setSelectedColor(first.color?.name);
-        selectVariant(first);
-        setMainImage(fixImage(p.image_url));
+      // ✅ Chọn variant mặc định: ưu tiên còn hàng
+      const firstInStock = normalizedVariants.find((v) => (v.quantity ?? 0) > 0);
+      const firstAny = normalizedVariants[0];
+
+      const chosen = firstInStock || firstAny || null;
+      if (chosen) {
+        setSelectedSize(chosen.size?.name ?? null);
+        setSelectedColor(chosen.color?.name ?? null);
+        selectVariant(chosen);
+      } else {
+        setSelectedSize(null);
+        setSelectedColor(null);
+        setSelectedVariant(null);
       }
+
+      setMainImage(fixImage(p.image_url));
     } catch (err) {
       console.log("Error loading product:", err);
+      setSnack({ severity: "error", message: "Không thể tải sản phẩm." });
     } finally {
       setLoading(false);
     }
@@ -167,11 +171,10 @@ export default function ProductPage() {
       const res = await fetch(`${API_BASE}/api/products/`);
       const arr = await res.json();
 
-      const list = arr
+      const list = (Array.isArray(arr) ? arr : [])
         .filter(
           (p) =>
-            p.categories_id === product?.categories_id &&
-            p.id !== product?.id
+            p.categories_id === product?.categories_id && p.id !== product?.id
         )
         .slice(0, 4);
 
@@ -189,17 +192,43 @@ export default function ProductPage() {
 
   useEffect(() => {
     if (product) fetchRelated();
-  }, [product]);
+  }, [product, fetchRelated]);
 
   const colorsForSize = useMemo(() => {
     if (!selectedSize) return [];
     return variants.filter((v) => v.size?.name === selectedSize);
   }, [variants, selectedSize]);
 
+  const selectedOutOfStock = useMemo(
+    () => !!selectedVariant && Number(selectedVariant.quantity ?? 0) <= 0,
+    [selectedVariant]
+  );
+
   // ===== Add to cart =====
   const addToCart = () => {
+    // ✅ chặn nếu ngưng bán
+    if (isStopped) {
+      setSnack({ severity: "warning", message: "Sản phẩm đã ngưng bán." });
+      return;
+    }
+
     if (!selectedVariant) {
       setSnack({ severity: "warning", message: "Vui lòng chọn size & màu." });
+      return;
+    }
+
+    // ✅ chặn nếu variant hết hàng
+    if (Number(selectedVariant.quantity ?? 0) <= 0) {
+      setSnack({ severity: "warning", message: "Biến thể này đã hết hàng." });
+      return;
+    }
+
+    // ✅ chặn nếu qty vượt tồn
+    if (qty > Number(selectedVariant.quantity ?? 0)) {
+      setSnack({
+        severity: "warning",
+        message: `Số lượng tối đa còn lại: ${Number(selectedVariant.quantity ?? 0)}.`,
+      });
       return;
     }
 
@@ -209,12 +238,23 @@ export default function ProductPage() {
       ? selectedVariant.final_price
       : selectedVariant.original_price;
 
-    const exist = cart.find(
-      (item) => item.product_detail_id === selectedVariant.id
-    );
+    const exist = cart.find((item) => item.product_detail_id === selectedVariant.id);
 
     if (exist) {
-      exist.quantity += qty;
+      const newQty = (exist.quantity || 0) + qty;
+
+      // ✅ cũng chặn nếu cộng dồn vượt tồn
+      if (newQty > Number(selectedVariant.quantity ?? 0)) {
+        setSnack({
+          severity: "warning",
+          message: `Trong giỏ đã có. Tổng tối đa còn lại: ${Number(
+            selectedVariant.quantity ?? 0
+          )}.`,
+        });
+        return;
+      }
+
+      exist.quantity = newQty;
       exist.unit_price = price;
     } else {
       cart.push({
@@ -224,8 +264,9 @@ export default function ProductPage() {
         name: product.name,
         size: selectedVariant.size?.name,
         color: selectedVariant.color?.name,
-        unit_price: selectedVariant.final_price,
+        unit_price: price,
         original_price: selectedVariant.original_price,
+        final_price: selectedVariant.final_price,
         has_discount: selectedVariant.has_discount,
         quantity: qty,
         image_url: mainImage,
@@ -261,6 +302,7 @@ export default function ProductPage() {
                   height: 580,
                   objectFit: "cover",
                   border: "1px solid #e0e0e0",
+                  opacity: isStopped ? 0.75 : 1,
                 }}
               />
 
@@ -270,16 +312,15 @@ export default function ProductPage() {
                     key={img.id}
                     component="img"
                     src={img.url}
-                    onClick={() => setMainImage(img.url)}
+                    onClick={() => !isStopped && setMainImage(img.url)}
                     sx={{
                       width: 90,
                       height: 90,
                       objectFit: "cover",
-                      cursor: "pointer",
+                      cursor: isStopped ? "not-allowed" : "pointer",
+                      opacity: isStopped ? 0.6 : 1,
                       border:
-                        mainImage === img.url
-                          ? "2px solid #111"
-                          : "1px solid #ccc",
+                        mainImage === img.url ? "2px solid #111" : "1px solid #ccc",
                     }}
                   />
                 ))}
@@ -288,81 +329,116 @@ export default function ProductPage() {
 
             {/* INFO */}
             <Grid item xs={12} md={5}>
-              <Typography variant="h5" sx={{ fontWeight: 800 }}>
-                {product.name}
-              </Typography>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Typography variant="h5" sx={{ fontWeight: 800 }}>
+                  {product.name}
+                </Typography>
+
+                {isStopped && (
+                  <Chip
+                    label="Hết bán"
+                    sx={{
+                      borderRadius: 0,
+                      bgcolor: "#eee",
+                      color: "#777",
+                      fontWeight: 700,
+                    }}
+                  />
+                )}
+              </Stack>
 
               <Divider sx={{ my: 2 }} />
 
               {/* SIZE */}
               <Typography sx={{ fontWeight: 600, mb: 1 }}>Size</Typography>
-              <Stack direction="row" spacing={1} mb={2}>
-                {[...new Set(variants.map((v) => v.size?.name))].map((size) => {
-                  const hasStock = variants.some(
-                    (v) => v.size?.name === size && v.quantity > 0
-                  );
+              <Stack direction="row" spacing={1} mb={2} flexWrap="wrap">
+                {[...new Set(variants.map((v) => v.size?.name).filter(Boolean))].map(
+                  (size) => {
+                    const hasStock = variants.some(
+                      (v) => v.size?.name === size && (v.quantity ?? 0) > 0
+                    );
+
+                    const disabled = isStopped || !hasStock;
+
+                    return (
+                      <Chip
+                        key={size}
+                        label={size}
+                        clickable={!disabled}
+                        disabled={disabled}
+                        onClick={() => {
+                          if (disabled) return;
+
+                          setSelectedSize(size);
+
+                          const list = variants.filter(
+                            (v) => v.size?.name === size && (v.quantity ?? 0) > 0
+                          );
+
+                          const valid =
+                            list.find((v) => v.color?.name === selectedColor) ||
+                            list[0];
+
+                          if (valid) {
+                            setSelectedColor(valid.color?.name);
+                            selectVariant(valid);
+                          }
+                        }}
+                        sx={{
+                          borderRadius: 0,
+                          border: "1px solid #111",
+                          backgroundColor: selectedSize === size ? "#111" : "#fff",
+                          color: selectedSize === size ? "#fff" : "#111",
+                          opacity: disabled ? 0.6 : 1,
+                        }}
+                      />
+                    );
+                  }
+                )}
+              </Stack>
+
+              {/* COLOR */}
+              <Typography sx={{ fontWeight: 600, mb: 1 }}>Màu</Typography>
+              <Stack direction="row" spacing={1} mb={3} flexWrap="wrap">
+                {colorsForSize.map((v) => {
+                  const disabled = isStopped || (v.quantity ?? 0) <= 0;
 
                   return (
                     <Chip
-                      key={size}
-                      label={size}
-                      clickable={hasStock}
-                      disabled={!hasStock}
+                      key={v.id}
+                      label={v.color?.name}
+                      clickable={!disabled}
+                      disabled={disabled}
                       onClick={() => {
-                        setSelectedSize(size);
-                        const list = variants.filter(
-                          (v) => v.size?.name === size && v.quantity > 0
-                        );
-                        const valid =
-                          list.find(
-                            (v) => v.color?.name === selectedColor
-                          ) || list[0];
-
-                        if (valid) {
-                          setSelectedColor(valid.color?.name);
-                          selectVariant(valid);
-                        }
+                        if (disabled) return;
+                        setSelectedColor(v.color?.name);
+                        selectVariant(v);
                       }}
                       sx={{
                         borderRadius: 0,
                         border: "1px solid #111",
                         backgroundColor:
-                          selectedSize === size ? "#111" : "#fff",
-                        color: selectedSize === size ? "#fff" : "#111",
+                          selectedColor === v.color?.name ? "#111" : "#fff",
+                        color:
+                          selectedColor === v.color?.name ? "#fff" : "#111",
+                        opacity: disabled ? 0.6 : 1,
                       }}
                     />
                   );
                 })}
               </Stack>
 
-              {/* COLOR */}
-              <Typography sx={{ fontWeight: 600, mb: 1 }}>Màu</Typography>
-              <Stack direction="row" spacing={1} mb={3}>
-                {colorsForSize.map((v) => (
-                  <Chip
-                    key={v.id}
-                    label={v.color?.name}
-                    clickable={v.quantity > 0}
-                    disabled={v.quantity === 0}
-                    onClick={() => {
-                      setSelectedColor(v.color?.name);
-                      selectVariant(v);
-                    }}
-                    sx={{
-                      borderRadius: 0,
-                      border: "1px solid #111",
-                      backgroundColor:
-                        selectedColor === v.color?.name ? "#111" : "#fff",
-                      color:
-                        selectedColor === v.color?.name ? "#fff" : "#111",
-                    }}
-                  />
-                ))}
-              </Stack>
-
-              {/* PRICE */}
+              {/* PRICE / STATUS */}
               <Box sx={{ mb: 2 }}>
-                {selectedVariant?.has_discount ? (
+                {isStopped ? (
+                  <Typography sx={{ fontSize: 16, fontWeight: 800, color: "#999" }}>
+                    Hết bán
+                  </Typography>
+                ) : selectedOutOfStock ? (
+                  <Typography sx={{ fontSize: 16, fontWeight: 800, color: "#999" }}>
+                    Hết hàng
+                  </Typography>
+                ) : selectedVariant?.has_discount ? (
                   <>
                     <Typography
                       sx={{
@@ -396,6 +472,7 @@ export default function ProductPage() {
                 size="small"
                 value={qty}
                 sx={{ width: 120 }}
+                disabled={isStopped || selectedOutOfStock}
                 onChange={(e) =>
                   setQty(Math.max(1, Math.floor(Number(e.target.value))))
                 }
@@ -404,6 +481,7 @@ export default function ProductPage() {
               <Button
                 fullWidth
                 variant="contained"
+                disabled={isStopped || selectedOutOfStock}
                 sx={{
                   mt: 3,
                   py: 1.6,
@@ -412,10 +490,11 @@ export default function ProductPage() {
                   backgroundColor: "#111",
                   borderRadius: 0,
                   "&:hover": { backgroundColor: "#333" },
+                  "&.Mui-disabled": { backgroundColor: "#ccc", color: "#666" },
                 }}
                 onClick={addToCart}
               >
-                Thêm vào giỏ hàng
+                {isStopped ? "Sản phẩm ngưng bán" : selectedOutOfStock ? "Hết hàng" : "Thêm vào giỏ hàng"}
               </Button>
             </Grid>
           </Grid>
