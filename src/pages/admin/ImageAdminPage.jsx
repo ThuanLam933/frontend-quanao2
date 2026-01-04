@@ -1,4 +1,3 @@
-// src/pages/admin/ImageAdminPage.jsx
 import React, { useState, useEffect, useCallback } from "react";
 import {
     Box,

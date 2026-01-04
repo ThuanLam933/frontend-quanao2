@@ -1,4 +1,3 @@
-// src/pages/user/AccountPage.jsx
 import React, { useEffect, useState, useCallback } from "react";
 import {
   Box,
@@ -50,7 +49,6 @@ const theme = createTheme({
   shape: { borderRadius: 0 },
 });
 
-// helper
 function a11yProps(index) {
   return {
     id: `account-section-${index}`,
@@ -58,33 +56,27 @@ function a11yProps(index) {
   };
 }
 
-// HÀM XỬ LÝ ẢNH CHUẨN CHO ORDER DETAIL
 const getProductImage = (product, images) => {
   const base = "http://127.0.0.1:8000/storage/";
 
-  // 1) Ưu tiên ảnh chi tiết full_url từ backend
   if (images && images[0] && images[0].full_url) return images[0].full_url;
 
-  // 2) Nếu backend trả url_image (chưa phải full URL)
   if (images && images[0] && images[0].url_image) {
     return base + images[0].url_image;
   }
 
-  // 3) Nếu product có ảnh đại diện → fallback
   if (product && product.image_url) {
     return product.image_url.startsWith("http")
       ? product.image_url
       : base + product.image_url;
   }
 
-  // 4) Không có ảnh → trả rỗng
   return "";
 };
 
 export default function AccountPage() {
   const navigate = useNavigate();
 
-  // user từ localStorage
   const [user, setUser] = useState(() => {
     try {
       const raw = localStorage.getItem("user");
@@ -98,7 +90,6 @@ export default function AccountPage() {
   const [saving, setSaving] = useState(false);
   const [snack, setSnack] = useState(null);
 
-  // profile
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -106,21 +97,17 @@ export default function AccountPage() {
     password: "",
   });
 
-  // orders
   const [orders, setOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
 
-  // shipping addresses
   const [addresses, setAddresses] = useState([]);
 
-  // form đổi mật khẩu
   const [pwd, setPwd] = useState({
     old_password: "",
     new_password: "",
     confirm_password: "",
   });
 
-  // dialog chi tiết đơn hàng
   const [openOrderDialog, setOpenOrderDialog] = useState(false);
   const [orderDetail, setOrderDetail] = useState(null);
   const [loadingOrderDetail, setLoadingOrderDetail] = useState(false);
@@ -130,7 +117,6 @@ export default function AccountPage() {
     return value.replace(/\D/g, "").slice(0, 10);
   };
 
-  // init form
   useEffect(() => {
     if (user) {
       setForm({
@@ -142,7 +128,6 @@ export default function AccountPage() {
     }
   }, [user]);
 
-  // fetch orders
   async function fetchOrders() {
     setLoadingOrders(true);
     try {
@@ -199,7 +184,6 @@ export default function AccountPage() {
     }
   }, [user, fetchAddresses]);
 
-  // save profile
   const handleSaveProfile = async () => {
     setSaving(true);
 
@@ -223,7 +207,7 @@ export default function AccountPage() {
 
     try {
       const payload = { ...form };
-      delete payload.password; // không cập nhật mật khẩu chung với profile
+      delete payload.password;
 
       const res = await fetch(`${API_BASE}/api/me`, {
         method: "PUT",
@@ -246,7 +230,6 @@ export default function AccountPage() {
     setSaving(false);
   };
 
-  // đổi mật khẩu
   const handleChangePassword = async () => {
     if (!pwd.old_password || !pwd.new_password) {
       setSnack({
@@ -291,7 +274,6 @@ export default function AccountPage() {
     }
   };
 
-  // mở dialog chi tiết đơn hàng
   const handleOpenOrderDetail = async (id) => {
     try {
       setLoadingOrderDetail(true);
@@ -318,7 +300,7 @@ export default function AccountPage() {
       }
 
       setOrderDetail(data);
-    } catch (err) {
+    } catch {
       setSnack({
         severity: "error",
         message: "Lỗi kết nối khi tải chi tiết đơn hàng.",
@@ -334,7 +316,6 @@ export default function AccountPage() {
     setOrderDetail(null);
   };
 
-  // logout
   const handleLogout = () => {
     localStorage.removeItem("access_token");
     localStorage.removeItem("user");
@@ -345,16 +326,11 @@ export default function AccountPage() {
   const greetingName =
     user?.name || (user?.email ? user.email.split("@")[0] : "Bạn");
 
-  // ============================================================
-  // ===================== UI (UNIQLO STYLE) =====================
-  // ============================================================
-
   return (
     <ThemeProvider theme={theme}>
       <Box sx={{ backgroundColor: "#fff", py: 5 }}>
         <Container maxWidth="lg" sx={{ maxWidth: "1080px !important", px: 2 }}>
           <Grid container spacing={4}>
-            {/* LEFT SIDEBAR */}
             <Grid item xs={12} md={3}>
               <Box sx={{ mb: 3 }}>
                 <Typography sx={{ fontSize: 22, fontWeight: 700 }}>
@@ -416,7 +392,6 @@ export default function AccountPage() {
               </Paper>
             </Grid>
 
-            {/* RIGHT CONTENT */}
             <Grid item xs={12} md={9}>
               <Paper
                 sx={{
@@ -425,7 +400,6 @@ export default function AccountPage() {
                   border: "1px solid #e0e0e0",
                 }}
               >
-                {/* SECTION 0: PROFILE */}
                 {section === 0 && (
                   <Box>
                     <Typography
@@ -496,7 +470,6 @@ export default function AccountPage() {
                   </Box>
                 )}
 
-                {/* SECTION 1: ORDER HISTORY */}
                 {section === 1 && (
                   <Box>
                     <Typography
@@ -620,7 +593,6 @@ export default function AccountPage() {
                   </Box>
                 )}
 
-                {/* SECTION 2: SHIPPING INFO */}
                 {section === 2 && (
                   <Box>
                     <Typography
@@ -660,7 +632,6 @@ export default function AccountPage() {
                   </Box>
                 )}
 
-                {/* SECTION 3: NEWSLETTER */}
                 {section === 3 && (
                   <Box>
                     <Typography
@@ -710,7 +681,6 @@ export default function AccountPage() {
                   </Box>
                 )}
 
-                {/* SECTION 4: CHANGE PASSWORD */}
                 {section === 4 && (
                   <Box>
                     <Typography
@@ -777,7 +747,6 @@ export default function AccountPage() {
           </Grid>
         </Container>
 
-        {/* DIALOG CHI TIẾT ĐƠN HÀNG */}
         <Dialog
           open={openOrderDialog}
           onClose={handleCloseOrderDialog}
@@ -798,7 +767,6 @@ export default function AccountPage() {
 
             {!loadingOrderDetail && orderDetail && (
               <Box>
-                {/* Thông tin chung */}
                 <Box sx={{ mb: 2 }}>
                   {orderDetail.order_code && (
                     <Typography sx={{ mb: 0.5 }}>
@@ -818,15 +786,12 @@ export default function AccountPage() {
                     <strong>Địa chỉ:</strong> {orderDetail.address}
                   </Typography>
                   <Typography sx={{ mb: 0.5 }}>
-                    <strong>Thanh toán:</strong>{" "}
-                    {orderDetail.payment_method}
+                    <strong>Thanh toán:</strong> {orderDetail.payment_method}
                   </Typography>
                   <Typography sx={{ mb: 0.5 }}>
                     <strong>Ngày đặt:</strong>{" "}
                     {orderDetail.created_at
-                      ? new Date(orderDetail.created_at).toLocaleString(
-                          "vi-VN"
-                        )
+                      ? new Date(orderDetail.created_at).toLocaleString("vi-VN")
                       : "—"}
                   </Typography>
                   {orderDetail.note && (
@@ -837,74 +802,74 @@ export default function AccountPage() {
                 </Box>
 
                 <Divider sx={{ my: 2 }} />
-                {/* ====== GIẢM GIÁ (HIỂN THỊ) ====== */}
-{(() => {
-  // Tổng tiền sản phẩm (tính từ items)
-  const itemsSubtotal = (orderDetail.items || []).reduce((s, it) => {
-    const price = Number(it.price || 0);
-    const qty = Number(it.quantity || 0);
-    return s + price * qty;
-  }, 0);
 
-  // Phí ship (nếu BE không trả thì = 0, bạn có thể đổi thành 30000 nếu hệ bạn luôn có ship)
-  const shipping = Number(
-    orderDetail.shipping ??
-      orderDetail.shipping_fee ??
-      orderDetail.totals?.shipping ??
-      0
-  );
+                {(() => {
+                  const itemsSubtotal = (orderDetail.items || []).reduce(
+                    (s, it) => {
+                      const price = Number(it.price || 0);
+                      const qty = Number(it.quantity || 0);
+                      return s + price * qty;
+                    },
+                    0
+                  );
 
-  // Tổng sau giảm (ưu tiên field BE; fallback sang total_price)
-  const totalAfterDiscount = Number(
-    orderDetail.total_after_discount ??
-      orderDetail.totals?.total_after_discount ??
-      orderDetail.total_price ??
-      0
-  );
+                  const shipping = Number(
+                    orderDetail.shipping ??
+                      orderDetail.shipping_fee ??
+                      orderDetail.totals?.shipping ??
+                      0
+                  );
 
-  // Mã giảm giá (nếu BE có trả)
-  const discountCode =
-    orderDetail.discount_code ??
-    orderDetail.discount?.code ??
-    orderDetail.voucher_code ??
-    null;
+                  const totalAfterDiscount = Number(
+                    orderDetail.total_after_discount ??
+                      orderDetail.totals?.total_after_discount ??
+                      orderDetail.total_price ??
+                      0
+                  );
 
-  // Tiền giảm giá (nếu BE có trả thì lấy, không thì tự tính)
-  const computedDiscount = Math.max(
-    0,
-    itemsSubtotal + shipping - totalAfterDiscount
-  );
+                  const discountCode =
+                    orderDetail.discount_code ??
+                    orderDetail.discount?.code ??
+                    orderDetail.voucher_code ??
+                    null;
 
-  const discountAmount = Number(
-    orderDetail.discount_amount ??
-      orderDetail.discount?.amount_discount ??
-      computedDiscount
-  );
+                  const computedDiscount = Math.max(
+                    0,
+                    itemsSubtotal + shipping - totalAfterDiscount
+                  );
 
-  // Nếu không có giảm giá thì thôi khỏi hiện
-  if (!discountAmount || discountAmount <= 0) return null;
+                  const discountAmount = Number(
+                    orderDetail.discount_amount ??
+                      orderDetail.discount?.amount_discount ??
+                      computedDiscount
+                  );
 
-  return (
-    <Box sx={{ mb: 2 }}>
-      <Typography sx={{ fontWeight: 700, textTransform: "uppercase", mb: 1 }}>
-        Ưu đãi
-      </Typography>
+                  if (!discountAmount || discountAmount <= 0) return null;
 
-      <Typography sx={{ mb: 0.5 }}>
-        <strong>Mã giảm giá:</strong> {discountCode || "—"}
-      </Typography>
+                  return (
+                    <Box sx={{ mb: 2 }}>
+                      <Typography
+                        sx={{
+                          fontWeight: 700,
+                          textTransform: "uppercase",
+                          mb: 1,
+                        }}
+                      >
+                        Ưu đãi
+                      </Typography>
 
-      <Typography sx={{ mb: 0.5 }}>
-        <strong>Số tiền giảm:</strong> -{" "}
-        {discountAmount.toLocaleString("vi-VN")}₫
-      </Typography>
-    </Box>
-  );
-})()}
+                      <Typography sx={{ mb: 0.5 }}>
+                        <strong>Mã giảm giá:</strong> {discountCode || "—"}
+                      </Typography>
 
-                
+                      <Typography sx={{ mb: 0.5 }}>
+                        <strong>Số tiền giảm:</strong> -{" "}
+                        {discountAmount.toLocaleString("vi-VN")}₫
+                      </Typography>
+                    </Box>
+                  );
+                })()}
 
-                {/* Sản phẩm */}
                 <Typography
                   sx={{ fontWeight: 700, mb: 2, textTransform: "uppercase" }}
                 >
@@ -913,8 +878,7 @@ export default function AccountPage() {
 
                 <Stack spacing={2}>
                   {(orderDetail.items || []).map((item) => {
-                    const pd =
-                      item.product_detail || item.productDetail || {};
+                    const pd = item.product_detail || item.productDetail || {};
                     const product = pd.product || {};
                     const color = pd.color || {};
                     const size = pd.size || {};
@@ -922,8 +886,7 @@ export default function AccountPage() {
 
                     const imgUrl = getProductImage(product, images);
 
-                    const lineTotal =
-                      (item.price || 0) * (item.quantity || 0);
+                    const lineTotal = (item.price || 0) * (item.quantity || 0);
 
                     return (
                       <Paper
@@ -980,8 +943,7 @@ export default function AccountPage() {
                           <Typography variant="body2">
                             Giá:{" "}
                             {item.price
-                              ? Number(item.price).toLocaleString("vi-VN") +
-                                "₫"
+                              ? Number(item.price).toLocaleString("vi-VN") + "₫"
                               : "—"}{" "}
                             × {item.quantity}
                           </Typography>
@@ -999,11 +961,8 @@ export default function AccountPage() {
                     );
                   })}
 
-                  {(!orderDetail.items ||
-                    orderDetail.items.length === 0) && (
-                    <Typography>
-                      Đơn hàng chưa có dữ liệu sản phẩm.
-                    </Typography>
+                  {(!orderDetail.items || orderDetail.items.length === 0) && (
+                    <Typography>Đơn hàng chưa có dữ liệu sản phẩm.</Typography>
                   )}
                 </Stack>
 
@@ -1014,9 +973,8 @@ export default function AccountPage() {
                 >
                   Tổng đơn:{" "}
                   {orderDetail.total_price
-                    ? Number(orderDetail.total_price).toLocaleString(
-                        "vi-VN"
-                      ) + "₫"
+                    ? Number(orderDetail.total_price).toLocaleString("vi-VN") +
+                      "₫"
                     : "—"}
                 </Typography>
               </Box>

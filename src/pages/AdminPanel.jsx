@@ -1,4 +1,3 @@
-// src/pages/AdminPanel.jsx
 import React, { useState } from "react";
 import {
   Box,
@@ -20,7 +19,6 @@ import MenuIcon from "@mui/icons-material/Menu";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
 
-// import các page con mới tách
 import DashboardPage from "./admin/DashboardPage";
 import ProductsPage from "./admin/ProductsPage";
 import CategoriesPage from "./admin/CategoriesPage";
@@ -37,7 +35,7 @@ import ImageAdminPage from "./admin/ImageAdminPage";
 import DiscountProductPage from "./admin/DiscountProductPage";
 import DiscountPage from "./admin/DiscountPage";
 
-const API_BASE = "http://127.0.0.1:8000"; // change if needed
+const API_BASE = "http://127.0.0.1:8000";
 export { API_BASE };
 
 const theme = createTheme({
@@ -73,16 +71,14 @@ export default function AdminPanel() {
   const [snack, setSnack] = useState(null);
   const navigate = useNavigate();
 
-  // handle logout: xóa token & user, show snackbar, chuyển về /login
   const handleLogout = () => {
     try {
       localStorage.removeItem("access_token");
-      localStorage.removeItem("user"); // nếu bạn lưu thông tin user
-    } catch (e) {
-      console.warn("logout cleanup", e);
-    }
+      localStorage.removeItem("user");
+    } catch {}
+
     setSnack({ severity: "info", message: "Đã đăng xuất." });
-    // điều hướng sau một chút để snackbar hiện
+
     setTimeout(() => {
       navigate("/login");
     }, 700);
@@ -90,7 +86,13 @@ export default function AdminPanel() {
 
   return (
     <ThemeProvider theme={theme}>
-      <Box sx={{ display: "flex", minHeight: "100vh", backgroundColor: "background.default" }}>
+      <Box
+        sx={{
+          display: "flex",
+          minHeight: "100vh",
+          backgroundColor: "background.default",
+        }}
+      >
         <AppBar position="fixed" sx={{ zIndex: 1400 }}>
           <Toolbar>
             <IconButton
@@ -116,7 +118,11 @@ export default function AdminPanel() {
           sx={{
             width: 260,
             flexShrink: 0,
-            "& .MuiDrawer-paper": { width: 260, boxSizing: "border-box", mt: 8 },
+            "& .MuiDrawer-paper": {
+              width: 260,
+              boxSizing: "border-box",
+              mt: 8,
+            },
           }}
         >
           <Toolbar />
@@ -124,7 +130,10 @@ export default function AdminPanel() {
             <List>
               {SIDEBAR_ITEMS.map((it) => (
                 <ListItem key={it.key} disablePadding>
-                  <ListItemButton selected={page === it.key} onClick={() => setPage(it.key)}>
+                  <ListItemButton
+                    selected={page === it.key}
+                    onClick={() => setPage(it.key)}
+                  >
                     <ListItemText primary={it.title} />
                   </ListItemButton>
                 </ListItem>
@@ -147,7 +156,9 @@ export default function AdminPanel() {
             {page === "users" && <UsersPage setSnack={setSnack} />}
             {page === "returns" && <ReturnsPage setSnack={setSnack} />}
             {page === "stock" && <StockPage setSnack={setSnack} />}
-            {page === "discountproduct" && <DiscountProductPage setSnack={setSnack} />}
+            {page === "discountproduct" && (
+              <DiscountProductPage setSnack={setSnack} />
+            )}
             {page === "discount" && <DiscountPage setSnack={setSnack} />}
             {page === "comments" && <CommentsPage setSnack={setSnack} />}
             {page === "images" && <ImageAdminPage setSnack={setSnack} />}

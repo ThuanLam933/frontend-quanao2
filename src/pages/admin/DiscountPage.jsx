@@ -34,7 +34,6 @@ export default function DiscountPage({ setSnack }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
 
-  // ================= FETCH =================
   const fetchDiscounts = useCallback(async () => {
     setLoading(true);
     try {
@@ -61,7 +60,6 @@ export default function DiscountPage({ setSnack }) {
     fetchDiscounts();
   }, [fetchDiscounts]);
 
-  // ================= DELETE =================
   const handleDelete = async (id) => {
     if (!window.confirm("Xóa mã giảm giá này?")) return;
 
@@ -84,33 +82,32 @@ export default function DiscountPage({ setSnack }) {
   return (
     <Box>
       <Stack
-  direction="row"
-  alignItems="center"
-  justifyContent="space-between"
-  sx={{ mb: 2 }}
->
-  <Typography variant="h5" sx={{ mb: 0 }}>
-    Quản lý mã giảm giá đơn hàng
-  </Typography>
+        direction="row"
+        alignItems="center"
+        justifyContent="space-between"
+        sx={{ mb: 2 }}
+      >
+        <Typography variant="h5" sx={{ mb: 0 }}>
+          Quản lý mã giảm giá đơn hàng
+        </Typography>
 
-  <Stack direction="row" spacing={1} alignItems="center">
-    <Button
-      variant="contained"
-      startIcon={<AddIcon />}
-      onClick={() => {
-        setEditing(null);
-        setDialogOpen(true);
-      }}
-    >
-      Thêm mã giảm
-    </Button>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => {
+              setEditing(null);
+              setDialogOpen(true);
+            }}
+          >
+            Thêm mã giảm
+          </Button>
 
-    <Button variant="outlined" onClick={fetchDiscounts} disabled={loading}>
-      {loading ? "Đang tải..." : "Tải lại"}
-    </Button>
-  </Stack>
-</Stack>
-
+          <Button variant="outlined" onClick={fetchDiscounts} disabled={loading}>
+            {loading ? "Đang tải..." : "Tải lại"}
+          </Button>
+        </Stack>
+      </Stack>
 
       <Paper sx={{ mt: 3 }}>
         <TableContainer>
@@ -214,10 +211,6 @@ export default function DiscountPage({ setSnack }) {
   );
 }
 
-// =====================================================================
-// ========================== DIALOG ===================================
-// =====================================================================
-
 function DiscountDialog({ open, onClose, editing, refresh, setSnack }) {
   const isEdit = !!editing;
 
@@ -263,7 +256,6 @@ function DiscountDialog({ open, onClose, editing, refresh, setSnack }) {
 
   const handleSave = async () => {
     try {
-      // validate nhẹ phía FE cho đỡ lỗi
       if (!form.code?.trim()) {
         setSnack({ severity: "warning", message: "Vui lòng nhập mã (code)" });
         return;
@@ -279,7 +271,6 @@ function DiscountDialog({ open, onClose, editing, refresh, setSnack }) {
 
       const token = localStorage.getItem("access_token");
 
-      // convert min_total/usage_limit rỗng -> null
       const payload = {
         ...form,
         value: Number(form.value),
@@ -339,7 +330,7 @@ function DiscountDialog({ open, onClose, editing, refresh, setSnack }) {
           sx={{ mt: 1 }}
           value={form.code}
           onChange={(e) => setForm({ ...form, code: e.target.value })}
-          disabled={isEdit} // thường code không cho sửa
+          disabled={isEdit}
         />
 
         <TextField

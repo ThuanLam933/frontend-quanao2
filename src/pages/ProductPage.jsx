@@ -1,4 +1,3 @@
-// src/pages/ProductPage.jsx
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -36,7 +35,6 @@ const theme = createTheme({
   },
 });
 
-// ===== util =====
 const normalizePrice = (p) => {
   const num = Number(p);
   return isNaN(num) ? 0 : num;
@@ -68,32 +66,27 @@ export default function ProductPage() {
 
   const isStopped = useMemo(() => Number(product?.status ?? 1) !== 1, [product]);
 
-  // ✅ HELPER DUY NHẤT ĐỂ SET VARIANT (QUAN TRỌNG)
   const selectVariant = (v) => {
     if (!v) return;
 
     const original = normalizePrice(v.price);
-    const final =
-      v.has_discount && v.final_price ? normalizePrice(v.final_price) : original;
+    const final = v.has_discount && v.final_price ? normalizePrice(v.final_price) : original;
 
     setSelectedVariant({
       ...v,
       original_price: original,
       final_price: final,
       has_discount: !!v.has_discount,
-      discount_percent:
-        original > 0 ? Math.round(((original - final) / original) * 100) : 0,
+      discount_percent: original > 0 ? Math.round(((original - final) / original) * 100) : 0,
     });
   };
 
-  // ===== Fetch product =====
   const fetchProduct = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`${API_BASE}/api/products/${id}`);
       const p = await res.json();
 
-      // ✅ normalize status về number
       const normalizedProduct = { ...p, status: Number(p.status ?? 1) };
       setProduct(normalizedProduct);
 
@@ -107,19 +100,17 @@ export default function ProductPage() {
           original_price: original,
           final_price: final,
           has_discount: !!v.has_discount,
-          discount_percent:
-            original > 0 ? Math.round(((original - final) / original) * 100) : 0,
+          discount_percent: original > 0 ? Math.round(((original - final) / original) * 100) : 0,
           quantity: Number(v.quantity ?? 0),
         };
       });
 
       setVariants(normalizedVariants);
 
-      // ✅ Chọn variant mặc định: ưu tiên còn hàng
       const firstInStock = normalizedVariants.find((v) => (v.quantity ?? 0) > 0);
       const firstAny = normalizedVariants[0];
-
       const chosen = firstInStock || firstAny || null;
+
       if (chosen) {
         setSelectedSize(chosen.size?.name ?? null);
         setSelectedColor(chosen.color?.name ?? null);
@@ -139,7 +130,6 @@ export default function ProductPage() {
     }
   }, [id]);
 
-  // ===== Fetch images =====
   const fetchImages = useCallback(async () => {
     if (!selectedVariant) return;
 
@@ -165,17 +155,13 @@ export default function ProductPage() {
     }
   }, [selectedVariant]);
 
-  // ===== Related =====
   const fetchRelated = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/api/products/`);
       const arr = await res.json();
 
       const list = (Array.isArray(arr) ? arr : [])
-        .filter(
-          (p) =>
-            p.categories_id === product?.categories_id && p.id !== product?.id
-        )
+        .filter((p) => p.categories_id === product?.categories_id && p.id !== product?.id)
         .slice(0, 4);
 
       setRelated(list);
@@ -204,9 +190,7 @@ export default function ProductPage() {
     [selectedVariant]
   );
 
-  // ===== Add to cart =====
   const addToCart = () => {
-    // ✅ chặn nếu ngưng bán
     if (isStopped) {
       setSnack({ severity: "warning", message: "Sản phẩm đã ngưng bán." });
       return;
@@ -217,13 +201,11 @@ export default function ProductPage() {
       return;
     }
 
-    // ✅ chặn nếu variant hết hàng
     if (Number(selectedVariant.quantity ?? 0) <= 0) {
       setSnack({ severity: "warning", message: "Biến thể này đã hết hàng." });
       return;
     }
 
-    // ✅ chặn nếu qty vượt tồn
     if (qty > Number(selectedVariant.quantity ?? 0)) {
       setSnack({
         severity: "warning",
@@ -234,22 +216,17 @@ export default function ProductPage() {
 
     const cart = JSON.parse(localStorage.getItem(CART_KEY) || "[]");
 
-    const price = selectedVariant.has_discount
-      ? selectedVariant.final_price
-      : selectedVariant.original_price;
+    const price = selectedVariant.has_discount ? selectedVariant.final_price : selectedVariant.original_price;
 
     const exist = cart.find((item) => item.product_detail_id === selectedVariant.id);
 
     if (exist) {
       const newQty = (exist.quantity || 0) + qty;
 
-      // ✅ cũng chặn nếu cộng dồn vượt tồn
       if (newQty > Number(selectedVariant.quantity ?? 0)) {
         setSnack({
           severity: "warning",
-          message: `Trong giỏ đã có. Tổng tối đa còn lại: ${Number(
-            selectedVariant.quantity ?? 0
-          )}.`,
+          message: `Trong giỏ đã có. Tổng tối đa còn lại: ${Number(selectedVariant.quantity ?? 0)}.`,
         });
         return;
       }
@@ -277,7 +254,6 @@ export default function ProductPage() {
     setSnack({ severity: "success", message: "Đã thêm vào giỏ hàng!" });
   };
 
-  // ===== Render =====
   if (loading || !product) {
     return (
       <Box sx={{ textAlign: "center", py: 8 }}>
@@ -291,7 +267,6 @@ export default function ProductPage() {
       <Box sx={{ py: 4, backgroundColor: "#fff" }}>
         <Container maxWidth="lg">
           <Grid container spacing={4}>
-            {/* IMAGE */}
             <Grid item xs={12} md={7}>
               <Box
                 component="img"
@@ -319,15 +294,13 @@ export default function ProductPage() {
                       objectFit: "cover",
                       cursor: isStopped ? "not-allowed" : "pointer",
                       opacity: isStopped ? 0.6 : 1,
-                      border:
-                        mainImage === img.url ? "2px solid #111" : "1px solid #ccc",
+                      border: mainImage === img.url ? "2px solid #111" : "1px solid #ccc",
                     }}
                   />
                 ))}
               </Stack>
             </Grid>
 
-            {/* INFO */}
             <Grid item xs={12} md={5}>
               <Stack direction="row" spacing={1} alignItems="center">
                 <Typography variant="h5" sx={{ fontWeight: 800 }}>
@@ -349,55 +322,48 @@ export default function ProductPage() {
 
               <Divider sx={{ my: 2 }} />
 
-              {/* SIZE */}
               <Typography sx={{ fontWeight: 600, mb: 1 }}>Size</Typography>
               <Stack direction="row" spacing={1} mb={2} flexWrap="wrap">
-                {[...new Set(variants.map((v) => v.size?.name).filter(Boolean))].map(
-                  (size) => {
-                    const hasStock = variants.some(
-                      (v) => v.size?.name === size && (v.quantity ?? 0) > 0
-                    );
+                {[...new Set(variants.map((v) => v.size?.name).filter(Boolean))].map((size) => {
+                  const hasStock = variants.some(
+                    (v) => v.size?.name === size && (v.quantity ?? 0) > 0
+                  );
+                  const disabled = isStopped || !hasStock;
 
-                    const disabled = isStopped || !hasStock;
+                  return (
+                    <Chip
+                      key={size}
+                      label={size}
+                      clickable={!disabled}
+                      disabled={disabled}
+                      onClick={() => {
+                        if (disabled) return;
 
-                    return (
-                      <Chip
-                        key={size}
-                        label={size}
-                        clickable={!disabled}
-                        disabled={disabled}
-                        onClick={() => {
-                          if (disabled) return;
+                        setSelectedSize(size);
 
-                          setSelectedSize(size);
+                        const list = variants.filter(
+                          (v) => v.size?.name === size && (v.quantity ?? 0) > 0
+                        );
 
-                          const list = variants.filter(
-                            (v) => v.size?.name === size && (v.quantity ?? 0) > 0
-                          );
+                        const valid = list.find((v) => v.color?.name === selectedColor) || list[0];
 
-                          const valid =
-                            list.find((v) => v.color?.name === selectedColor) ||
-                            list[0];
-
-                          if (valid) {
-                            setSelectedColor(valid.color?.name);
-                            selectVariant(valid);
-                          }
-                        }}
-                        sx={{
-                          borderRadius: 0,
-                          border: "1px solid #111",
-                          backgroundColor: selectedSize === size ? "#111" : "#fff",
-                          color: selectedSize === size ? "#fff" : "#111",
-                          opacity: disabled ? 0.6 : 1,
-                        }}
-                      />
-                    );
-                  }
-                )}
+                        if (valid) {
+                          setSelectedColor(valid.color?.name);
+                          selectVariant(valid);
+                        }
+                      }}
+                      sx={{
+                        borderRadius: 0,
+                        border: "1px solid #111",
+                        backgroundColor: selectedSize === size ? "#111" : "#fff",
+                        color: selectedSize === size ? "#fff" : "#111",
+                        opacity: disabled ? 0.6 : 1,
+                      }}
+                    />
+                  );
+                })}
               </Stack>
 
-              {/* COLOR */}
               <Typography sx={{ fontWeight: 600, mb: 1 }}>Màu</Typography>
               <Stack direction="row" spacing={1} mb={3} flexWrap="wrap">
                 {colorsForSize.map((v) => {
@@ -417,10 +383,8 @@ export default function ProductPage() {
                       sx={{
                         borderRadius: 0,
                         border: "1px solid #111",
-                        backgroundColor:
-                          selectedColor === v.color?.name ? "#111" : "#fff",
-                        color:
-                          selectedColor === v.color?.name ? "#fff" : "#111",
+                        backgroundColor: selectedColor === v.color?.name ? "#111" : "#fff",
+                        color: selectedColor === v.color?.name ? "#fff" : "#111",
                         opacity: disabled ? 0.6 : 1,
                       }}
                     />
@@ -428,7 +392,6 @@ export default function ProductPage() {
                 })}
               </Stack>
 
-              {/* PRICE / STATUS */}
               <Box sx={{ mb: 2 }}>
                 {isStopped ? (
                   <Typography sx={{ fontSize: 16, fontWeight: 800, color: "#999" }}>
@@ -450,10 +413,7 @@ export default function ProductPage() {
                       {selectedVariant.original_price.toLocaleString("vi-VN")}₫
                     </Typography>
 
-                    <Typography
-                      variant="h5"
-                      sx={{ fontWeight: 800, color: "secondary.main" }}
-                    >
+                    <Typography variant="h5" sx={{ fontWeight: 800, color: "secondary.main" }}>
                       {selectedVariant.final_price.toLocaleString("vi-VN")}₫
                     </Typography>
                   </>
@@ -473,9 +433,7 @@ export default function ProductPage() {
                 value={qty}
                 sx={{ width: 120 }}
                 disabled={isStopped || selectedOutOfStock}
-                onChange={(e) =>
-                  setQty(Math.max(1, Math.floor(Number(e.target.value))))
-                }
+                onChange={(e) => setQty(Math.max(1, Math.floor(Number(e.target.value))))}
               />
 
               <Button
@@ -499,12 +457,7 @@ export default function ProductPage() {
             </Grid>
           </Grid>
 
-          {/* SNACKBAR */}
-          <Snackbar
-            open={!!snack}
-            autoHideDuration={2500}
-            onClose={() => setSnack(null)}
-          >
+          <Snackbar open={!!snack} autoHideDuration={2500} onClose={() => setSnack(null)}>
             {snack && <Alert severity={snack.severity}>{snack.message}</Alert>}
           </Snackbar>
         </Container>

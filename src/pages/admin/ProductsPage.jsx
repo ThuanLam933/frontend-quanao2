@@ -1,4 +1,3 @@
-// src/pages/admin/ProductsPage.jsx
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   Box,
@@ -36,7 +35,6 @@ import Popover from "@mui/material/Popover";
 import ViewColumnIcon from "@mui/icons-material/ViewColumn";
 import { API_BASE } from "../AdminPanel";
 
-// Cấu hình cột cho table + popup filter (chỉ còn các field thuộc Product)
 const BASE_COLUMNS = [
   { id: "id", label: "ID" },
   { id: "image", label: "Hình ảnh" },
@@ -48,7 +46,6 @@ const BASE_COLUMNS = [
   { id: "actions", label: "Actions" },
 ];
 
-// Các cột hiển thị mặc định
 const DEFAULT_VISIBLE_COLS = ["id", "image", "name", "status", "category", "actions"];
 
 const PAGE_SIZE = 12;
@@ -63,16 +60,13 @@ export default function ProductsPage({ setSnack }) {
   const [categories, setCategories] = useState([]);
   const [optsLoading, setOptsLoading] = useState(false);
 
-  // --- state search ---
   const [searchInput, setSearchInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
 
-  // --- state filter cột ---
   const [visibleCols, setVisibleCols] = useState(() => DEFAULT_VISIBLE_COLS);
   const [columnAnchorEl, setColumnAnchorEl] = useState(null);
   const [columnSearch, setColumnSearch] = useState("");
 
-  // ----------------- FETCH DATA -----------------
   const fetchProducts = useCallback(
     async () => {
       setLoading(true);
@@ -123,12 +117,10 @@ export default function ProductsPage({ setSnack }) {
     fetchOptions();
   }, [fetchProducts, fetchOptions]);
 
-  // mỗi lần đổi searchTerm thì về trang 1
   useEffect(() => {
     setPage(1);
   }, [searchTerm]);
 
-  // ----------------- HANDLERS EDIT/CREATE -----------------
   const onEdit = (item) => {
     setEditing({
       id: item.id,
@@ -139,7 +131,6 @@ export default function ProductsPage({ setSnack }) {
       categories_id:
         item.categories_id ?? item.category_id ?? item.category?.id ?? "",
       image_url: item.image_url ?? item.image ?? item.thumbnail ?? null,
-
     });
     setEditOpen(true);
   };
@@ -155,7 +146,6 @@ export default function ProductsPage({ setSnack }) {
     setEditOpen(true);
   };
 
-  // ----------------- SAVE (CREATE / UPDATE) -----------------
   const handleSave = async (obj, files = []) => {
     const token = localStorage.getItem("access_token");
     if (!obj || !obj.name || String(obj.name).trim() === "") {
@@ -197,40 +187,34 @@ export default function ProductsPage({ setSnack }) {
         payload.status = 1;
       else payload.status = 0;
 
-      // Không gửi bất kỳ thông tin variant / detail nào nữa
       delete payload.price;
       delete payload.colors_id;
       delete payload.sizes_id;
       delete payload.quantity;
       delete payload.detail_status;
-      delete payload.images; // đề phòng có field images trong obj
+      delete payload.images;
 
-      const hasNewImage = !!(files && files.length > 0);
+      const file0 = files?.[0];
 
-// Có ảnh mới thì không gửi image_url (tránh backend bị “đè”)
-if (hasNewImage) {
-  delete payload.image_url;
-}
+      const hasNewImage = file0 instanceof File && file0.size > 0;
 
-// Append tất cả field còn lại
-Object.keys(payload).forEach((k) => {
-  const v = payload[k];
-  if (v === undefined || v === null) return;
+      if (hasNewImage) {
+        delete payload.image_url;
+      }
 
-  // Tránh gửi image_url rỗng
-  if (k === "image_url" && String(v).trim() === "") return;
+      Object.keys(payload).forEach((k) => {
+        const v = payload[k];
+        if (v === undefined || v === null) return;
+        if (k === "image_url" && String(v).trim() === "") return;
+        fd.append(k, v);
+      });
 
-  fd.append(k, v);
-});
-
-// Nếu có ảnh mới thì gửi file
-if (hasNewImage) {
-  fd.append("image", files[0], files[0].name);
-}
-
+      if (hasNewImage) {
+        fd.append("image", file0);
+      }
 
       const res = await fetch(endpoint, {
-        method: "POST", // backend của bạn dùng POST cho cả create & update
+        method: "POST",
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
@@ -293,7 +277,6 @@ if (hasNewImage) {
     }
   };
 
-  // ----------------- SEARCH + FILTER CỘT -----------------
   const handleSearchKeyDown = (e) => {
     if (e.key === "Enter") {
       setSearchTerm(searchInput.trim());
@@ -327,7 +310,6 @@ if (hasNewImage) {
     page * PAGE_SIZE
   );
 
-  // popup filter cột
   const openColumns = Boolean(columnAnchorEl);
   const handleOpenColumns = (event) => {
     setColumnAnchorEl(event.currentTarget);
@@ -361,7 +343,6 @@ if (hasNewImage) {
   const someChecked =
     visibleCols.length > 0 && visibleCols.length < BASE_COLUMNS.length;
 
-  // ---------- HELPER: hiển thị tên category thay vì id ----------
   const getCategoryLabel = (p) => {
     if (p.category && (p.category.name || p.category.title || p.category.slug)) {
       return p.category.name || p.category.title || p.category.slug;
@@ -390,10 +371,8 @@ if (hasNewImage) {
     return null;
   };
 
-  // ----------------- RENDER -----------------
   return (
     <Box>
-      {/* Header: title + search + buttons */}
       <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
         <Typography variant="h6" sx={{ whiteSpace: "nowrap" }}>
           Sản Phẩm
@@ -422,7 +401,6 @@ if (hasNewImage) {
         </Stack>
       </Stack>
 
-      {/* Popup chọn cột */}
       <Popover
         open={openColumns}
         anchorEl={columnAnchorEl}
@@ -552,7 +530,6 @@ if (hasNewImage) {
                             </TableCell>
                           );
                         case "status": {
-                          // Nếu sau này bạn muốn hiển thị dựa trên tồn kho tổng, có thể cập nhật lại.
                           const isActive =
                             p.status === 1 ||
                             p.status === "1" ||
@@ -667,7 +644,6 @@ if (hasNewImage) {
   );
 }
 
-// =============== DIALOG EDIT PRODUCT =================
 function ProductEditDialog({
   open,
   onClose,
@@ -681,12 +657,14 @@ function ProductEditDialog({
   const [previews, setPreviews] = useState([]);
   const [saving, setSaving] = useState(false);
   const originalImageUrlRef = useRef("");
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     setForm(item ? { ...item } : null);
     setFiles([]);
     setPreviews([]);
     originalImageUrlRef.current = item?.image_url ?? item?.image ?? item?.thumbnail ?? "";
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }, [item]);
 
   useEffect(() => {
@@ -711,7 +689,6 @@ function ProductEditDialog({
         try {
           r.abort();
         } catch {
-          /* ignore */
         }
       });
     };
@@ -782,20 +759,19 @@ function ProductEditDialog({
         />
 
         {form.id && (
-  <TextField
-    select
-    label="Status"
-    fullWidth
-    value={String(form.status ?? "1")}
-    onChange={(e) => setForm({ ...form, status: e.target.value })}
-    sx={{ mt: 1 }}
-    helperText="1 = Đang bán, 0 = Ngưng bán"
-  >
-    <MenuItem value={"1"}>Đang bán</MenuItem>
-    <MenuItem value={"0"}>Ngưng bán</MenuItem>
-  </TextField>
-)}
-
+          <TextField
+            select
+            label="Status"
+            fullWidth
+            value={String(form.status ?? "1")}
+            onChange={(e) => setForm({ ...form, status: e.target.value })}
+            sx={{ mt: 1 }}
+            helperText="1 = Đang bán, 0 = Ngưng bán"
+          >
+            <MenuItem value={"1"}>Đang bán</MenuItem>
+            <MenuItem value={"0"}>Ngưng bán</MenuItem>
+          </TextField>
+        )}
 
         <TextField
           select
@@ -827,6 +803,7 @@ function ProductEditDialog({
             Images (ảnh đại diện – chỉ dùng tấm đầu tiên)
           </Typography>
           <input
+            ref={fileInputRef}
             type="file"
             accept="image/*"
             multiple

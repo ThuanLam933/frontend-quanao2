@@ -17,7 +17,6 @@ function Footer() {
     >
       <Container maxWidth="lg">
         <Grid container spacing={4}>
-          {/* LEFT LOGO + TEXT */}
           <Grid item xs={12} md={6}>
             <Typography
               variant="h5"
@@ -39,12 +38,11 @@ function Footer() {
                 lineHeight: 1.6,
               }}
             >
-              Thời trang tối giản — phong cách hiện đại.  
-              Giao hàng toàn quốc, đổi trả nhanh chóng.
+              Thời trang tối giản — phong cách hiện đại. Giao hàng toàn quốc, đổi
+              trả nhanh chóng.
             </Typography>
           </Grid>
 
-          {/* RIGHT MENU */}
           <Grid
             item
             xs={12}
@@ -101,7 +99,6 @@ function Footer() {
           </Grid>
         </Grid>
 
-        {/* COPYRIGHT */}
         <Box sx={{ mt: 5, textAlign: "center" }}>
           <Typography
             variant="caption"

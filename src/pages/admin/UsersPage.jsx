@@ -44,11 +44,14 @@ export default function UsersPage({ setSnack }) {
             localStorage.getItem("access_token") ||
             localStorage.getItem("token") ||
             null;
+
         if (!token) return null;
+
         try {
             const maybe = JSON.parse(token);
             if (typeof maybe === "string") token = maybe;
         } catch (e) {}
+
         return String(token).trim();
     };
 
@@ -63,9 +66,14 @@ export default function UsersPage({ setSnack }) {
                     ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 },
             });
+
             if (!res.ok) throw new Error("users fetch failed");
+
             const data = await res.json();
-            const arr = Array.isArray(data) ? data : data.data ?? data.items ?? [];
+            const arr = Array.isArray(data)
+                ? data
+                : data.data ?? data.items ?? [];
+
             setUsers(arr);
         } catch (err) {
             console.error(err);
@@ -95,7 +103,9 @@ export default function UsersPage({ setSnack }) {
                     body: JSON.stringify({}),
                 }
             );
+
             if (!res.ok) throw new Error("toggle failed");
+
             setSnack({ severity: "success", message: "Cập nhật user" });
             fetchUsers();
         } catch (err) {
@@ -104,14 +114,12 @@ export default function UsersPage({ setSnack }) {
         }
     };
 
-    // Lọc theo search: email, name, id
     const filtered = users.filter((u) => {
         const q = search.trim().toLowerCase();
         if (!q) return true;
+
         return (
-            String(u.id ?? "")
-                .toLowerCase()
-                .includes(q) ||
+            String(u.id ?? "").toLowerCase().includes(q) ||
             (u.email || "").toLowerCase().includes(q) ||
             (u.name || "").toLowerCase().includes(q)
         );
@@ -126,7 +134,6 @@ export default function UsersPage({ setSnack }) {
 
     return (
         <Box>
-            {/* HEADER */}
             <Stack
                 direction="row"
                 justifyContent="space-between"
@@ -141,6 +148,7 @@ export default function UsersPage({ setSnack }) {
                         Quản lý tài khoản người dùng.
                     </Typography>
                 </Box>
+
                 <Button
                     variant="outlined"
                     size="small"
@@ -151,7 +159,6 @@ export default function UsersPage({ setSnack }) {
                 </Button>
             </Stack>
 
-            {/* SEARCH BAR */}
             <Paper sx={{ mb: 2, p: 2 }}>
                 <Stack
                     direction={{ xs: "column", sm: "row" }}
@@ -177,13 +184,13 @@ export default function UsersPage({ setSnack }) {
                             }}
                         />
                     </Stack>
+
                     <Typography variant="body2" color="text.secondary">
                         Tổng: {users.length} users
                     </Typography>
                 </Stack>
             </Paper>
 
-            {/* TABLE */}
             <Paper sx={{ position: "relative" }}>
                 {loading && (
                     <Box
@@ -217,37 +224,56 @@ export default function UsersPage({ setSnack }) {
                                 </TableCell>
                             </TableRow>
                         </TableHead>
+
                         <TableBody>
                             {visible.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
+                                    <TableCell
+                                        colSpan={6}
+                                        align="center"
+                                        sx={{ py: 6 }}
+                                    >
                                         Không có users
                                     </TableCell>
                                 </TableRow>
                             ) : (
                                 visible.map((u) => {
-                                    const verified = Boolean(u.email_verified_at);
+                                    const verified = Boolean(
+                                        u.email_verified_at
+                                    );
                                     const locked = Boolean(u.locked);
                                     const createdTime =
                                         u.created_at || u.updated_at || null;
 
                                     return (
                                         <TableRow hover key={u.id}>
-                                            <TableCell align="right">{u.id}</TableCell>
-                                            <TableCell>{u.email ?? "—"}</TableCell>
-                                            <TableCell>{u.name ?? "—"}</TableCell>
+                                            <TableCell align="right">
+                                                {u.id}
+                                            </TableCell>
+                                            <TableCell>
+                                                {u.email ?? "—"}
+                                            </TableCell>
+                                            <TableCell>
+                                                {u.name ?? "—"}
+                                            </TableCell>
                                             <TableCell>
                                                 <Chip
                                                     size="small"
-                                                    label={verified ? "Yes" : "No"}
-                                                    color={verified ? "success" : "default"}
+                                                    label={
+                                                        verified ? "Yes" : "No"
+                                                    }
+                                                    color={
+                                                        verified
+                                                            ? "success"
+                                                            : "default"
+                                                    }
                                                 />
                                             </TableCell>
                                             <TableCell>
                                                 {createdTime
-                                                    ? new Date(createdTime).toLocaleString(
-                                                          "vi-VN"
-                                                      )
+                                                    ? new Date(
+                                                          createdTime
+                                                      ).toLocaleString("vi-VN")
                                                     : "—"}
                                             </TableCell>
                                             <TableCell align="right">
@@ -258,15 +284,25 @@ export default function UsersPage({ setSnack }) {
                                                 >
                                                     <Tooltip
                                                         title={
-                                                            locked ? "Mở khóa user" : "Khóa user"
+                                                            locked
+                                                                ? "Mở khóa user"
+                                                                : "Khóa user"
                                                         }
                                                     >
                                                         <span>
                                                             <IconButton
                                                                 size="small"
-                                                                onClick={() => toggleLock(u)}
+                                                                onClick={() =>
+                                                                    toggleLock(
+                                                                        u
+                                                                    )
+                                                                }
                                                                 disabled={!u.id}
-                                                                color={locked ? "warning" : "error"}
+                                                                color={
+                                                                    locked
+                                                                        ? "warning"
+                                                                        : "error"
+                                                                }
                                                             >
                                                                 {locked ? (
                                                                     <LockOpenIcon fontSize="small" />
@@ -280,7 +316,11 @@ export default function UsersPage({ setSnack }) {
                                                     <Tooltip title="Xem chi tiết">
                                                         <IconButton
                                                             size="small"
-                                                            onClick={() => setSelectedUser(u)}
+                                                            onClick={() =>
+                                                                setSelectedUser(
+                                                                    u
+                                                                )
+                                                            }
                                                         >
                                                             <VisibilityIcon fontSize="small" />
                                                         </IconButton>
@@ -296,6 +336,7 @@ export default function UsersPage({ setSnack }) {
                 </TableContainer>
 
                 <Divider />
+
                 <Box
                     sx={{
                         display: "flex",
@@ -312,7 +353,6 @@ export default function UsersPage({ setSnack }) {
                 </Box>
             </Paper>
 
-            {/* DIALOG VIEW USER */}
             <UserDetailDialog
                 user={selectedUser}
                 onClose={() => setSelectedUser(null)}
@@ -332,10 +372,12 @@ function UserDetailDialog({ user, onClose }) {
     return (
         <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
             <DialogTitle>User #{user?.id}</DialogTitle>
+
             <DialogContent dividers>
                 <Typography variant="subtitle2" gutterBottom>
                     Thông tin cơ bản
                 </Typography>
+
                 <Typography variant="body2">
                     Email: {user?.email ?? "—"}
                 </Typography>
@@ -347,10 +389,13 @@ function UserDetailDialog({ user, onClose }) {
                     <Typography variant="subtitle2" gutterBottom>
                         Trạng thái
                     </Typography>
+
                     <Stack direction="row" spacing={1}>
                         <Chip
                             size="small"
-                            label={verified ? "Verified" : "Chưa xác thực"}
+                            label={
+                                verified ? "Verified" : "Chưa xác thực"
+                            }
                             color={verified ? "success" : "default"}
                         />
                         <Chip
@@ -365,6 +410,7 @@ function UserDetailDialog({ user, onClose }) {
                     <Typography variant="subtitle2" gutterBottom>
                         Thời gian
                     </Typography>
+
                     <Typography variant="body2">
                         Created:{" "}
                         {createdTime
@@ -373,6 +419,7 @@ function UserDetailDialog({ user, onClose }) {
                     </Typography>
                 </Box>
             </DialogContent>
+
             <DialogActions>
                 <Button onClick={onClose}>Close</Button>
             </DialogActions>

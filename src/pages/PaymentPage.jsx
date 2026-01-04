@@ -1,4 +1,3 @@
-// src/pages/PaymentPage.jsx
 import React, { useState, useEffect, useMemo } from "react";
 import {
   Box,
@@ -22,15 +21,14 @@ import { useNavigate } from "react-router-dom";
 
 const API_BASE = process.env.REACT_APP_API_BASE || "http://127.0.0.1:8000";
 
-// 🎨 UI STYLE — KHÔNG ĐỤNG LOGIC
 const theme = createTheme({
   palette: {
     mode: "light",
     background: { default: "#FFFFFF", paper: "#FFFFFF" },
-    primary: { main: "#DD002A", contrastText: "#fff" }, // 🔥 nút đỏ Uniqlo
+    primary: { main: "#DD002A", contrastText: "#fff" },
     text: { primary: "#111", secondary: "#555" },
   },
-  shape: { borderRadius: 0 }, // Uniqlo ít bo góc
+  shape: { borderRadius: 0 },
   typography: {
     fontFamily: "Helvetica, Arial, sans-serif",
     h6: { fontWeight: 700 },
@@ -44,10 +42,14 @@ function formatVND(n) {
   return Number(n).toLocaleString("vi-VN") + "₫";
 }
 
+function sanitizePhone(value) {
+  if (!value) return "";
+  return String(value).replace(/\D/g, "").slice(0, 10);
+}
+
 export default function PaymentPage() {
   const navigate = useNavigate();
 
-  // CART FROM STORAGE (NOT CHANGED)
   const [cart, setCart] = useState(() => {
     try {
       const raw = localStorage.getItem("cart") || "[]";
@@ -56,38 +58,32 @@ export default function PaymentPage() {
       return [];
     }
   });
-  const DISCOUNT_KEY="cart_discount";
-  const [discount, setDiscount] = useState(() => {
-  try {
-    const raw = localStorage.getItem(DISCOUNT_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-});
 
+  const DISCOUNT_KEY = "cart_discount";
+  const [discount, setDiscount] = useState(() => {
+    try {
+      const raw = localStorage.getItem(DISCOUNT_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
 
   const [submitting, setSubmitting] = useState(false);
   const [snack, setSnack] = useState(null);
 
-  // FORM DATA (NOT CHANGED)
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
-  function sanitizePhone(value) {
-  if (!value) return "";
-  return String(value).replace(/\D/g, "").slice(0, 10);
-}
+
   useEffect(() => {
-    // 1) đọc user từ localStorage
     let storedUser = null;
     try {
       const raw = localStorage.getItem("user");
       storedUser = raw ? JSON.parse(raw) : null;
     } catch {}
 
-    // 2) đọc addresses từ localStorage (giống AccountPage)
     let storedAddresses = [];
     try {
       storedAddresses = JSON.parse(localStorage.getItem("addresses") || "[]");
@@ -96,20 +92,18 @@ export default function PaymentPage() {
     const defaultAddr =
       storedAddresses.find((a) => a?.is_default) || storedAddresses[0] || null;
 
-    // 3) prefill (chỉ fill nếu input đang rỗng để không ghi đè người dùng đang gõ)
     if (storedUser) {
       setName((prev) => prev || storedUser?.name || "");
       setEmail((prev) => prev || storedUser?.email || "");
-      setPhone((prev) => prev || sanitizePhone(storedUser?.phone || defaultAddr?.phone || ""));
+      setPhone((prev) =>
+        prev || sanitizePhone(storedUser?.phone || defaultAddr?.phone || "")
+      );
       setAddress((prev) => prev || defaultAddr?.address || storedUser?.address || "");
     } else if (defaultAddr) {
-      // nếu không có user nhưng có address (hiếm) thì vẫn fill address/phone
       setPhone((prev) => prev || sanitizePhone(defaultAddr?.phone || ""));
       setAddress((prev) => prev || defaultAddr?.address || "");
     }
 
-    // 4) (khuyến nghị) nếu đã đăng nhập thì fetch /api/me để lấy dữ liệu mới nhất
-    //    -> tránh trường hợp localStorage "user" cũ
     const token = localStorage.getItem("access_token");
     if (!token) return;
 
@@ -126,155 +120,122 @@ export default function PaymentPage() {
         setName((prev) => prev || me?.name || "");
         setEmail((prev) => prev || me?.email || "");
         setPhone((prev) => prev || sanitizePhone(me?.phone || ""));
-        // nếu BE có address trong /api/me thì tự fill luôn
         setAddress((prev) => prev || me?.address || "");
       } catch {}
     })();
-  }, [API_BASE]);
+  }, []);
 
-
-  // PAYMENT
   const [paymentMethod, setPaymentMethod] = useState("cod");
-  
 
   const SHIPPING_FEE = 30000;
 
   const subtotal = useMemo(() => {
-  return cart.reduce((s, it) => {
-    const unit =
-      Number(it.final_price ?? it.unit_price) || 0;
-    const qty = Number(it.quantity || 1);
-    return s + unit * qty;
-  }, 0);
-}, [cart]);
-
+    return cart.reduce((s, it) => {
+      const unit = Number(it.final_price ?? it.unit_price) || 0;
+      const qty = Number(it.quantity || 1);
+      return s + unit * qty;
+    }, 0);
+  }, [cart]);
 
   const discountAmount = Number(discount?.amount_discount ?? 0);
-  const subtotalAfterDiscount = discount?.total_after_discount !=null
-  ?Number(discount.total_after_discount):subtotal;
-  const total =subtotalAfterDiscount + SHIPPING_FEE;
+  const subtotalAfterDiscount =
+    discount?.total_after_discount != null
+      ? Number(discount.total_after_discount)
+      : subtotal;
+  const total = subtotalAfterDiscount + SHIPPING_FEE;
 
-  // Validation (NOT CHANGED)
   const validateForm = () => {
     if (!name.trim()) return "Vui lòng nhập họ tên người nhận.";
     if (!email || !/^\S+@\S+\.\S+$/.test(email)) return "Email không hợp lệ.";
     if (!phone || phone.trim().length > 10) return "Số điện thoại không hợp lệ.";
     if (!address || address.trim().length < 6) return "Vui lòng nhập địa chỉ giao hàng.";
-
-  
-
     return null;
   };
 
-  // Create Order (NOT CHANGED)
   const handlePlaceOrder = async () => {
-  const v = validateForm();
-  if (v) {
-    setSnack({ severity: "error", message: v });
-    return;
-  }
-
-  setSubmitting(true);
-  const discountId = discount?.discount?.id ?? discount?.id ?? null;
-
-
-  try {
-    const headers = { "Content-Type": "application/json" };
-    const token = localStorage.getItem("access_token");
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-
-    // ✅ COD: tạo đơn luôn (giữ như bạn đang chạy OK)
-    if (paymentMethod === "cod") {
-      const orderRes = await fetch(`${API_BASE}/api/orders`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-  customer: { name, email, phone, address },
-  items: cart,
-  payment: { method: "cod" },
-
-  // ✅ BẮT BUỘC để BE biết dùng mã nào
-  discount_id: discountId,
-
-  // ✅ ĐÚNG key: total_after_discount / total
-  totals: {
-    subtotal,
-    total_after_discount: subtotalAfterDiscount,
-    shipping: SHIPPING_FEE,
-    total,
-  },
-
-  // optional, không bắt buộc nhưng giữ cũng được
-  discount: discount
-    ? {
-        code: discount?.discount?.code || discount?.code,
-        amount_discount: discountAmount,
-      }
-    : null,
-}),
-
-      });
-
-      const orderBody = await orderRes.json();
-      if (!orderRes.ok) throw new Error(orderBody?.message || "Tạo đơn thất bại");
-
-      localStorage.removeItem("cart");
-      localStorage.removeItem(DISCOUNT_KEY); // ✅ xoá mã giảm giá luôn
-      // ✅ BE trả { message, order } nên id nằm trong order
-      navigate(`/order/${orderBody?.order?.id}`);
-
+    const v = validateForm();
+    if (v) {
+      setSnack({ severity: "error", message: v });
       return;
     }
 
-    // ✅ BANKING/VNPAY: KHÔNG tạo đơn tại đây
-    // 1) lưu draft để return page tạo đơn sau khi thanh toán thành công
-    localStorage.setItem(
-      "pending_checkout",
-      JSON.stringify({
-        customer: { name, email, phone, address },
-        items: cart,
-        payment: { method: "Banking" }, // ✅ đúng như BE đang accept
-        totals: {
-  subtotal,
-  total_after_discount: subtotalAfterDiscount,
-  shipping: SHIPPING_FEE,
-  total,
-},
-discount_id: discountId,
+    setSubmitting(true);
+    const discountId = discount?.discount?.id ?? discount?.id ?? null;
 
-        createdAt: Date.now(),
-      })
-    );
+    try {
+      const headers = { "Content-Type": "application/json" };
+      const token = localStorage.getItem("access_token");
+      if (token) headers["Authorization"] = `Bearer ${token}`;
 
-    // 2) tạo link VNPay (BE của bạn public route, chỉ cần amount)
-    const payRes = await fetch(`${API_BASE}/api/vnpay_create_payment`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ amount: total }),
-    });
+      if (paymentMethod === "cod") {
+        const orderRes = await fetch(`${API_BASE}/api/orders`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            customer: { name, email, phone, address },
+            items: cart,
+            payment: { method: "cod" },
+            discount_id: discountId,
+            totals: {
+              subtotal,
+              total_after_discount: subtotalAfterDiscount,
+              shipping: SHIPPING_FEE,
+              total,
+            },
+            discount: discount
+              ? {
+                  code: discount?.discount?.code || discount?.code,
+                  amount_discount: discountAmount,
+                }
+              : null,
+          }),
+        });
 
-    const payBody = await payRes.json();
-    if (!payRes.ok || !payBody?.payment_url) {
-      throw new Error(payBody?.message || "Không tạo được link thanh toán");
+        const orderBody = await orderRes.json();
+        if (!orderRes.ok) throw new Error(orderBody?.message || "Tạo đơn thất bại");
+
+        localStorage.removeItem("cart");
+        localStorage.removeItem(DISCOUNT_KEY);
+        navigate(`/order/${orderBody?.order?.id}`);
+        return;
+      }
+
+      localStorage.setItem(
+        "pending_checkout",
+        JSON.stringify({
+          customer: { name, email, phone, address },
+          items: cart,
+          payment: { method: "Banking" },
+          totals: {
+            subtotal,
+            total_after_discount: subtotalAfterDiscount,
+            shipping: SHIPPING_FEE,
+            total,
+          },
+          discount_id: discountId,
+          createdAt: Date.now(),
+        })
+      );
+
+      const payRes = await fetch(`${API_BASE}/api/vnpay_create_payment`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: total }),
+      });
+
+      const payBody = await payRes.json();
+      if (!payRes.ok || !payBody?.payment_url) {
+        throw new Error(payBody?.message || "Không tạo được link thanh toán");
+      }
+
+      window.location.href = payBody.payment_url;
+    } catch (err) {
+      setSnack({ severity: "error", message: err.message || "Có lỗi xảy ra" });
+    } finally {
+      setSubmitting(false);
     }
+  };
 
-    // 3) redirect sang VNPay
-    window.location.href = payBody.payment_url;
-  } catch (err) {
-    setSnack({ severity: "error", message: err.message || "Có lỗi xảy ra" });
-  } finally {
-    setSubmitting(false);
-  }
-};
-
-function sanitizePhone(value) {
-  if (!value) return "";
-  return String(value).replace(/\D/g, "").slice(0, 10); // chỉ số + tối đa 10 ký tự
-}
-
-
-
-  // ------------------- UI RENDER -------------------
   return (
     <ThemeProvider theme={theme}>
       <Box
@@ -286,24 +247,13 @@ function sanitizePhone(value) {
         }}
       >
         <Container maxWidth="lg">
-          {/* PAGE TITLE */}
-          <Typography
-            variant="h5"
-            sx={{ fontWeight: 800, mb: 3, letterSpacing: 0.5 }}
-          >
+          <Typography variant="h5" sx={{ fontWeight: 800, mb: 3, letterSpacing: 0.5 }}>
             THANH TOÁN
           </Typography>
 
           <Grid container spacing={4}>
-            {/* LEFT FORM */}
             <Grid item xs={12} md={7}>
-              <Paper
-                sx={{
-                  p: 3,
-                  border: "1px solid #e5e5e5",
-                  boxShadow: "none",
-                }}
-              >
+              <Paper sx={{ p: 3, border: "1px solid #e5e5e5", boxShadow: "none" }}>
                 <Typography variant="h6" sx={{ mb: 2 }}>
                   Thông tin giao hàng
                 </Typography>
@@ -343,7 +293,6 @@ function sanitizePhone(value) {
 
                   <Divider />
 
-                  {/* PAYMENT METHOD */}
                   <Typography variant="h6">Phương thức thanh toán</Typography>
                   <RadioGroup
                     value={paymentMethod}
@@ -361,8 +310,14 @@ function sanitizePhone(value) {
                     />
                   </RadioGroup>
 
-                  {/* BUTTONS */}
-                  <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2, mt: 2 }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "flex-end",
+                      gap: 2,
+                      mt: 2,
+                    }}
+                  >
                     <Button variant="outlined" sx={{ borderRadius: 0 }} onClick={() => navigate(-1)}>
                       Quay lại
                     </Button>
@@ -390,7 +345,6 @@ function sanitizePhone(value) {
               </Paper>
             </Grid>
 
-            {/* RIGHT SUMMARY */}
             <Grid item xs={12} md={5}>
               <Paper
                 sx={{
@@ -430,37 +384,32 @@ function sanitizePhone(value) {
                         />
 
                         <Box sx={{ flex: 1 }}>
-                          <Typography sx={{ fontWeight: 700 }}>
-                            {it.name}
-                          </Typography>
+                          <Typography sx={{ fontWeight: 700 }}>{it.name}</Typography>
                           <Typography sx={{ fontSize: 13, color: "#666" }}>
                             Size: {it.size_name || it.size} — Màu: {it.color_name || it.color}
                           </Typography>
-                          <Typography sx={{ fontSize: 13 }}>
-                            Số lượng: {it.quantity}
-                          </Typography>
+                          <Typography sx={{ fontSize: 13 }}>Số lượng: {it.quantity}</Typography>
                         </Box>
 
                         <Box sx={{ textAlign: "right" }}>
-  {it.has_discount && (
-    <Typography
-      sx={{
-        fontSize: 12,
-        textDecoration: "line-through",
-        color: "#999",
-      }}
-    >
-      {formatVND(it.original_price * it.quantity)}
-    </Typography>
-  )}
+                          {it.has_discount && (
+                            <Typography
+                              sx={{
+                                fontSize: 12,
+                                textDecoration: "line-through",
+                                color: "#999",
+                              }}
+                            >
+                              {formatVND(Number(it.original_price || 0) * Number(it.quantity || 0))}
+                            </Typography>
+                          )}
 
-  <Typography sx={{ fontWeight: 700 }}>
-    {formatVND(
-      (it.final_price ?? it.unit_price) * it.quantity
-    )}
-  </Typography>
-</Box>
-
+                          <Typography sx={{ fontWeight: 700 }}>
+                            {formatVND(
+                              Number(it.final_price ?? it.unit_price ?? 0) * Number(it.quantity || 0)
+                            )}
+                          </Typography>
+                        </Box>
                       </Box>
                     ))}
 
@@ -475,14 +424,21 @@ function sanitizePhone(value) {
                       <Typography>Phí vận chuyển</Typography>
                       <Typography>{formatVND(SHIPPING_FEE)}</Typography>
                     </Box>
-                    <Box sx={{ display:"flex", justifyContent:"space-between" }}>
+
+                    <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                       <Typography>Giảm giá</Typography>
                       <Typography>{discount ? `- ${formatVND(discountAmount)}` : "-"}</Typography>
                     </Box>
 
                     <Divider />
 
-                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                      }}
+                    >
                       <Typography variant="h6" sx={{ fontWeight: 800 }}>
                         Tổng cộng
                       </Typography>

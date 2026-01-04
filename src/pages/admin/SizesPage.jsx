@@ -30,7 +30,7 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import SearchIcon from "@mui/icons-material/Search";
 import { API_BASE } from "../AdminPanel";
 
-/* ------------------ DIALOG ------------------ */
+
 
 function SizeEditDialog({ open, onClose, item, onSave, slugify }) {
     const [form, setForm] = useState(item ?? null);
@@ -107,7 +107,7 @@ function SizeEditDialog({ open, onClose, item, onSave, slugify }) {
     );
 }
 
-/* ------------------ MAIN PAGE ------------------ */
+
 
 export default function SizesPage({ setSnack }) {
     const [items, setItems] = useState([]);
@@ -159,7 +159,7 @@ export default function SizesPage({ setSnack }) {
         fetchSizes();
     }, []);
 
-    /* Lọc search */
+    
     const filtered = items.filter((s) => {
         const q = search.trim().toLowerCase();
         if (!q) return true;
@@ -240,7 +240,7 @@ export default function SizesPage({ setSnack }) {
     return (
         <Box>
 
-            {/* HEADER */}
+            
             <Stack
                 direction="row"
                 justifyContent="space-between"
@@ -259,7 +259,7 @@ export default function SizesPage({ setSnack }) {
                 </Button>
             </Stack>
 
-            {/* SEARCH BAR */}
+            
             <Paper sx={{ mb: 2, p: 2 }}>
                 <Stack
                     direction={{ xs: "column", sm: "row" }}
@@ -287,7 +287,7 @@ export default function SizesPage({ setSnack }) {
                 </Stack>
             </Paper>
 
-            {/* TABLE */}
+            
             <Paper sx={{ position: "relative" }}>
                 {loading && (
                     <Box
@@ -348,7 +348,7 @@ export default function SizesPage({ setSnack }) {
                                 </TableRow>
                             ))}
 
-                            {/* EMPTY STATE */}
+                            
                             {visible.length === 0 && !loading && (
                                 <TableRow>
                                     <TableCell colSpan={3} align="center">
@@ -375,7 +375,7 @@ export default function SizesPage({ setSnack }) {
                 </Box>
             </Paper>
 
-            {/* DIALOG */}
+            
             <SizeEditDialog
                 open={editOpen}
                 onClose={() => setEditOpen(false)}

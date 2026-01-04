@@ -1,4 +1,3 @@
-// src/components/HomeBanner.jsx
 import React, { memo } from "react";
 import { Box, Container, Typography, Stack, Button } from "@mui/material";
 import { useNavigate } from "react-router-dom";
@@ -8,7 +7,6 @@ const HERO_KEY = "home_hero_poster";
 function HomeBanner() {
   const navigate = useNavigate();
 
-  // lấy ảnh banner từ localStorage (nếu có)
   let heroImageUrl = "/images/posterdemo2.png";
   try {
     const dataUrl = localStorage.getItem(HERO_KEY);
@@ -17,21 +15,18 @@ function HomeBanner() {
 
   return (
     <Box component="section" sx={{ width: "100%", mt: 0 }}>
-      {/* Banner nền lớn */}
       <Box
         sx={{
           width: "100%",
-          height: { xs: 240, sm: 320, md: 420, lg: 480 }, // 🔥 chỉnh chiều cao hợp lý
+          height: { xs: 240, sm: 320, md: 420, lg: 480 },
           backgroundImage: `url('${heroImageUrl}')`,
           backgroundSize: "cover",
-          backgroundPosition: "center bottom", 
+          backgroundPosition: "center bottom",
           position: "relative",
           display: "flex",
-          
           alignItems: "center",
         }}
       >
-        {/* Lớp phủ đậm chất Uniqlo */}
         <Box
           sx={{
             position: "absolute",
@@ -42,7 +37,6 @@ function HomeBanner() {
         />
 
         <Container maxWidth="lg" sx={{ position: "relative", zIndex: 2 }}>
-          {/* Khối nội dung chữ */}
           <Box
             sx={{
               maxWidth: 480,
@@ -89,7 +83,6 @@ function HomeBanner() {
               Phong cách tối giản, thiết kế dành riêng cho mùa hè.
             </Typography>
 
-            {/* Button hành động */}
             <Stack direction="row" spacing={2}>
               <Button
                 variant="contained"

@@ -14,7 +14,7 @@ import {
     Stack,
 } from "@mui/material";
 
-// Dùng API_BASE cục bộ để tránh circular import với AdminPanel
+
 const API_BASE = "http://127.0.0.1:8000";
 
 export default function CommentsPage({ setSnack }) {

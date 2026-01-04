@@ -1,4 +1,3 @@
-// src/pages/admin/OrdersPage.jsx
 import React, { useState, useEffect, useCallback } from "react";
 import {
     Box,
@@ -32,7 +31,6 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
 import SearchIcon from "@mui/icons-material/Search";
 
-// Tránh import vòng lặp từ AdminPanel, khai báo API_BASE cục bộ
 const API_BASE = "http://127.0.0.1:8000";
 
 const STATUS_COLOR = {
@@ -43,6 +41,31 @@ const STATUS_COLOR = {
 };
 
 const PAGE_SIZE = 12;
+const parseIso = (s) => {
+  if (!s) return null;
+
+  const normalized = String(s).replace(
+    /\.(\d{3})\d*(Z)$/,
+    ".$1$2"
+  );
+
+  const d = new Date(normalized);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+
+const formatDateTimeVN = (isoString) => {
+  const d = parseIso(isoString);
+  if (!d) return "—";
+
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  const HH = String(d.getHours()).padStart(2, "0");
+  const MI = String(d.getMinutes()).padStart(2, "0");
+
+  return `${HH}:${MI} ${dd}/${mm}/${yyyy} `;
+};
+
 const getOrderTotal = (x) =>
   x?.total_after_discount ??
   x?.totalAfterDiscount ??
@@ -116,7 +139,6 @@ export default function OrdersPage({ setSnack }) {
         }
     };
 
-    // Lọc search theo id, email, tên, status, payment
     const filtered = orders.filter((o) => {
         const q = search.trim().toLowerCase();
         if (!q) return true;
@@ -139,7 +161,6 @@ export default function OrdersPage({ setSnack }) {
 
     return (
         <Box>
-            {/* HEADER */}
             <Stack
                 direction="row"
                 justifyContent="space-between"
@@ -150,7 +171,6 @@ export default function OrdersPage({ setSnack }) {
                     <Typography variant="h6" sx={{ fontWeight: 600 }}>
                         Quản lý đơn hàng
                     </Typography>
-                    
                 </Box>
 
                 <Button
@@ -163,7 +183,6 @@ export default function OrdersPage({ setSnack }) {
                 </Button>
             </Stack>
 
-            {/* SEARCH BAR */}
             <Paper sx={{ mb: 2, p: 2 }}>
                 <Stack
                     direction={{ xs: "column", sm: "row" }}
@@ -195,7 +214,6 @@ export default function OrdersPage({ setSnack }) {
                 </Stack>
             </Paper>
 
-            {/* TABLE */}
             <Paper sx={{ position: "relative" }}>
                 {loading && (
                     <Box
@@ -225,6 +243,7 @@ export default function OrdersPage({ setSnack }) {
                                 <TableCell align="right">Giá tiền</TableCell>
                                 <TableCell>Phương thức thanh toán</TableCell>
                                 <TableCell>Trạng thái</TableCell>
+                                <TableCell>Ngày lên đơn</TableCell>
                                 <TableCell align="right" sx={{ width: 160 }}>
                                     Actions
                                 </TableCell>
@@ -241,7 +260,6 @@ export default function OrdersPage({ setSnack }) {
                                     <TableCell align="right">
                                     {formatVND(getOrderTotal(o))}
                                     </TableCell>
-
 
                                     <TableCell>
                                         <Chip
@@ -261,6 +279,9 @@ export default function OrdersPage({ setSnack }) {
                                                 ] || "default"
                                             }
                                         />
+                                    </TableCell>
+                                    <TableCell>
+                                        {formatDateTimeVN(o.created_at  )}
                                     </TableCell>
                                     <TableCell align="right">
                                         <Stack
@@ -361,19 +382,15 @@ export default function OrdersPage({ setSnack }) {
                 </Box>
             </Paper>
 
-            {/* DIALOG VIEW ORDER – ĐÃ THIẾT KẾ LẠI */}
             <OrderDetailDialog sel={sel} onClose={() => setSel(null)} />
         </Box>
     );
 }
 
-/* ------- Dialog chi tiết đơn hàng: hiển thị customer + sản phẩm ------- */
-
 function OrderDetailDialog({ sel, onClose }) {
     const open = !!sel;
     if (!open) return null;
 
-    // Đoạn này xử lý mềm để tương thích nhiều kiểu dữ liệu backend
     const itemsRaw =
         sel.items ||
         sel.order_items ||
@@ -390,7 +407,7 @@ function OrderDetailDialog({ sel, onClose }) {
 
     const statusColor =
         STATUS_COLOR[(sel?.status || "").toLowerCase()] || "default";
-    // --- DISCOUNT FIELDS (fallback nhiều kiểu backend) ---
+
 const discountCode =
   sel?.discount_code ??
   sel?.coupon_code ??
@@ -405,12 +422,10 @@ const discountAmount = Number(
   0
 ) || 0;
 
-// subtotal (tổng trước discount đơn hàng): ưu tiên lấy từ API, nếu không có thì tính từ items
 const calcItemsSubtotal = (itemsArr) =>
   (itemsArr || []).reduce((sum, it) => {
     const qty = Number(it.quantity ?? it.qty ?? it.qty_order ?? 1) || 1;
 
-    // giá dòng hàng (ưu tiên final/unit)
     const unit =
       Number(it.final_price ?? it.unit_price ?? it.price ?? 0) || 0;
 
@@ -421,7 +436,6 @@ const subtotal =
   Number(sel?.subtotal ?? sel?.total_before_discount ?? 0) ||
   calcItemsSubtotal(items);
 
-// total sau discount: ưu tiên lấy từ API, nếu không có thì tự tính = subtotal - discountAmount
 const totalAfterDiscount =
   Number(
     sel?.total_after_discount ??
@@ -446,7 +460,6 @@ const totalAfterDiscount =
                 )}
             </DialogTitle>
             <DialogContent dividers>
-                {/* Thông tin khách + thanh toán */}
                 <Grid container spacing={2} sx={{ mb: 2 }}>
                     <Grid item xs={12} md={6}>
                         <Typography variant="subtitle2" gutterBottom>
@@ -468,7 +481,6 @@ const totalAfterDiscount =
                         )}
                     </Grid>
                     <Grid item xs={12} md={6}>
-                        
                         <Typography variant="body2">
                             Phương thức thanh toán: {sel?.payment_method ?? "—"}
                         </Typography>
@@ -498,15 +510,11 @@ const totalAfterDiscount =
 <Typography variant="body2" sx={{ mt: 0.5 }}>
   Tổng: <strong>{formatVND(getOrderTotal(sel))}</strong>
 </Typography>
-
-
-
                     </Grid>
                 </Grid>
 
                 <Divider sx={{ my: 2 }} />
 
-                {/* Danh sách sản phẩm */}
                 <Typography variant="subtitle2" sx={{ mb: 1 }}>
                     Items
                 </Typography>
@@ -549,14 +557,12 @@ const totalAfterDiscount =
 
       const qty = it.quantity ?? it.qty ?? it.qty_order ?? 1;
 
-      // ✅ ưu tiên giá sau giảm
       const finalUnit =
         it.final_price ??
         it.unit_price ??
         it.price ??
         0;
 
-      // ✅ giá gốc để gạch ngang (nếu có)
       const originalUnit =
         it.original_price ??
         it.original ??
@@ -610,7 +616,6 @@ const totalAfterDiscount =
 
           <TableCell align="right">{qty}</TableCell>
 
-          {/* ✅ Price: show original (line-through) + final */}
           <TableCell align="right">
             {originalUnit != null && Number(originalUnit) !== Number(finalUnit) ? (
               <>
@@ -628,7 +633,6 @@ const totalAfterDiscount =
             )}
           </TableCell>
 
-          {/* ✅ Total: show original total + discounted total */}
           <TableCell align="right">
             {originalLineTotal != null && originalLineTotal !== lineTotal ? (
               <>

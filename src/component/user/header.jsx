@@ -17,7 +17,11 @@ import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import SearchIcon from "@mui/icons-material/Search";
 
-import { useNavigate, createSearchParams, useSearchParams } from "react-router-dom";
+import {
+  useNavigate,
+  createSearchParams,
+  useSearchParams,
+} from "react-router-dom";
 
 function Header() {
   const navigate = useNavigate();
@@ -29,7 +33,6 @@ function Header() {
 
   useEffect(() => setSearchText(urlQuery), [urlQuery]);
 
-  // CART AUTO UPDATE
   useEffect(() => {
     const computeCount = () => {
       try {
@@ -44,6 +47,7 @@ function Header() {
         setCartCount(0);
       }
     };
+
     computeCount();
 
     window.addEventListener("cartUpdated", computeCount);
@@ -55,7 +59,6 @@ function Header() {
     };
   }, []);
 
-  // SEARCH submit
   const handleSearchSubmit = () => {
     const q = searchText.trim();
     const search = q ? `?${createSearchParams({ q })}` : "";
@@ -82,7 +85,6 @@ function Header() {
             gap: 3,
           }}
         >
-          {/* LOGO */}
           <Box onClick={() => navigate("/trang-chu")} sx={{ cursor: "pointer" }}>
             <Typography
               sx={{
@@ -96,7 +98,6 @@ function Header() {
             </Typography>
           </Box>
 
-          {/* MENU */}
           <Box
             sx={{
               display: "flex",
@@ -125,7 +126,6 @@ function Header() {
             ))}
           </Box>
 
-          {/* SEARCH + ICONS */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <TextField
               size="small"

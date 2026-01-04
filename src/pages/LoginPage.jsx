@@ -1,4 +1,3 @@
-// src/pages/LoginPage.jsx
 import React, { useState } from "react";
 import {
   Avatar,
@@ -54,12 +53,16 @@ export default function LoginPage() {
 
   const isAdminUser = (user) => {
     if (!user) return false;
-    // check common shapes - adapt to your backend
     if (user.is_admin === true) return true;
     if (user.isAdmin === true) return true;
-    if (user.role && typeof user.role === "string" && user.role.toLowerCase().includes("admin")) return true;
-    if (user.roles && Array.isArray(user.roles) && user.roles.some(r => String(r).toLowerCase().includes("admin"))) return true;
-    // fallback: check specific flags or email
+    if (user.role && typeof user.role === "string" && user.role.toLowerCase().includes("admin"))
+      return true;
+    if (
+      user.roles &&
+      Array.isArray(user.roles) &&
+      user.roles.some((r) => String(r).toLowerCase().includes("admin"))
+    )
+      return true;
     if (user.email && user.email.toLowerCase() === "admin@example.com") return true;
     return false;
   };
@@ -70,23 +73,18 @@ export default function LoginPage() {
     setError("");
     try {
       const res = await login(email, password);
-      // Different backends may return shape differently.
-      // Try common patterns:
       const token = res?.data?.access_token ?? res?.access_token ?? res?.token ?? null;
       const user = res?.data?.user ?? res?.user ?? res?.data ?? res ?? null;
 
       if (!token) {
-        // If backend didn't return token in expected place, try deeper (debug)
         console.warn("Login response (unexpected shape):", res);
       }
 
-      // store both token and user for later usage
       if (token) localStorage.setItem("access_token", token);
       try {
         localStorage.setItem("user", JSON.stringify(user || {}));
-      } catch (err) { console.warn("Unable to save user to localStorage", err); }
+      } catch {}
 
-      // Decide where to navigate
       if (isAdminUser(user)) {
         navigate("/admin");
       } else {
@@ -94,7 +92,6 @@ export default function LoginPage() {
       }
     } catch (err) {
       console.error("Login failed:", err);
-      // try to inspect axios-like error
       const status = err?.response?.status;
       if (status === 403) {
         setError("Tài khoản của bạn đã bị khóa.");
@@ -128,13 +125,7 @@ export default function LoginPage() {
               boxShadow: "0px 0px 20px rgba(30,136,229,0.2)",
             }}
           >
-            <Box
-              sx={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-              }}
-            >
+            <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
               <Avatar sx={{ m: 1, bgcolor: "#1E88E5" }}>
                 <LockOutlinedIcon />
               </Avatar>
@@ -155,12 +146,8 @@ export default function LoginPage() {
                   variant="outlined"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  InputLabelProps={{
-                    style: { color: "#90CAF9" },
-                  }}
-                  InputProps={{
-                    style: { color: "white" },
-                  }}
+                  InputLabelProps={{ style: { color: "#90CAF9" } }}
+                  InputProps={{ style: { color: "white" } }}
                 />
                 <TextField
                   margin="normal"
@@ -174,19 +161,12 @@ export default function LoginPage() {
                   variant="outlined"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  InputLabelProps={{
-                    style: { color: "#90CAF9" },
-                  }}
-                  InputProps={{
-                    style: { color: "white" },
-                  }}
+                  InputLabelProps={{ style: { color: "#90CAF9" } }}
+                  InputProps={{ style: { color: "white" } }}
                 />
 
                 {error && (
-                  <Typography
-                    variant="body2"
-                    sx={{ color: "#ef5350", mt: 1, textAlign: "center" }}
-                  >
+                  <Typography variant="body2" sx={{ color: "#ef5350", mt: 1, textAlign: "center" }}>
                     {error}
                   </Typography>
                 )}

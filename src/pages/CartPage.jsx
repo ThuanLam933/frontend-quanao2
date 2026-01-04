@@ -1,4 +1,3 @@
-// src/pages/CartPage.jsx
 import React, { useEffect, useState, useMemo } from "react";
 import {
   Box,
@@ -12,10 +11,8 @@ import {
   TextField,
   Divider,
   Snackbar,
-  
   List,
   ListItem,
-  
 } from "@mui/material";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
@@ -23,9 +20,7 @@ import RemoveCircleOutlineIcon from "@mui/icons-material/RemoveCircleOutline";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import Chip from "@mui/material/Chip";
 import Alert from "@mui/material/Alert";
-
 import Avatar from "@mui/material/Avatar";
-
 import { useNavigate } from "react-router-dom";
 
 const API_BASE = "http://127.0.0.1:8000";
@@ -36,10 +31,10 @@ const theme = createTheme({
     mode: "light",
     background: { default: "#FFFFFF", paper: "#FFFFFF" },
     primary: { main: "#111111", contrastText: "#FFFFFF" },
-    secondary: { main: "#DD002A" }, // gần giống đỏ Uniqlo
+    secondary: { main: "#DD002A" },
     text: { primary: "#111111", secondary: "#666666" },
   },
-  shape: { borderRadius: 0 }, // Uniqlo rất ít bo góc
+  shape: { borderRadius: 0 },
   typography: {
     fontFamily: "Helvetica, Arial, sans-serif",
     h5: { fontWeight: 700 },
@@ -53,62 +48,53 @@ export default function CartPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [snack, setSnack] = useState(null);
-  
-  // product_id -> list variants
+
   const [variantsMap, setVariantsMap] = useState({});
-  // product_id -> status number (1 = bán, khác 1 = ngưng bán)
   const [productStatusMap, setProductStatusMap] = useState({});
 
-   // ===== DISCOUNT (order) =====
-const [discountCode, setDiscountCode] = useState("");
-const [discount, setDiscount] = useState(null); 
-// discount sẽ là data trả về từ API: { amount_discount, total_after_discount, discount: {...} }
-const [applyingDiscount, setApplyingDiscount] = useState(false);
-const DISCOUNT_KEY="cart_discount";
-// ✅ Hủy mã giảm giá khi giỏ hàng thay đổi
-const invalidateDiscount = (showMessage = false) => {
-  if (!discount) return;
+  const [discountCode, setDiscountCode] = useState("");
+  const [discount, setDiscount] = useState(null);
+  const [applyingDiscount, setApplyingDiscount] = useState(false);
+  const DISCOUNT_KEY = "cart_discount";
 
-  setDiscount(null);
-  localStorage.removeItem(DISCOUNT_KEY);
+  const invalidateDiscount = (showMessage = false) => {
+    if (!discount) return;
 
-  if (showMessage) {
-    setSnack({
-      severity: "info",
-      message: "Giỏ hàng đã thay đổi nên mã giảm giá đã được hủy. Vui lòng áp dụng lại.",
-    });
-  }
-};
+    setDiscount(null);
+    localStorage.removeItem(DISCOUNT_KEY);
 
+    if (showMessage) {
+      setSnack({
+        severity: "info",
+        message:
+          "Giỏ hàng đã thay đổi nên mã giảm giá đã được hủy. Vui lòng áp dụng lại.",
+      });
+    }
+  };
 
-  // ----------------- HELPERS -----------------
   const normalizeLocalItem = (it) => {
     let pureName = it.name;
 
-    // Tự động tách nếu name có dạng "Tên sản phẩm - Size - Màu"
     if (pureName && pureName.includes(" - ")) {
       const parts = pureName.split(" - ");
-      pureName = parts[0]; // tên thật
-      it.size_name = it.size_name ?? it.size ?? parts[1]; // size
-      it.color_name = it.color_name ?? it.color ?? parts[2]; // màu
+      pureName = parts[0];
+      it.size_name = it.size_name ?? it.size ?? parts[1];
+      it.color_name = it.color_name ?? it.color ?? parts[2];
     }
 
     return {
-  id: it.id ?? Math.random(),
-  product_id: it.product_id ?? null,
-  product_detail_id: it.product_detail_id ?? null,
-  name: pureName,
-
-  original_price: Number(it.original_price ?? it.unit_price ?? 0),
-  final_price: Number(it.final_price ?? it.unit_price ?? 0),
-  has_discount: !!it.has_discount,
-
-  qty: Number(it.quantity ?? it.qty ?? 1),
-  image_url: it.image_url ?? it.image ?? null,
-  size_name: it.size_name ?? it.size ?? null,
-  color_name: it.color_name ?? it.color ?? null,
-};
-
+      id: it.id ?? Math.random(),
+      product_id: it.product_id ?? null,
+      product_detail_id: it.product_detail_id ?? null,
+      name: pureName,
+      original_price: Number(it.original_price ?? it.unit_price ?? 0),
+      final_price: Number(it.final_price ?? it.unit_price ?? 0),
+      has_discount: !!it.has_discount,
+      qty: Number(it.quantity ?? it.qty ?? 1),
+      image_url: it.image_url ?? it.image ?? null,
+      size_name: it.size_name ?? it.size ?? null,
+      color_name: it.color_name ?? it.color ?? null,
+    };
   };
 
   const normalizeImg = (u) => {
@@ -123,9 +109,9 @@ const invalidateDiscount = (showMessage = false) => {
         id: it.id,
         product_id: it.product_id,
         product_detail_id: it.product_detail_id,
-        name: it.name, // CHỈ TÊN THẬT
-        size: it.size_name, // size tách riêng
-        color: it.color_name, // màu tách riêng
+        name: it.name,
+        size: it.size_name,
+        color: it.color_name,
         unit_price: it.final_price,
         original_price: it.original_price,
         final_price: it.final_price,
@@ -136,13 +122,10 @@ const invalidateDiscount = (showMessage = false) => {
 
       localStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
 
-      const totalQty = toStore.reduce(
-        (s, it) => s + (Number(it.quantity) || 0),
-        0
-      );
+      const totalQty = toStore.reduce((s, it) => s + (Number(it.quantity) || 0), 0);
       try {
         localStorage.setItem("guest_cart_count", String(totalQty));
-      } catch (e) {}
+      } catch {}
 
       window.dispatchEvent(
         new CustomEvent("cartUpdated", {
@@ -154,180 +137,159 @@ const invalidateDiscount = (showMessage = false) => {
     }
   };
 
-  // ----------------- LOAD CART -----------------
   useEffect(() => {
-  setLoading(true);
+    setLoading(true);
 
-  let arr = [];
+    let arr = [];
 
-  // 1) Load cart
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY) || "[]";
-    const parsed = JSON.parse(raw);
-    arr = (Array.isArray(parsed) ? parsed : []).map((it) => normalizeLocalItem(it));
-    setItems(arr);
-
-    const totalQty = arr.reduce((s, it) => s + (Number(it.qty) || 0), 0);
-    localStorage.setItem("guest_cart_count", String(totalQty));
-
-    window.dispatchEvent(new CustomEvent("cartUpdated", { detail: { count: totalQty, items: arr } }));
-  } catch (e) {
-    console.warn("Cart load error", e);
-    setItems([]);
-    arr = [];
-  } finally {
-    setLoading(false);
-  }
-
-  // 2) Load discount: CHỈ load khi cart có item
-  if (arr.length > 0) {
     try {
-      const rawD = localStorage.getItem(DISCOUNT_KEY);
-      if (rawD) {
-        const d = JSON.parse(rawD);
-        setDiscount(d);
-        setDiscountCode(d?.discount?.code || d?.code || "");
-      }
-    } catch (e) {
-      console.warn("Discount load error", e);
-    }
-  } else {
-    // cart rỗng -> xóa discount luôn
-    setDiscount(null);
-    setDiscountCode("");
-    localStorage.removeItem(DISCOUNT_KEY);
-  }
-}, []);
+      const raw = localStorage.getItem(STORAGE_KEY) || "[]";
+      const parsed = JSON.parse(raw);
+      arr = (Array.isArray(parsed) ? parsed : []).map((it) => normalizeLocalItem(it));
+      setItems(arr);
 
+      const totalQty = arr.reduce((s, it) => s + (Number(it.qty) || 0), 0);
+      localStorage.setItem("guest_cart_count", String(totalQty));
 
-
-  // ----------------- LOAD VARIANTS FOR ITEMS -----------------
-  // ----------------- LOAD VARIANTS + PRODUCT STATUS FOR ITEMS -----------------
-useEffect(() => {
-  const productIds = Array.from(
-    new Set(items.map((it) => it.product_id).filter(Boolean))
-  );
-  if (!productIds.length) return;
-
-  let cancelled = false;
-
-  const fetchVariantsAndStatus = async () => {
-    try {
-      const results = await Promise.all(
-        productIds.map(async (pid) => {
-          try {
-            // 1) fetch product để lấy status
-            let status = 1;
-            try {
-              const pRes = await fetch(`${API_BASE}/api/products/${pid}`);
-              if (pRes.ok) {
-                const pData = await pRes.json();
-                status = Number(pData?.status ?? 1);
-              }
-            } catch {}
-
-            // 2) fetch variants
-            const res = await fetch(
-              `${API_BASE}/api/product-details?product_id=${pid}`
-            );
-            if (!res.ok) return [pid, status, []];
-
-            const data = await res.json();
-            const arr = Array.isArray(data) ? data : [];
-
-            const normalized = arr.map((d) => {
-              const original = Number(d.price ?? 0);
-              const final =
-                d.has_discount && d.final_price ? Number(d.final_price) : original;
-
-              return {
-                id: d.id,
-                product_id: d.product_id,
-                original_price: original,
-                final_price: final,
-                has_discount: !!d.has_discount,
-                quantity: Number(d.quantity ?? 0),
-                size_name: d.size?.name ?? null,
-                color_name: d.color?.name ?? null,
-                image_url:
-                  (Array.isArray(d.images) && d.images[0]?.full_url) ||
-                  d.product?.image_url ||
-                  null,
-              };
-            });
-
-            return [pid, status, normalized];
-          } catch {
-            return [pid, 1, []];
-          }
-        })
+      window.dispatchEvent(
+        new CustomEvent("cartUpdated", { detail: { count: totalQty, items: arr } })
       );
-
-      if (cancelled) return;
-
-      // update variantsMap
-      setVariantsMap((prev) => {
-        const next = { ...prev };
-        for (const [pid, _status, list] of results) next[pid] = list;
-        return next;
-      });
-
-      // update productStatusMap
-      setProductStatusMap((prev) => {
-        const next = { ...prev };
-        for (const [pid, status] of results) next[pid] = status;
-        return next;
-      });
     } catch (e) {
-      console.warn("Load variants/status for cart failed", e);
+      console.warn("Cart load error", e);
+      setItems([]);
+      arr = [];
+    } finally {
+      setLoading(false);
     }
-  };
 
-  fetchVariantsAndStatus();
+    if (arr.length > 0) {
+      try {
+        const rawD = localStorage.getItem(DISCOUNT_KEY);
+        if (rawD) {
+          const d = JSON.parse(rawD);
+          setDiscount(d);
+          setDiscountCode(d?.discount?.code || d?.code || "");
+        }
+      } catch (e) {
+        console.warn("Discount load error", e);
+      }
+    } else {
+      setDiscount(null);
+      setDiscountCode("");
+      localStorage.removeItem(DISCOUNT_KEY);
+    }
+  }, []);
 
-  return () => {
-    cancelled = true;
-  };
-}, [items]);
+  useEffect(() => {
+    const productIds = Array.from(new Set(items.map((it) => it.product_id).filter(Boolean)));
+    if (!productIds.length) return;
 
+    let cancelled = false;
+
+    const fetchVariantsAndStatus = async () => {
+      try {
+        const results = await Promise.all(
+          productIds.map(async (pid) => {
+            try {
+              let status = 1;
+              try {
+                const pRes = await fetch(`${API_BASE}/api/products/${pid}`);
+                if (pRes.ok) {
+                  const pData = await pRes.json();
+                  status = Number(pData?.status ?? 1);
+                }
+              } catch {}
+
+              const res = await fetch(`${API_BASE}/api/product-details?product_id=${pid}`);
+              if (!res.ok) return [pid, status, []];
+
+              const data = await res.json();
+              const arr = Array.isArray(data) ? data : [];
+
+              const normalized = arr.map((d) => {
+                const original = Number(d.price ?? 0);
+                const final =
+                  d.has_discount && d.final_price ? Number(d.final_price) : original;
+
+                return {
+                  id: d.id,
+                  product_id: d.product_id,
+                  original_price: original,
+                  final_price: final,
+                  has_discount: !!d.has_discount,
+                  quantity: Number(d.quantity ?? 0),
+                  size_name: d.size?.name ?? null,
+                  color_name: d.color?.name ?? null,
+                  image_url:
+                    (Array.isArray(d.images) && d.images[0]?.full_url) ||
+                    d.product?.image_url ||
+                    null,
+                };
+              });
+
+              return [pid, status, normalized];
+            } catch {
+              return [pid, 1, []];
+            }
+          })
+        );
+
+        if (cancelled) return;
+
+        setVariantsMap((prev) => {
+          const next = { ...prev };
+          for (const [pid, _status, list] of results) next[pid] = list;
+          return next;
+        });
+
+        setProductStatusMap((prev) => {
+          const next = { ...prev };
+          for (const [pid, status] of results) next[pid] = status;
+          return next;
+        });
+      } catch (e) {
+        console.warn("Load variants/status for cart failed", e);
+      }
+    };
+
+    fetchVariantsAndStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [items]);
 
   const getVariantsForProduct = (productId) => variantsMap[productId] || [];
   const getProductStatus = (productId) => Number(productStatusMap[productId] ?? 1);
 
-const findVariantForItem = (it) => {
-  const vars = getVariantsForProduct(it.product_id);
+  const findVariantForItem = (it) => {
+    const vars = getVariantsForProduct(it.product_id);
+    let v = vars.find((x) => x.id === it.product_detail_id);
+    if (v) return v;
 
-  // ưu tiên match theo product_detail_id
-  let v = vars.find((x) => x.id === it.product_detail_id);
-  if (v) return v;
+    v = vars.find((x) => x.size_name === it.size_name && x.color_name === it.color_name);
+    return v || null;
+  };
 
-  // fallback match theo size + color
-  v = vars.find(
-    (x) => x.size_name === it.size_name && x.color_name === it.color_name
-  );
+  const getItemIssue = (it) => {
+    const status = getProductStatus(it.product_id);
+    if (status !== 1) return { ok: false, reason: "Hết bán" };
 
-  return v || null;
-};
+    const v = findVariantForItem(it);
+    if (!v) return { ok: false, reason: "Không tồn tại biến thể" };
 
-const getItemIssue = (it) => {
-  const status = getProductStatus(it.product_id);
-  if (status !== 1) return { ok: false, reason: "Hết bán" };
+    if (Number(v.quantity ?? 0) <= 0) return { ok: false, reason: "Hết hàng" };
 
-  const v = findVariantForItem(it);
-  if (!v) return { ok: false, reason: "Không tồn tại biến thể" };
+    const want = Number(it.qty ?? 1);
+    if (want > Number(v.quantity ?? 0))
+      return { ok: false, reason: `Chỉ còn ${Number(v.quantity ?? 0)}` };
 
-  if (Number(v.quantity ?? 0) <= 0) return { ok: false, reason: "Hết hàng" };
+    return { ok: true, reason: "" };
+  };
 
-  const want = Number(it.qty ?? 1);
-  if (want > Number(v.quantity ?? 0))
-    return { ok: false, reason: `Chỉ còn ${Number(v.quantity ?? 0)}` };
-
-  return { ok: true, reason: "" };
-};
-
-const invalidItems = useMemo(() => {
-  return items.filter((it) => !getItemIssue(it).ok);
-}, [items, variantsMap, productStatusMap]);
+  const invalidItems = useMemo(() => {
+    return items.filter((it) => !getItemIssue(it).ok);
+  }, [items, variantsMap, productStatusMap]);
 
   const getSizesForItem = (it) => {
     const vars = getVariantsForProduct(it.product_id);
@@ -357,10 +319,7 @@ const invalidItems = useMemo(() => {
 
   const hasStockForSizeColor = (productId, sizeName, colorName) => {
     return getVariantsForProduct(productId).some(
-      (v) =>
-        v.size_name === sizeName &&
-        v.color_name === colorName &&
-        v.quantity > 0
+      (v) => v.size_name === sizeName && v.color_name === colorName && v.quantity > 0
     );
   };
 
@@ -372,18 +331,14 @@ const invalidItems = useMemo(() => {
 
       let next = [...prev];
 
-      // Nếu đã có dòng khác cùng product_detail_id -> gộp qty
       const existingIdx = next.findIndex(
-        (it, iIndex) =>
-          iIndex !== idx && it.product_detail_id === variant.id
+        (it, iIndex) => iIndex !== idx && it.product_detail_id === variant.id
       );
 
       if (existingIdx !== -1) {
         next[existingIdx] = {
           ...next[existingIdx],
-          qty:
-            (Number(next[existingIdx].qty) || 0) +
-            (Number(next[idx].qty) || 0),
+          qty: (Number(next[existingIdx].qty) || 0) + (Number(next[idx].qty) || 0),
         };
         next.splice(idx, 1);
       } else {
@@ -413,9 +368,7 @@ const invalidItems = useMemo(() => {
   const handleChangeSize = (item, newSize) => {
     if (!item.product_id) return;
     const vars = getVariantsForProduct(item.product_id);
-    const candidates = vars.filter(
-      (v) => v.size_name === newSize && v.quantity > 0
-    );
+    const candidates = vars.filter((v) => v.size_name === newSize && v.quantity > 0);
     if (!candidates.length) {
       setSnack({
         severity: "warning",
@@ -424,11 +377,7 @@ const invalidItems = useMemo(() => {
       return;
     }
 
-    // cố gắng giữ lại màu cũ nếu còn hàng
-    let chosen =
-      candidates.find((v) => v.color_name === item.color_name) ||
-      candidates[0];
-
+    let chosen = candidates.find((v) => v.color_name === item.color_name) || candidates[0];
     updateCartItemVariant(item.id, chosen);
   };
 
@@ -437,10 +386,7 @@ const invalidItems = useMemo(() => {
 
     const vars = getVariantsForProduct(item.product_id);
     const candidate = vars.find(
-      (v) =>
-        v.size_name === item.size_name &&
-        v.color_name === newColor &&
-        v.quantity > 0
+      (v) => v.size_name === item.size_name && v.color_name === newColor && v.quantity > 0
     );
 
     if (!candidate) {
@@ -454,216 +400,194 @@ const invalidItems = useMemo(() => {
     updateCartItemVariant(item.id, candidate);
   };
 
-  // ----------------- LOCAL QTY ACTIONS -----------------
   const getMaxQtyForItem = (it) => {
-  const status = getProductStatus(it.product_id);
-  if (status !== 1) return 0;
-  const v = findVariantForItem(it);
-  return Number(v?.quantity ?? 0);
-};
+    const status = getProductStatus(it.product_id);
+    if (status !== 1) return 0;
+    const v = findVariantForItem(it);
+    return Number(v?.quantity ?? 0);
+  };
 
-const addQty = (id) => {
-  invalidateDiscount(true);
+  const addQty = (id) => {
+    invalidateDiscount(true);
 
-  const next = items.map((i) => {
-    if (i.id !== id) return i;
+    const next = items.map((i) => {
+      if (i.id !== id) return i;
 
-    const maxQty = getMaxQtyForItem(i);
-    if (maxQty <= 0) {
-      setSnack({ severity: "warning", message: "Sản phẩm này không còn mua được." });
-      return i;
-    }
+      const maxQty = getMaxQtyForItem(i);
+      if (maxQty <= 0) {
+        setSnack({ severity: "warning", message: "Sản phẩm này không còn mua được." });
+        return i;
+      }
 
-    const cur = Number(i.qty) || 1;
-    if (cur + 1 > maxQty) {
-      setSnack({ severity: "warning", message: `Chỉ còn ${maxQty} sản phẩm.` });
-      return i;
-    }
-    return { ...i, qty: cur + 1 };
-  });
+      const cur = Number(i.qty) || 1;
+      if (cur + 1 > maxQty) {
+        setSnack({ severity: "warning", message: `Chỉ còn ${maxQty} sản phẩm.` });
+        return i;
+      }
+      return { ...i, qty: cur + 1 };
+    });
 
-  setItems(next);
-  saveAndBroadcast(next);
-};
+    setItems(next);
+    saveAndBroadcast(next);
+  };
 
-const subQty = (id) => {
-  invalidateDiscount(true);
-  const next = items.map((i) =>
-    i.id === id ? { ...i, qty: Math.max(1, (Number(i.qty) || 1) - 1) } : i
-  );
-  setItems(next);
-  saveAndBroadcast(next);
-};
+  const subQty = (id) => {
+    invalidateDiscount(true);
+    const next = items.map((i) =>
+      i.id === id ? { ...i, qty: Math.max(1, (Number(i.qty) || 1) - 1) } : i
+    );
+    setItems(next);
+    saveAndBroadcast(next);
+  };
 
-const updateQty = (id, value) => {
-  invalidateDiscount(true);
+  const updateQty = (id, value) => {
+    invalidateDiscount(true);
 
-  const next = items.map((i) => {
-    if (i.id !== id) return i;
+    const next = items.map((i) => {
+      if (i.id !== id) return i;
 
-    const maxQty = getMaxQtyForItem(i);
-    if (maxQty <= 0) {
-      setSnack({ severity: "warning", message: "Sản phẩm này không còn mua được." });
-      return i;
-    }
+      const maxQty = getMaxQtyForItem(i);
+      if (maxQty <= 0) {
+        setSnack({ severity: "warning", message: "Sản phẩm này không còn mua được." });
+        return i;
+      }
 
-    const q = Math.max(1, Math.floor(Number(value || 1)));
-    if (q > maxQty) {
-      setSnack({ severity: "warning", message: `Chỉ còn ${maxQty} sản phẩm.` });
-      return { ...i, qty: maxQty };
-    }
-    return { ...i, qty: q };
-  });
+      const q = Math.max(1, Math.floor(Number(value || 1)));
+      if (q > maxQty) {
+        setSnack({ severity: "warning", message: `Chỉ còn ${maxQty} sản phẩm.` });
+        return { ...i, qty: maxQty };
+      }
+      return { ...i, qty: q };
+    });
 
-  setItems(next);
-  saveAndBroadcast(next);
-};
-
-
+    setItems(next);
+    saveAndBroadcast(next);
+  };
 
   const removeItem = (id) => {
     invalidateDiscount(true);
-  const next = items.filter((i) => i.id !== id);
-  setItems(next);
-  saveAndBroadcast(next);
+    const next = items.filter((i) => i.id !== id);
+    setItems(next);
+    saveAndBroadcast(next);
 
-  if (next.length === 0) {
+    if (next.length === 0) {
+      setDiscount(null);
+      setDiscountCode("");
+      localStorage.removeItem(DISCOUNT_KEY);
+    }
+
+    setSnack({ severity: "info", message: "Đã xoá sản phẩm" });
+  };
+
+  const clearCart = () => {
+    setItems([]);
+    saveAndBroadcast([]);
+
     setDiscount(null);
     setDiscountCode("");
     localStorage.removeItem(DISCOUNT_KEY);
-  }
 
-  setSnack({ severity: "info", message: "Đã xoá sản phẩm" });
-};
-
-
-  const clearCart = () => {
-  setItems([]);
-  saveAndBroadcast([]);
-
-  setDiscount(null);
-  setDiscountCode("");
-  localStorage.removeItem(DISCOUNT_KEY);
-
-  setSnack({ severity: "info", message: "Giỏ hàng đã xóa" });
-};
-
+    setSnack({ severity: "info", message: "Giỏ hàng đã xóa" });
+  };
 
   const subtotal = useMemo(() => {
-  return items.reduce(
-    (s, it) => s + (it.final_price || 0) * (it.qty || 0),
-    0
-  );
-}, [items]);
+    return items.reduce((s, it) => s + (it.final_price || 0) * (it.qty || 0), 0);
+  }, [items]);
+
   const discountAmount = Number(discount?.amount_discount ?? 0);
   const totalAfterDiscount =
-  subtotal <= 0
-    ? 0
-    : (discount?.total_after_discount != null ? Number(discount.total_after_discount) : subtotal);
-
-
-
+    subtotal <= 0
+      ? 0
+      : discount?.total_after_discount != null
+      ? Number(discount.total_after_discount)
+      : subtotal;
 
   const handleCheckout = () => {
-  if (items.length === 0) {
-    setSnack({ severity: "warning", message: "Giỏ hàng trống" });
-    return;
-  }
-
-  // ✅ CHẶN nếu có item không hợp lệ (hết bán / hết hàng / vượt tồn)
-  if (invalidItems.length > 0) {
-    const first = invalidItems[0];
-    const issue = getItemIssue(first);
-    setSnack({
-      severity: "warning",
-      message: `Không thể thanh toán: "${first.name}" - ${issue.reason}. Vui lòng cập nhật giỏ hàng.`,
-    });
-    return;
-  }
-
-  setSnack({ severity: "success", message: "Chuyển đến trang thanh toán..." });
-  setTimeout(() => navigate("/payment"), 400);
-};
-
-  const applyDiscount = async () => {
-  const code = discountCode.trim();
-  if (!code) {
-    setSnack({ severity: "warning", message: "Vui lòng nhập mã giảm giá" });
-    return;
-  }
-
-  if (subtotal <= 0) {
-    setSnack({ severity: "warning", message: "Giỏ hàng trống" });
-    return;
-  }
-  if (invalidItems.length > 0) {
-  setSnack({
-    severity: "warning",
-    message: "Giỏ hàng có sản phẩm không hợp lệ (hết bán/hết hàng). Vui lòng cập nhật trước khi áp mã.",
-  });
-  return;
-}
-
-
-  setApplyingDiscount(true);
-  try {
-    const res = await fetch(`${API_BASE}/api/discounts/apply`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        // Nếu API apply yêu cầu đăng nhập thì mở dòng dưới:
-        // Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-      },
-      body: JSON.stringify({
-        code,
-        total: subtotal,
-      }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(data?.message || "Mã giảm giá không hợp lệ");
+    if (items.length === 0) {
+      setSnack({ severity: "warning", message: "Giỏ hàng trống" });
+      return;
     }
 
-    setDiscount(data);
-    localStorage.setItem(DISCOUNT_KEY,JSON.stringify({...data,code}))
-    setSnack({ severity: "success", message: "Áp mã giảm giá thành công" });
-  } catch (e) {
+    if (invalidItems.length > 0) {
+      const first = invalidItems[0];
+      const issue = getItemIssue(first);
+      setSnack({
+        severity: "warning",
+        message: `Không thể thanh toán: "${first.name}" - ${issue.reason}. Vui lòng cập nhật giỏ hàng.`,
+      });
+      return;
+    }
+
+    setSnack({ severity: "success", message: "Chuyển đến trang thanh toán..." });
+    setTimeout(() => navigate("/payment"), 400);
+  };
+
+  const applyDiscount = async () => {
+    const code = discountCode.trim();
+    if (!code) {
+      setSnack({ severity: "warning", message: "Vui lòng nhập mã giảm giá" });
+      return;
+    }
+
+    if (subtotal <= 0) {
+      setSnack({ severity: "warning", message: "Giỏ hàng trống" });
+      return;
+    }
+
+    if (invalidItems.length > 0) {
+      setSnack({
+        severity: "warning",
+        message:
+          "Giỏ hàng có sản phẩm không hợp lệ (hết bán/hết hàng). Vui lòng cập nhật trước khi áp mã.",
+      });
+      return;
+    }
+
+    setApplyingDiscount(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/discounts/apply`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          code,
+          total: subtotal,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.message || "Mã giảm giá không hợp lệ");
+      }
+
+      setDiscount(data);
+      localStorage.setItem(DISCOUNT_KEY, JSON.stringify({ ...data, code }));
+      setSnack({ severity: "success", message: "Áp mã giảm giá thành công" });
+    } catch (e) {
+      setDiscount(null);
+      localStorage.removeItem(DISCOUNT_KEY);
+      setSnack({ severity: "error", message: e.message || "Áp mã thất bại" });
+    } finally {
+      setApplyingDiscount(false);
+    }
+  };
+
+  const removeDiscount = () => {
     setDiscount(null);
+    setDiscountCode("");
     localStorage.removeItem(DISCOUNT_KEY);
-    setSnack({ severity: "error", message: e.message || "Áp mã thất bại" });
-  } finally {
-    setApplyingDiscount(false);
-  }
-};
+    setSnack({ severity: "info", message: "Đã hủy mã giảm giá" });
+  };
 
-const removeDiscount = () => {
-  setDiscount(null);
-  setDiscountCode("");
-  localStorage.removeItem(DISCOUNT_KEY);
-  setSnack({ severity: "info", message: "Đã hủy mã giảm giá" });
-};
+  const formatVND = (n) => (typeof n === "number" ? n.toLocaleString("vi-VN") + "₫" : "—");
 
-
-  const formatVND = (n) =>
-    typeof n === "number"
-      ? n.toLocaleString("vi-VN") + "₫"
-      : "—";
-
-  // ----------------- RENDER -----------------
   return (
     <ThemeProvider theme={theme}>
-      <Box
-        sx={{
-          minHeight: "100vh",
-          backgroundColor: "background.default",
-          pb: 6,
-        }}
-      >
+      <Box sx={{ minHeight: "100vh", backgroundColor: "background.default", pb: 6 }}>
         <Container maxWidth="lg" sx={{ mt: 6 }}>
           <Grid container spacing={4}>
-            {/* Left: Cart items */}
             <Grid item xs={12} md={8}>
               <Box
                 sx={{
@@ -699,21 +623,9 @@ const removeDiscount = () => {
                 </Stack>
               </Box>
 
-              <Paper
-                elevation={0}
-                sx={{
-                  border: "1px solid #e0e0e0",
-                  boxShadow: "none",
-                }}
-              >
+              <Paper elevation={0} sx={{ border: "1px solid #e0e0e0", boxShadow: "none" }}>
                 {loading ? (
-                  <Box
-                    sx={{
-                      py: 6,
-                      display: "flex",
-                      justifyContent: "center",
-                    }}
-                  >
+                  <Box sx={{ py: 6, display: "flex", justifyContent: "center" }}>
                     <Typography>Đang tải...</Typography>
                   </Box>
                 ) : items.length === 0 ? (
@@ -721,10 +633,7 @@ const removeDiscount = () => {
                     <Typography variant="h6" sx={{ mb: 1 }}>
                       Giỏ hàng của bạn đang trống
                     </Typography>
-                    <Typography
-                      variant="body2"
-                      sx={{ color: "text.secondary", mb: 2 }}
-                    >
+                    <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
                       Thêm sản phẩm vào giỏ để bắt đầu mua sắm.
                     </Typography>
                     <Button
@@ -747,6 +656,7 @@ const removeDiscount = () => {
                       const colors = getColorsForItem(it);
                       const issue = getItemIssue(it);
                       const disabledItem = !issue.ok;
+
                       return (
                         <React.Fragment key={it.id ?? index}>
                           <ListItem
@@ -759,7 +669,6 @@ const removeDiscount = () => {
                               alignItems: "flex-start",
                             }}
                           >
-                            {/* IMAGE */}
                             <Avatar
                               variant="square"
                               src={normalizeImg(it.image_url)}
@@ -773,14 +682,11 @@ const removeDiscount = () => {
                               }}
                             />
 
-                            {/* CONTENT */}
                             <Box sx={{ flex: 1 }}>
-                              {/* NAME */}
                               <Typography
                                 sx={{
                                   fontWeight: 700,
                                   fontSize: 17,
-                                
                                   color: "#111",
                                   mb: 0.5,
                                   textTransform: "none",
@@ -788,69 +694,58 @@ const removeDiscount = () => {
                               >
                                 {it.name}
                                 {!issue.ok && (
-                                  <Chip label={issue.reason}
-                                  size="small"
-                                  sx={{borderRadius: 0,
-                                    ml:1,
-                                    bgcolor: "#eee",
-                                    color: "#777",
-                                    fontWeight: 700,
-                                  }}></Chip>
+                                  <Chip
+                                    label={issue.reason}
+                                    size="small"
+                                    sx={{
+                                      borderRadius: 0,
+                                      ml: 1,
+                                      bgcolor: "#eee",
+                                      color: "#777",
+                                      fontWeight: 700,
+                                    }}
+                                  />
                                 )}
                               </Typography>
 
-                              {/* SIZE + COLOR TEXT */}
-                              <Typography
-                                variant="body2"
-                                sx={{ color: "#666", mb: 1 }}
-                              >
+                              <Typography variant="body2" sx={{ color: "#666", mb: 1 }}>
                                 {it.size_name && <>Size: {it.size_name} · </>}
                                 {it.color_name && <>Màu: {it.color_name}</>}
                               </Typography>
 
-                              {/* PRICE */}
                               <Box sx={{ mb: 1.5 }}>
-  {it.has_discount ? (
-    <>
-      <Typography
-        sx={{
-          fontSize: 16,
-          textDecoration: "line-through",
-          color: "#999",
-          lineHeight: 1.2,
-        }}
-      >
-        {formatVND(it.original_price)}
-      </Typography>
+                                {it.has_discount ? (
+                                  <>
+                                    <Typography
+                                      sx={{
+                                        fontSize: 16,
+                                        textDecoration: "line-through",
+                                        color: "#999",
+                                        lineHeight: 1.2,
+                                      }}
+                                    >
+                                      {formatVND(it.original_price)}
+                                    </Typography>
 
-      <Typography
-        sx={{
-          fontSize: 20,
-          fontWeight: 700,
-          color: "secondary.main",
-          lineHeight: 1.2,
-        }}
-      >
-        {formatVND(it.final_price)}
-      </Typography>
-    </>
-  ) : (
-    <Typography
-      sx={{
-        fontSize: 14,
-        fontWeight: 700,
-        color: "#111",
-      }}
-    >
-      {formatVND(it.final_price)}
-    </Typography>
-  )}
-</Box>
+                                    <Typography
+                                      sx={{
+                                        fontSize: 20,
+                                        fontWeight: 700,
+                                        color: "secondary.main",
+                                        lineHeight: 1.2,
+                                      }}
+                                    >
+                                      {formatVND(it.final_price)}
+                                    </Typography>
+                                  </>
+                                ) : (
+                                  <Typography sx={{ fontSize: 14, fontWeight: 700, color: "#111" }}>
+                                    {formatVND(it.final_price)}
+                                  </Typography>
+                                )}
+                              </Box>
 
-
-                              {/* SIZE / COLOR SELECTORS (CHIP STYLE) */}
                               <Box sx={{ display: "flex", gap: 4, mb: 1.5 }}>
-                                {/* Size chips */}
                                 <Box>
                                   <Typography
                                     sx={{
@@ -865,10 +760,8 @@ const removeDiscount = () => {
                                   <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
                                     {sizes.map((size) => {
                                       const selected = size === it.size_name;
-                                      const disabled = disabledItem || !hasStockForSize(
-                                        it.product_id,
-                                        size
-                                      );
+                                      const disabled =
+                                        disabledItem || !hasStockForSize(it.product_id, size);
 
                                       return (
                                         <Chip
@@ -877,28 +770,21 @@ const removeDiscount = () => {
                                           size="small"
                                           clickable={!disabled}
                                           disabled={disabled}
-                                          onClick={() =>
-                                            !disabled &&
-                                            handleChangeSize(it, size)
-                                          }
+                                          onClick={() => !disabled && handleChangeSize(it, size)}
                                           sx={{
                                             borderRadius: 0,
                                             border: "1px solid #bbb",
                                             fontSize: 11,
                                             height: 26,
                                             px: 1.5,
-                                            backgroundColor: selected
-                                              ? "#111"
-                                              : "#fff",
+                                            backgroundColor: selected ? "#111" : "#fff",
                                             color: selected ? "#fff" : "#111",
                                             "&.Mui-disabled": {
                                               opacity: 0.4,
                                               borderStyle: "dashed",
                                             },
                                             "&:hover": {
-                                              backgroundColor: selected
-                                                ? "#111"
-                                                : "#f5f5f5",
+                                              backgroundColor: selected ? "#111" : "#f5f5f5",
                                             },
                                           }}
                                         />
@@ -907,7 +793,6 @@ const removeDiscount = () => {
                                   </Box>
                                 </Box>
 
-                                {/* Color chips */}
                                 <Box>
                                   <Typography
                                     sx={{
@@ -921,13 +806,10 @@ const removeDiscount = () => {
                                   </Typography>
                                   <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
                                     {colors.map((color) => {
-                                      const selected =
-                                        color === it.color_name;
-                                      const disabled = disabledItem || !hasStockForSizeColor(
-                                        it.product_id,
-                                        it.size_name,
-                                        color
-                                      );
+                                      const selected = color === it.color_name;
+                                      const disabled =
+                                        disabledItem ||
+                                        !hasStockForSizeColor(it.product_id, it.size_name, color);
 
                                       return (
                                         <Chip
@@ -936,28 +818,21 @@ const removeDiscount = () => {
                                           size="small"
                                           clickable={!disabled}
                                           disabled={disabled}
-                                          onClick={() =>
-                                            !disabled &&
-                                            handleChangeColor(it, color)
-                                          }
+                                          onClick={() => !disabled && handleChangeColor(it, color)}
                                           sx={{
                                             borderRadius: 0,
                                             border: "1px solid #bbb",
                                             fontSize: 11,
                                             height: 26,
                                             px: 1.5,
-                                            backgroundColor: selected
-                                              ? "#111"
-                                              : "#fff",
+                                            backgroundColor: selected ? "#111" : "#fff",
                                             color: selected ? "#fff" : "#111",
                                             "&.Mui-disabled": {
                                               opacity: 0.4,
                                               borderStyle: "dashed",
                                             },
                                             "&:hover": {
-                                              backgroundColor: selected
-                                                ? "#111"
-                                                : "#f5f5f5",
+                                              backgroundColor: selected ? "#111" : "#f5f5f5",
                                             },
                                           }}
                                         />
@@ -967,7 +842,6 @@ const removeDiscount = () => {
                                 </Box>
                               </Box>
 
-                              {/* QTY + DELETE */}
                               <Box
                                 sx={{
                                   display: "flex",
@@ -976,49 +850,27 @@ const removeDiscount = () => {
                                   mt: 1,
                                 }}
                               >
-                                {/* QTY CONTROL */}
-                                <Box
-                                  sx={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 0.5,
-                                  }}
-                                >
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => subQty(it.id)} disabled={disabledItem}
-                                  >
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                                  <IconButton size="small" onClick={() => subQty(it.id)} disabled={disabledItem}>
                                     <RemoveCircleOutlineIcon fontSize="small" />
                                   </IconButton>
 
                                   <TextField
                                     value={it.qty}
                                     size="small"
-                                    onChange={(e) =>
-                                      updateQty(it.id, e.target.value)
-                                    }
+                                    onChange={(e) => updateQty(it.id, e.target.value)}
                                     sx={{
                                       width: 60,
-                                      "& input": {
-                                        textAlign: "center",
-                                        fontSize: 13,
-                                      },
-                                      "& .MuiOutlinedInput-root": {
-                                        borderRadius: 0,
-                                        height: 32,
-                                      },
+                                      "& input": { textAlign: "center", fontSize: 13 },
+                                      "& .MuiOutlinedInput-root": { borderRadius: 0, height: 32 },
                                     }}
                                   />
 
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => addQty(it.id)}
-                                  >
+                                  <IconButton size="small" onClick={() => addQty(it.id)}>
                                     <AddCircleOutlineIcon fontSize="small" />
                                   </IconButton>
                                 </Box>
 
-                                {/* DELETE */}
                                 <Button
                                   variant="text"
                                   color="error"
@@ -1030,9 +882,7 @@ const removeDiscount = () => {
                                     minWidth: "auto",
                                     px: 0,
                                   }}
-                                  startIcon={
-                                    <DeleteOutlineIcon fontSize="small" />
-                                  }
+                                  startIcon={<DeleteOutlineIcon fontSize="small" />}
                                 >
                                   Xóa
                                 </Button>
@@ -1047,14 +897,8 @@ const removeDiscount = () => {
               </Paper>
             </Grid>
 
-            {/* Right: Summary */}
             <Grid item xs={12} md={4}>
-              <Box
-                sx={{
-                  position: "sticky",
-                  top: 24,
-                }}
-              >
+              <Box sx={{ position: "sticky", top: 24 }}>
                 <Paper
                   elevation={0}
                   sx={{
@@ -1077,85 +921,64 @@ const removeDiscount = () => {
                   </Typography>
                   <Divider sx={{ mb: 2 }} />
 
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      mb: 1,
-                    }}
-                  >
+                  <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
                     <Typography variant="body2">Tạm tính</Typography>
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>
                       {formatVND(subtotal)}
                     </Typography>
                   </Box>
+
                   <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
-  <Typography variant="body2">Giảm giá</Typography>
-  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-    {discount ? `- ${formatVND(discountAmount)}` : "—"}
-  </Typography>
-</Box>
-
-                   <Box sx={{ mb: 1.5 }}>
-  
-
-  <Stack direction="row" spacing={1}>
-    <TextField
-      size="small"
-      fullWidth
-      placeholder="Nhập mã giảm giá"
-      value={discountCode}
-      onChange={(e) => setDiscountCode(e.target.value)}
-      sx={{
-        "& .MuiOutlinedInput-root": { borderRadius: 0, background: "#fff" },
-      }}
-    />
-
-    <Button
-      variant="contained"
-      onClick={applyDiscount}
-      disabled={applyingDiscount || !discountCode.trim()}
-      sx={{
-        borderRadius: 0,
-        backgroundColor: "#111",
-        "&:hover": { backgroundColor: "#000" },
-        whiteSpace: "nowrap",
-      }}
-    >
-      {applyingDiscount ? "Đang áp..." : "Áp dụng"}
-    </Button>
-
-    {discount && (
-      <Button
-        variant="outlined"
-        color="error"
-        onClick={removeDiscount}
-        sx={{ borderRadius: 0, whiteSpace: "nowrap" }}
-      >
-        Hủy
-      </Button>
-    )}
-  </Stack>
-
-  {discount && (
-    <Typography variant="caption" sx={{ color: "text.secondary" }}>
-      Đã áp mã: <b>{discount?.discount?.code || discountCode.trim()}</b>
-    </Typography>
-  )}
-</Box>
-   
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      mb: 1.5,
-                    }}
-                  >
-                    {/* <Typography variant="body2">Phí vận chuyển</Typography> */}
+                    <Typography variant="body2">Giảm giá</Typography>
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {/* Phí ship xử lý bên PaymentPage, ở đây chỉ hiển thị gợi ý */}
-                      {/* Sẽ tính ở bước sau */}
+                      {discount ? `- ${formatVND(discountAmount)}` : "—"}
                     </Typography>
+                  </Box>
+
+                  <Box sx={{ mb: 1.5 }}>
+                    <Stack direction="row" spacing={1}>
+                      <TextField
+                        size="small"
+                        fullWidth
+                        placeholder="Nhập mã giảm giá"
+                        value={discountCode}
+                        onChange={(e) => setDiscountCode(e.target.value)}
+                        sx={{
+                          "& .MuiOutlinedInput-root": { borderRadius: 0, background: "#fff" },
+                        }}
+                      />
+
+                      <Button
+                        variant="contained"
+                        onClick={applyDiscount}
+                        disabled={applyingDiscount || !discountCode.trim()}
+                        sx={{
+                          borderRadius: 0,
+                          backgroundColor: "#111",
+                          "&:hover": { backgroundColor: "#000" },
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {applyingDiscount ? "Đang áp..." : "Áp dụng"}
+                      </Button>
+
+                      {discount && (
+                        <Button
+                          variant="outlined"
+                          color="error"
+                          onClick={removeDiscount}
+                          sx={{ borderRadius: 0, whiteSpace: "nowrap" }}
+                        >
+                          Hủy
+                        </Button>
+                      )}
+                    </Stack>
+
+                    {discount && (
+                      <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                        Đã áp mã: <b>{discount?.discount?.code || discountCode.trim()}</b>
+                      </Typography>
+                    )}
                   </Box>
 
                   <Divider sx={{ my: 1.5 }} />
@@ -1168,16 +991,10 @@ const removeDiscount = () => {
                       mb: 2,
                     }}
                   >
-                    <Typography
-                      variant="body1"
-                      sx={{ fontWeight: 700, letterSpacing: 0.3 }}
-                    >
+                    <Typography variant="body1" sx={{ fontWeight: 700, letterSpacing: 0.3 }}>
                       Tổng tạm tính
                     </Typography>
-                    <Typography
-                      variant="body1"
-                      sx={{ fontWeight: 700, fontSize: 16 }}
-                    >
+                    <Typography variant="body1" sx={{ fontWeight: 700, fontSize: 16 }}>
                       {formatVND(totalAfterDiscount)}
                     </Typography>
                   </Box>
@@ -1201,12 +1018,8 @@ const removeDiscount = () => {
                     Đặt hàng
                   </Button>
 
-                  <Typography
-                    variant="caption"
-                    sx={{ color: "text.secondary", fontSize: 11 }}
-                  >
-                    Phương thức thanh toán hiện tại: Thanh toán khi nhận hàng
-                    (COD). 
+                  <Typography variant="caption" sx={{ color: "text.secondary", fontSize: 11 }}>
+                    Phương thức thanh toán hiện tại: Thanh toán khi nhận hàng (COD).
                   </Typography>
                 </Paper>
               </Box>
@@ -1214,16 +1027,9 @@ const removeDiscount = () => {
           </Grid>
         </Container>
 
-        <Snackbar
-          open={!!snack}
-          autoHideDuration={2500}
-          onClose={() => setSnack(null)}
-        >
+        <Snackbar open={!!snack} autoHideDuration={2500} onClose={() => setSnack(null)}>
           {snack ? (
-            <Alert
-              onClose={() => setSnack(null)}
-              severity={snack.severity}
-            >
+            <Alert onClose={() => setSnack(null)} severity={snack.severity}>
               {snack.message}
             </Alert>
           ) : null}

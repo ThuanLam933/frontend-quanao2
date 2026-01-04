@@ -29,13 +29,10 @@ import FilterAltIcon from "@mui/icons-material/FilterAlt";
 
 const API_BASE = "http://127.0.0.1:8000";
 
-// mapping màu theo type
 const TYPE_COLOR = {
     receipt: "success",
-    
     adjustment: "warning",
     revert_receipt: "info",
-    
     order: "primary",
     other: "default"
 };
@@ -50,10 +47,8 @@ const TYPE_LABEL = {
 const TYPE_OPTIONS = [
     { value: "", label: "Tất cả" },
     { value: "receipt", label: "Nhập Kho" },
-    
     { value: "adjustment", label: "Điều chỉnh trực tiếp" },
     { value: "revert_receipt", label: "Hoàn tác phiếu nhập" },
-    
     { value: "order", label: "Đơn hàng bán ra" },
     { value: "other", label: "Khác" }
 ];
@@ -225,7 +220,6 @@ export default function InventoryPage({ setSnack }) {
                 </Stack>
             </Stack>
 
-            {/* FILTER BAR */}
             <Paper sx={{ p: 2, mb: 2 }}>
                 <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
                     <FilterAltIcon fontSize="small" />
@@ -303,7 +297,6 @@ export default function InventoryPage({ setSnack }) {
                 </Stack>
             </Paper>
 
-            {/* TABLE */}
             <Paper sx={{ position: "relative" }}>
                 {loading && (
                     <Box
@@ -331,7 +324,7 @@ export default function InventoryPage({ setSnack }) {
                                 <TableCell align="right">Cập nhật</TableCell>
                                 <TableCell align="right">Số lượng ban đầu</TableCell>
                                 <TableCell align="right">Số lượng sau</TableCell>
-                                <TableCell align="right">Related</TableCell>
+                                <TableCell align="right">Số mã nguồn</TableCell>
                                 <TableCell>Người dùng</TableCell>
                                 <TableCell width={120} align="center">
                                     Actions
@@ -345,18 +338,15 @@ export default function InventoryPage({ setSnack }) {
                                     <TableCell>{row.id}</TableCell>
 
                                     <TableCell>
-                                        {/* Tên sản phẩm */}
                                         <Typography variant="body2" sx={{ fontWeight: 600 }}>
                                             {row.product_detail?.product?.name ?? "Không có tên sản phẩm"}
                                         </Typography>
 
-                                        {/* Màu + Size */}
                                         <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
                                             {row.product_detail?.color?.name ?? "Không màu"} /{" "}
                                             {row.product_detail?.size?.name ?? "Không size"}
                                         </Typography>
 
-                                        {/* Note */}
                                         {row.note && (
                                             <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
                                                 {row.note}
@@ -439,7 +429,6 @@ export default function InventoryPage({ setSnack }) {
                 </Box>
             </Paper>
 
-            {/* DIALOG: ADJUST */}
             <InventoryAdjustDialog
                 open={adjustOpen}
                 onClose={() => setAdjustOpen(false)}
@@ -449,9 +438,6 @@ export default function InventoryPage({ setSnack }) {
     );
 }
 
-/* ================================
-   DIALOG: MANUAL ADJUST
-==================================*/
 function InventoryAdjustDialog({ open, onClose, onSubmit }) {
     const [form, setForm] = React.useState({
         product_detail_id: "",
@@ -463,7 +449,6 @@ function InventoryAdjustDialog({ open, onClose, onSubmit }) {
     const [productDetails, setProductDetails] = React.useState([]);
     const token = localStorage.getItem("access_token");
 
-    // Load product details khi mở dialog
     React.useEffect(() => {
         if (open) {
             setForm({ product_detail_id: "", change: 0, note: "" });
@@ -503,7 +488,7 @@ function InventoryAdjustDialog({ open, onClose, onSubmit }) {
             const payload = {
                 product_detail_id: form.product_detail_id,
                 change: Number(form.change),
-                type: "adjustment", // mặc định
+                type: "adjustment",
                 note: form.note || ""
             };
             await onSubmit(payload);
@@ -518,8 +503,6 @@ function InventoryAdjustDialog({ open, onClose, onSubmit }) {
 
             <DialogContent>
                 <Stack spacing={2} sx={{ mt: 1 }}>
-
-                    {/* PRODUCT DETAIL SELECT */}
                     <TextField
                         select
                         label="Product detail"

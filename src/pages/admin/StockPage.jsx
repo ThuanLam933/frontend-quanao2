@@ -30,7 +30,6 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import DeleteIcon from "@mui/icons-material/Delete";
 import SearchIcon from "@mui/icons-material/Search";
 
-// Dùng API_BASE cục bộ để tránh circular import với AdminPanel
 const API_BASE = "http://127.0.0.1:8000";
 const PAGE_SIZE = 12;
 
@@ -62,7 +61,7 @@ export default function StockPage({ setSnack }) {
     });
 
     const [viewReceipt, setViewReceipt] = React.useState(null);
-    const [viewLoading, setViewLoading] = React.useState(false)
+    const [viewLoading, setViewLoading] = React.useState(false);
     const [search, setSearch] = React.useState("");
     const [page, setPage] = React.useState(1);
 
@@ -107,33 +106,41 @@ export default function StockPage({ setSnack }) {
             setLoading(false);
         }
     }, [setSnack]);
+
     const openReceiptDetail = React.useCallback(
         async (receiptId) => {
             setViewLoading(true);
             try {
-            const token = getStoredToken();
-            const res = await fetch(`${API_BASE}/api/admin/receipts/${receiptId}`, {
-                method: "GET",
-                headers: {
-                Accept: "application/json",
-                ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                },
-            });
+                const token = getStoredToken();
+                const res = await fetch(
+                    `${API_BASE}/api/admin/receipts/${receiptId}`,
+                    {
+                        method: "GET",
+                        headers: {
+                            Accept: "application/json",
+                            ...(token
+                                ? { Authorization: `Bearer ${token}` }
+                                : {}),
+                        },
+                    }
+                );
 
-            if (!res.ok) throw new Error("fetch receipt detail failed");
+                if (!res.ok) throw new Error("fetch receipt detail failed");
 
-            const data = await res.json();
-            setViewReceipt(data);
+                const data = await res.json();
+                setViewReceipt(data);
             } catch (err) {
-            console.error(err);
-            setSnack({ severity: "error", message: "Không tải được chi tiết phiếu nhập" });
+                console.error(err);
+                setSnack({
+                    severity: "error",
+                    message: "Không tải được chi tiết phiếu nhập",
+                });
             } finally {
-            setViewLoading(false);
+                setViewLoading(false);
             }
         },
         [setSnack]
     );
-
 
     const fetchOptions = React.useCallback(async () => {
         setOptsLoading(true);
@@ -143,7 +150,9 @@ export default function StockPage({ setSnack }) {
                 fetch(`${API_BASE}/api/admin/suppliers`, {
                     headers: {
                         Accept: "application/json",
-                        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                        ...(token
+                            ? { Authorization: `Bearer ${token}` }
+                            : {}),
                     },
                 }),
                 fetch(
@@ -227,8 +236,7 @@ export default function StockPage({ setSnack }) {
         (Number(item.qty) || 0) * (Number(item.price) || 0);
 
     const computeGrandTotal = React.useMemo(
-        () =>
-            form.items.reduce((acc, it) => acc + computeLineTotal(it), 0),
+        () => form.items.reduce((acc, it) => acc + computeLineTotal(it), 0),
         [form.items]
     );
 
@@ -246,10 +254,12 @@ export default function StockPage({ setSnack }) {
                 return JSON.stringify(j);
             }
         } catch (e) {}
+
         try {
             const txt = await res.text();
             if (txt) return txt;
         } catch (e) {}
+
         return "Có lỗi xảy ra";
     };
 
@@ -263,10 +273,12 @@ export default function StockPage({ setSnack }) {
             });
             return;
         }
+
         if (!Array.isArray(form.items) || form.items.length === 0) {
             setSnack({ severity: "error", message: "Thêm ít nhất 1 item" });
             return;
         }
+
         for (const it of form.items) {
             if (!it.product_detail_id) {
                 setSnack({
@@ -294,20 +306,21 @@ export default function StockPage({ setSnack }) {
 
         if (creatingReceipt) return;
         setCreatingReceipt(true);
+
         try {
             const token = getStoredToken();
             const payload = {
                 suppliers_id: form.suppliers_id,
                 note: form.note || "",
                 import_date:
-                    form.import_date ||
-                    new Date().toISOString().slice(0, 10),
+                    form.import_date || new Date().toISOString().slice(0, 10),
                 items: form.items.map((it) => ({
                     product_detail_id: it.product_detail_id,
                     quantity: Number(it.qty),
                     price: Number(it.price),
                 })),
             };
+
             const res = await fetch(`${API_BASE}/api/admin/receipts`, {
                 method: "POST",
                 headers: {
@@ -317,6 +330,7 @@ export default function StockPage({ setSnack }) {
                 },
                 body: JSON.stringify(payload),
             });
+
             if (!res.ok) {
                 const msg = await extractErrorMessage(res);
                 setSnack({
@@ -325,11 +339,13 @@ export default function StockPage({ setSnack }) {
                 });
                 return;
             }
+
             await res.json();
             setSnack({
                 severity: "success",
                 message: "Tạo phiếu nhập thành công",
             });
+
             setOpenCreate(false);
             setForm({
                 suppliers_id: "",
@@ -343,6 +359,7 @@ export default function StockPage({ setSnack }) {
                 import_date: new Date().toISOString().slice(0, 10),
                 items: [{ product_detail_id: "", qty: 1, price: 0 }],
             });
+
             await fetchStock();
             await fetchOptions();
         } catch (err) {
@@ -366,6 +383,7 @@ export default function StockPage({ setSnack }) {
             });
             return;
         }
+
         setSupplierCreating(true);
         try {
             const token = getStoredToken();
@@ -378,6 +396,7 @@ export default function StockPage({ setSnack }) {
                 },
                 body: JSON.stringify(supplierForm),
             });
+
             if (!res.ok) {
                 const msg = await extractErrorMessage(res);
                 setSnack({
@@ -386,11 +405,13 @@ export default function StockPage({ setSnack }) {
                 });
                 return;
             }
+
             const created = await res.json();
             setSnack({
                 severity: "success",
                 message: "Tạo supplier thành công",
             });
+
             await fetchOptions();
             setForm((f) => ({
                 ...f,
@@ -419,6 +440,7 @@ export default function StockPage({ setSnack }) {
             )
         )
             return;
+
         try {
             const token = getStoredToken();
             const res = await fetch(`${API_BASE}/api/admin/receipts/${e.id}`, {
@@ -427,7 +449,9 @@ export default function StockPage({ setSnack }) {
                     ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 },
             });
+
             if (!res.ok) throw new Error("Delete failed");
+
             setSnack({ severity: "success", message: "Đã xóa phiếu" });
             fetchStock();
             await fetchOptions();
@@ -483,14 +507,11 @@ export default function StockPage({ setSnack }) {
         );
     };
 
-    // ----- FILTER & PAGINATION -----
     const filteredEntries = entries.filter((e) => {
         const q = search.trim().toLowerCase();
         if (!q) return true;
         const supplierName = e.supplier?.name?.toLowerCase() ?? "";
-        const supplierNote = String(e.suppliers_id ?? "")
-            .toLowerCase()
-            .trim();
+        const supplierNote = String(e.suppliers_id ?? "").toLowerCase().trim();
         const idStr = String(e.id ?? "");
         return (
             supplierName.includes(q) ||
@@ -499,10 +520,7 @@ export default function StockPage({ setSnack }) {
         );
     });
 
-    const totalPages = Math.max(
-        1,
-        Math.ceil(filteredEntries.length / PAGE_SIZE)
-    );
+    const totalPages = Math.max(1, Math.ceil(filteredEntries.length / PAGE_SIZE));
     const currentPage = Math.min(page, totalPages);
     const visibleEntries = filteredEntries.slice(
         (currentPage - 1) * PAGE_SIZE,
@@ -511,7 +529,6 @@ export default function StockPage({ setSnack }) {
 
     return (
         <Box>
-            {/* HEADER */}
             <Stack
                 direction="row"
                 justifyContent="space-between"
@@ -522,7 +539,6 @@ export default function StockPage({ setSnack }) {
                     <Typography variant="h6" sx={{ fontWeight: 600 }}>
                         Quản lý phiếu nhập kho và nhà cung cấp
                     </Typography>
-                    
                 </Box>
                 <Stack direction="row" spacing={1}>
                     <Button
@@ -542,7 +558,6 @@ export default function StockPage({ setSnack }) {
                 </Stack>
             </Stack>
 
-            {/* SEARCH BAR */}
             <Paper sx={{ mb: 2, p: 2 }}>
                 <Stack
                     direction={{ xs: "column", sm: "row" }}
@@ -574,7 +589,6 @@ export default function StockPage({ setSnack }) {
                 </Stack>
             </Paper>
 
-            {/* TABLE LIST */}
             <Paper sx={{ position: "relative" }}>
                 {loading && (
                     <Box
@@ -602,10 +616,7 @@ export default function StockPage({ setSnack }) {
                                 <TableCell>Nhà cung cấp</TableCell>
                                 <TableCell>Ngày nhập kho</TableCell>
                                 <TableCell align="right">Tổng tiền</TableCell>
-                                <TableCell
-                                    align="right"
-                                    sx={{ width: 130 }}
-                                >
+                                <TableCell align="right" sx={{ width: 130 }}>
                                     Actions
                                 </TableCell>
                             </TableRow>
@@ -634,17 +645,18 @@ export default function StockPage({ setSnack }) {
                                         </TableCell>
                                         <TableCell>
                                             {e.created_at
-                                                ? new Date(e.created_at).toLocaleString("vi-VN")
+                                                ? new Date(
+                                                      e.created_at
+                                                  ).toLocaleString("vi-VN")
                                                 : e.import_date
-                                                ? new Date(e.import_date).toLocaleDateString("vi-VN")
+                                                ? new Date(
+                                                      e.import_date
+                                                  ).toLocaleDateString("vi-VN")
                                                 : "—"}
-
                                         </TableCell>
                                         <TableCell align="right">
                                             {e.total_price
-                                                ? formatCurrency(
-                                                      e.total_price
-                                                  )
+                                                ? formatCurrency(e.total_price)
                                                 : "—"}
                                         </TableCell>
                                         <TableCell align="right">
@@ -655,12 +667,15 @@ export default function StockPage({ setSnack }) {
                                             >
                                                 <Tooltip title="Xem chi tiết">
                                                     <IconButton
-  size="small"
-  onClick={() => openReceiptDetail(e.id)}
->
-  <VisibilityIcon fontSize="small" />
-</IconButton>
-
+                                                        size="small"
+                                                        onClick={() =>
+                                                            openReceiptDetail(
+                                                                e.id
+                                                            )
+                                                        }
+                                                    >
+                                                        <VisibilityIcon fontSize="small" />
+                                                    </IconButton>
                                                 </Tooltip>
                                                 <Tooltip title="Xóa phiếu">
                                                     <IconButton
@@ -701,7 +716,6 @@ export default function StockPage({ setSnack }) {
                 </Box>
             </Paper>
 
-            {/* DIALOG CREATE RECEIPT – UI MỚI */}
             <Dialog
                 open={openCreate}
                 onClose={() => setOpenCreate(false)}
@@ -710,7 +724,7 @@ export default function StockPage({ setSnack }) {
                 scroll="paper"
                 PaperProps={{
                     sx: {
-                        mt: { xs: 6, sm: 8 }, // Đẩy dialog xuống dưới AppBar
+                        mt: { xs: 6, sm: 8 },
                     },
                 }}
             >
@@ -720,7 +734,6 @@ export default function StockPage({ setSnack }) {
 
                 <DialogContent dividers sx={{ pt: 2 }}>
                     <Stack spacing={3}>
-                        {/* SUPPLIER INFO */}
                         <Paper variant="outlined" sx={{ p: 2 }}>
                             <Typography
                                 variant="subtitle1"
@@ -754,12 +767,9 @@ export default function StockPage({ setSnack }) {
                                         </MenuItem>
                                     ))}
                                 </TextField>
-
-                                
                             </Stack>
                         </Paper>
 
-                        {/* RECEIPT META */}
                         <Paper variant="outlined" sx={{ p: 2 }}>
                             <Typography
                                 variant="subtitle1"
@@ -800,7 +810,6 @@ export default function StockPage({ setSnack }) {
                             </Stack>
                         </Paper>
 
-                        {/* ITEM LIST */}
                         <Paper variant="outlined" sx={{ p: 2 }}>
                             <Stack
                                 direction="row"
@@ -838,7 +847,6 @@ export default function StockPage({ setSnack }) {
                                             }}
                                         >
                                             <Stack spacing={2}>
-                                                {/* CHỌN PRODUCT DETAIL */}
                                                 <TextField
                                                     select
                                                     label="Chọn sản phẩm"
@@ -896,7 +904,6 @@ export default function StockPage({ setSnack }) {
                                                     )}
                                                 </TextField>
 
-                                                {/* PREVIEW */}
                                                 <Box
                                                     sx={{
                                                         p: 1.5,
@@ -909,7 +916,6 @@ export default function StockPage({ setSnack }) {
                                                     />
                                                 </Box>
 
-                                                {/* QTY + PRICE + SUBTOTAL */}
                                                 <Stack
                                                     direction={{
                                                         xs: "column",
@@ -1008,7 +1014,6 @@ export default function StockPage({ setSnack }) {
                 </DialogActions>
             </Dialog>
 
-            {/* DIALOG VIEW RECEIPT */}
             <Dialog
                 open={!!viewReceipt}
                 onClose={() => setViewReceipt(null)}
@@ -1025,81 +1030,131 @@ export default function StockPage({ setSnack }) {
                     {viewReceipt ? `Receipt #${viewReceipt.id}` : "Receipt"}
                 </DialogTitle>
                 <DialogContent dividers>
-  {viewLoading ? (
-    <Box sx={{ py: 4, display: "flex", justifyContent: "center" }}>
-      <CircularProgress />
-    </Box>
-  ) : viewReceipt ? (
-    <Box>
-      <Typography variant="body2">
-        Supplier:{" "}
-        {viewReceipt.supplier?.name ?? viewReceipt.suppliers_id ?? "—"}
-      </Typography>
+                    {viewLoading ? (
+                        <Box
+                            sx={{
+                                py: 4,
+                                display: "flex",
+                                justifyContent: "center",
+                            }}
+                        >
+                            <CircularProgress />
+                        </Box>
+                    ) : viewReceipt ? (
+                        <Box>
+                            <Typography variant="body2">
+                                Supplier:{" "}
+                                {viewReceipt.supplier?.name ??
+                                    viewReceipt.suppliers_id ??
+                                    "—"}
+                            </Typography>
 
-      <Typography variant="body2">
-        Import time:{" "}
-        {viewReceipt.created_at
-          ? new Date(viewReceipt.created_at).toLocaleString("vi-VN")
-          : viewReceipt.import_date
-          ? new Date(viewReceipt.import_date).toLocaleDateString("vi-VN")
-          : "—"}
-      </Typography>
+                            <Typography variant="body2">
+                                Import time:{" "}
+                                {viewReceipt.created_at
+                                    ? new Date(
+                                          viewReceipt.created_at
+                                      ).toLocaleString("vi-VN")
+                                    : viewReceipt.import_date
+                                    ? new Date(
+                                          viewReceipt.import_date
+                                      ).toLocaleDateString("vi-VN")
+                                    : "—"}
+                            </Typography>
 
-      <Box sx={{ mt: 2 }}>
-        <TableContainer>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Product</TableCell>
-                <TableCell>Color</TableCell>
-                <TableCell>Size</TableCell>
-                <TableCell align="right">Qty</TableCell>
-                <TableCell align="right">Purchase price</TableCell>
-                <TableCell align="right">Subtotal</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {(viewReceipt.details || []).map((d) => {
-                // Ưu tiên lấy detail đầy đủ từ productDetails đã fetchOptions
-                const fullDetail = findDetail(d.product_detail_id) || d.productDetail;
+                            <Box sx={{ mt: 2 }}>
+                                <TableContainer>
+                                    <Table size="small">
+                                        <TableHead>
+                                            <TableRow>
+                                                <TableCell>Product</TableCell>
+                                                <TableCell>Color</TableCell>
+                                                <TableCell>Size</TableCell>
+                                                <TableCell align="right">
+                                                    Qty
+                                                </TableCell>
+                                                <TableCell align="right">
+                                                    Purchase price
+                                                </TableCell>
+                                                <TableCell align="right">
+                                                    Subtotal
+                                                </TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {(viewReceipt.details || []).map(
+                                                (d) => {
+                                                    const fullDetail =
+                                                        findDetail(
+                                                            d.product_detail_id
+                                                        ) || d.productDetail;
 
-                return (
-                    <TableRow key={d.id ?? `${d.product_detail_id}_${Math.random()}`}>
-                    <TableCell>
-                        {fullDetail?.product?.name ?? `#${d.product_detail_id}`}
-                    </TableCell>
-                    <TableCell>{fullDetail?.color?.name ?? "—"}</TableCell>
-                    <TableCell>{fullDetail?.size?.name ?? "—"}</TableCell>
+                                                    return (
+                                                        <TableRow
+                                                            key={
+                                                                d.id ??
+                                                                `${d.product_detail_id}_${Math.random()}`
+                                                            }
+                                                        >
+                                                            <TableCell>
+                                                                {fullDetail
+                                                                    ?.product
+                                                                    ?.name ??
+                                                                    `#${d.product_detail_id}`}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {fullDetail
+                                                                    ?.color
+                                                                    ?.name ??
+                                                                    "—"}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {fullDetail
+                                                                    ?.size
+                                                                    ?.name ??
+                                                                    "—"}
+                                                            </TableCell>
 
-                    <TableCell align="right">{d.quantity}</TableCell>
-                    <TableCell align="right">
-                        {d.price ? formatCurrency(d.price) : "—"}
-                    </TableCell>
-                    <TableCell align="right">
-                        {d.subtotal
-                        ? formatCurrency(d.subtotal)
-                        : d.quantity && d.price
-                        ? formatCurrency(d.quantity * d.price)
-                        : "—"}
-                    </TableCell>
-                    </TableRow>
-                );
-                })}
-
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Box>
-    </Box>
-  ) : null}
-</DialogContent>
+                                                            <TableCell align="right">
+                                                                {d.quantity}
+                                                            </TableCell>
+                                                            <TableCell align="right">
+                                                                {d.price
+                                                                    ? formatCurrency(
+                                                                          d.price
+                                                                      )
+                                                                    : "—"}
+                                                            </TableCell>
+                                                            <TableCell align="right">
+                                                                {d.subtotal
+                                                                    ? formatCurrency(
+                                                                          d.subtotal
+                                                                      )
+                                                                    : d.quantity &&
+                                                                      d.price
+                                                                    ? formatCurrency(
+                                                                          d.quantity *
+                                                                              d.price
+                                                                      )
+                                                                    : "—"}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    );
+                                                }
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                            </Box>
+                        </Box>
+                    ) : null}
+                </DialogContent>
 
                 <DialogActions>
                     <Button onClick={() => setViewReceipt(null)}>Close</Button>
                 </DialogActions>
             </Dialog>
 
-            {/* DIALOG CREATE SUPPLIER QUICK */}
             <Dialog
                 open={openSupplierModal}
                 onClose={() => setOpenSupplierModal(false)}
@@ -1172,7 +1227,6 @@ export default function StockPage({ setSnack }) {
                                 })
                             }
                         />
-                        
                     </Stack>
                 </DialogContent>
                 <DialogActions>

@@ -109,7 +109,7 @@ export default function VariantPage({ setSnack }) {
       if (!res.ok) {
         showSnack({
           severity: "error",
-          message: "Xóa biến thể thất bại",
+          message: "Sản phẩm đang có đơn hàng, không thể xóa biến thể",
         });
         return;
       }
@@ -151,7 +151,7 @@ export default function VariantPage({ setSnack }) {
       </TextField>
 
       {/* NÚT THÊM BIẾN THỂ */}
-      <Stack direction="row" sx={{ mt: 2 }}>
+      <Box sx={{ mt: 2 }}>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -163,7 +163,7 @@ export default function VariantPage({ setSnack }) {
         >
           Thêm biến thể
         </Button>
-      </Stack>
+      </Box>
 
       {/* BẢNG BIẾN THỂ */}
       <Paper sx={{ mt: 3 }}>
@@ -172,10 +172,11 @@ export default function VariantPage({ setSnack }) {
             <CircularProgress />
           </Box>
         ) : (
-          <TableContainer>
+          <TableContainer >
             <Table>
               <TableHead>
                 <TableRow>
+                  <TableCell>Số thứ tự</TableCell>
                   <TableCell>Sản phẩm</TableCell>
                   <TableCell>Ảnh</TableCell>
                   <TableCell>Màu</TableCell>
@@ -189,8 +190,9 @@ export default function VariantPage({ setSnack }) {
               </TableHead>
               <TableBody>
                 {variants.length ? (
-                  variants.map((v) => (
+                  variants.map((v, index) => (
                     <TableRow key={v.id}>
+                      <TableCell>{index + 1}</TableCell>
                       <TableCell>{v.product?.name ?? "—"}</TableCell>
 
                       <TableCell>

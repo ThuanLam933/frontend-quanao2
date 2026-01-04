@@ -61,13 +61,7 @@ export default function DiscountProductPage({ setSnack }) {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-  // Drop phần microseconds kiểu .000000Z để Date parse ổn định hơn
 
-
-
-
-
-  // ================= FETCH =================
   const fetchDiscounts = useCallback(async () => {
     setLoading(true);
     try {
@@ -94,7 +88,6 @@ export default function DiscountProductPage({ setSnack }) {
     fetchDiscounts();
   }, [fetchDiscounts]);
 
-  // ================= DELETE =================
   const handleDelete = async (id) => {
     if (!window.confirm("Xóa mã giảm giá này?")) return;
 
@@ -123,26 +116,24 @@ export default function DiscountProductPage({ setSnack }) {
   return (
     <Box>
       <Stack
-  direction="row"
-  alignItems="center"
-  justifyContent="space-between"
-  sx={{ mb: 2 }}
->
-  <Typography variant="h5">Quản lý mã giảm giá</Typography>
+        direction="row"
+        alignItems="center"
+        justifyContent="space-between"
+        sx={{ mb: 2 }}
+      >
+        <Typography variant="h5">Quản lý mã giảm giá</Typography>
 
-  <Button
-    variant="contained"
-    startIcon={<AddIcon />}
-    onClick={() => {
-      setEditing(null);
-      setDialogOpen(true);
-    }}
-  >
-    Thêm mã giảm
-  </Button>
-</Stack>
-
-
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => {
+            setEditing(null);
+            setDialogOpen(true);
+          }}
+        >
+          Thêm mã giảm
+        </Button>
+      </Stack>
 
       <Paper sx={{ mt: 3 }}>
         <TableContainer>
@@ -175,7 +166,8 @@ export default function DiscountProductPage({ setSnack }) {
                     </TableCell>
 
                     <TableCell>
-                     {formatDateTimeVN(d.start_at)} → {formatDateTimeVN(d.end_at)}
+                      {formatDateTimeVN(d.start_at)} →{" "}
+                      {formatDateTimeVN(d.end_at)}
                     </TableCell>
                     <TableCell>
                       {d.is_active ? (
@@ -227,13 +219,9 @@ export default function DiscountProductPage({ setSnack }) {
   );
 }
 
-// =====================================================================
-// ========================== DIALOG ===================================
-// =====================================================================
-
 function DiscountDialog({ open, onClose, editing, refresh, setSnack }) {
   const isEdit = !!editing;
-  
+
   const [form, setForm] = useState({
     type: "percent",
     value: "",

@@ -24,7 +24,7 @@ import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 
-// Dùng API_BASE cục bộ để tránh import vòng lặp với AdminPanel
+
 const API_BASE = "http://127.0.0.1:8000";
 
 export default function ReturnsPage({ setSnack }) {
