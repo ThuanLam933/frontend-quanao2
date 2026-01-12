@@ -499,7 +499,7 @@ export default function AccountPage() {
                                 minute: "2-digit",
                               })
                             : "—";
-
+                          
                           const statusColors = {
                             pending: "#1976d2",
                             confirmed: "#0288d1",
@@ -508,6 +508,13 @@ export default function AccountPage() {
                             cancelled: "#d32f2f",
                             returned: "#6d4c41",
                           };
+                          const STATUS_LABEL = {
+    pending: "Chờ xác nhận",
+    confirmed: "Đã xác nhận",
+    cancelled: "Đã hủy",
+    canceled: "Đã hủy",
+};
+
 
                           const statusColor = statusColors[o.status] || "#333";
 
@@ -550,7 +557,7 @@ export default function AccountPage() {
                                     fontWeight: 600,
                                   }}
                                 >
-                                  {o.status}
+                                  {STATUS_LABEL[(o.status || "").toLowerCase()] ?? o.status ?? "—"}
                                 </span>
                               </Typography>
 

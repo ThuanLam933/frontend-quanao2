@@ -160,21 +160,23 @@ export default function DashboardPage({ setSnack }) {
 
             const getOrderTotal = (order) =>
                 Number(
-                    order?.total_after_discount ??
-                        order?.totalAfterDiscount ??
-                        order?.total_discounted ??
+                    // order?.total_after_discount ??
+                    //     order?.totalAfterDiscount ??
+                    //     order?.total_discounted ??
+
                         order?.total_price ??
-                        order?.total ??
-                        order?.amount ??
-                        order?.grand_total ??
+
+                        // order?.total ??
+                        // order?.amount ??
+                        // order?.grand_total ??
                         0
                 ) || 0;
 
             const getOrderItems = (order) =>
                 order.items ??
-                order.order_items ??
-                order.details ??
-                order.order_details ??
+                // order.order_items ??
+                // order.details ??
+                // order.order_details ??
                 [];
 
             const getCustomerName = (order) => {

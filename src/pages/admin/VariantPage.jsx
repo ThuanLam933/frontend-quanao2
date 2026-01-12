@@ -39,7 +39,7 @@ export default function VariantPage({ setSnack }) {
 
   const showSnack = setSnack;
 
-  // ================= FETCH PRODUCTS =================
+  
   const fetchProducts = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/api/products`, {
@@ -63,7 +63,7 @@ export default function VariantPage({ setSnack }) {
     fetchProducts();
   }, [fetchProducts]);
 
-  // ================= FETCH VARIANTS =================
+  
   const fetchVariants = useCallback(async () => {
     setLoading(true);
     try {
@@ -94,7 +94,7 @@ export default function VariantPage({ setSnack }) {
     fetchVariants();
   }, [fetchVariants]);
 
-  // ================= DELETE VARIANT =================
+  
   const handleDeleteVariant = async (id) => {
     if (!window.confirm("Xóa biến thể này?")) return;
 
@@ -134,7 +134,7 @@ export default function VariantPage({ setSnack }) {
         Quản lý biến thể sản phẩm
       </Typography>
 
-      {/* CHỌN SẢN PHẨM */}
+      
       <TextField
         select
         label="Chọn sản phẩm"
@@ -150,7 +150,7 @@ export default function VariantPage({ setSnack }) {
         ))}
       </TextField>
 
-      {/* NÚT THÊM BIẾN THỂ */}
+      
       <Box sx={{ mt: 2 }}>
         <Button
           variant="contained"
@@ -165,7 +165,7 @@ export default function VariantPage({ setSnack }) {
         </Button>
       </Box>
 
-      {/* BẢNG BIẾN THỂ */}
+      
       <Paper sx={{ mt: 3 }}>
         {loading ? (
           <Box sx={{ p: 3, display: "flex", justifyContent: "center" }}>
@@ -314,17 +314,17 @@ function AddVariantDialog({ open, onClose, productId, variant, variants, refresh
     product_discount_id: "",
   });
 
-  // files + previews mới (giống ProductPage)
-  const [files, setFiles] = useState([]); // Array<File>
-  const [previews, setPreviews] = useState([]); // base64 preview
-  const originalImagesRef = useRef([]); // giữ URL ảnh cũ
-  const originalQuantityRef = useRef(null); // giữ quantity cũ
+  
+  const [files, setFiles] = useState([]); 
+  const [previews, setPreviews] = useState([]); 
+  const originalImagesRef = useRef([]); 
+  const originalQuantityRef = useRef(null); 
 
   const [colors, setColors] = useState([]);
   const [sizes, setSizes] = useState([]);
   const [discounts, setDiscounts] = useState([]);
 
-  // Khi mở dialog edit → load data vào form + lưu ảnh cũ
+  
   useEffect(() => {
     if (!open) return;
     if (isEdit && variant) {
@@ -336,10 +336,10 @@ function AddVariantDialog({ open, onClose, productId, variant, variants, refresh
         product_discount_id: variant.product_discount_id ?? "",
       });
 
-      // lưu quantity gốc để nếu user để trống vẫn giữ nguyên
+      
       originalQuantityRef.current = variant.quantity ?? 0;
 
-      // lưu ảnh cũ để hiển thị + giữ nguyên nếu không chọn ảnh mới
+      
       const urls =
         (variant.images ?? [])
           .map((img) => img.full_url || img.url_image)
@@ -363,7 +363,8 @@ function AddVariantDialog({ open, onClose, productId, variant, variants, refresh
     }
   }, [open, variant, isEdit]);
 
-  // tạo previews khi chọn ảnh
+  
+
   useEffect(() => {
     if (!files || files.length === 0) {
       setPreviews([]);
@@ -394,7 +395,7 @@ function AddVariantDialog({ open, onClose, productId, variant, variants, refresh
     };
   }, [files]);
 
-  // Load danh sách màu + size + discounts
+  
   useEffect(() => {
     const token = localStorage.getItem("access_token");
 
@@ -429,12 +430,12 @@ function AddVariantDialog({ open, onClose, productId, variant, variants, refresh
   };
 
   const readErrorMessage = async (res) => {
-    // cố lấy message từ Laravel (422)
+    
     const txt = await res.text().catch(() => "");
     try {
       const j = JSON.parse(txt || "{}");
       if (j.message) return j.message;
-      // nếu có errors object
+      
       if (j.errors && typeof j.errors === "object") {
         const firstKey = Object.keys(j.errors)[0];
         if (firstKey && Array.isArray(j.errors[firstKey]) && j.errors[firstKey][0]) {
@@ -458,10 +459,10 @@ const isDuplicateCombo = (colorId, sizeId) => {
     const vc = norm(v.color_id ?? v.color?.id);
     const vs = norm(v.size_id ?? v.size?.id);
 
-    // cùng product + color + size
+    
     const sameCombo = vp === pId && vc === cId && vs === sId;
 
-    // nếu đang edit thì bỏ qua chính nó
+    
     const notSelf = !variant?.id || String(v.id) !== String(variant.id);
 
     return sameCombo && notSelf;
@@ -475,12 +476,12 @@ const isDuplicateCombo = (colorId, sizeId) => {
         return;
       }
 
-      // validate nhẹ để tránh 422 vô nghĩa
+      
       if (String(form.price ?? "").trim() === "") {
         showSnack({ severity: "error", message: "Vui lòng nhập giá" });
         return;
       }
-      // ✅ chặn trùng biến thể
+      
       if (isDuplicateCombo(form.color_id, form.size_id)) {
         showSnack({
           severity: "error",
@@ -490,20 +491,18 @@ const isDuplicateCombo = (colorId, sizeId) => {
       }
 
       if (form.product_discount_id) {
-  const d = discounts.find((x) => String(x.id) === String(form.product_discount_id));
-  const st = getDiscountStatus(d);
-  if (!st.ok) {
-    showSnack({
-      severity: "error",
-      message: `Mã giảm giá không hợp lệ: ${st.reason}. Vui lòng chọn mã khác hoặc bỏ áp dụng.`,
-    });
-    return;
-  }
-}
+      const d = discounts.find((x) => String(x.id) === String(form.product_discount_id));
+      const st = getDiscountStatus(d);
+      if (!st.ok) {
+        showSnack({
+          severity: "error",
+          message: `Mã giảm giá không hợp lệ: ${st.reason}. Vui lòng chọn mã khác hoặc bỏ áp dụng.`,
+        });
+        return;
+      }
+    }
 
-      // nếu backend bắt buộc màu/size thì bật validate này lên
-      // if (!form.color_id) { ... }
-      // if (!form.size_id) { ... }
+     
 
       const token = localStorage.getItem("access_token");
 
@@ -555,18 +554,14 @@ const isDuplicateCombo = (colorId, sizeId) => {
         return;
       }
 
-      // Lấy variant trả về (khi tạo mới / update có thể trả về JSON)
       let createdOrUpdated = null;
       try {
         createdOrUpdated = await res.json();
       } catch {
-        // ignore
+        
       }
 
       const variantId = isEdit ? variant.id : createdOrUpdated?.id ?? null;
-
-      // ====== ẢNH: nếu KHÔNG chọn ảnh mới => GIỮ NGUYÊN (không upload gì cả) ======
-      // ====== nếu có chọn ảnh mới => upload thêm ảnh cho variant ======
       if (variantId && hasNewImages) {
         for (let i = 0; i < files.length; i++) {
           const imgFd = new FormData();
@@ -599,11 +594,11 @@ const isDuplicateCombo = (colorId, sizeId) => {
     }
   };
 
-  // UI: hiển thị ảnh mới nếu có previews, ngược lại hiển thị ảnh cũ khi edit
+  
   const showExistingImages = !previews.length && isEdit && originalImagesRef.current.length > 0;
   const parseApiDate = (s) => {
   if (!s) return null;
-  // hỗ trợ "YYYY-MM-DD HH:mm:ss" hoặc "YYYY-MM-DDTHH:mm"
+  
   return new Date(String(s).replace(" ", "T"));
 };
 

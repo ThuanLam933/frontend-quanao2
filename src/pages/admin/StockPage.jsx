@@ -36,13 +36,10 @@ const PAGE_SIZE = 12;
 export default function StockPage({ setSnack }) {
     const [entries, setEntries] = React.useState([]);
     const [loading, setLoading] = React.useState(false);
-
     const [openCreate, setOpenCreate] = React.useState(false);
-
     const [suppliers, setSuppliers] = React.useState([]);
     const [productDetails, setProductDetails] = React.useState([]);
     const [optsLoading, setOptsLoading] = React.useState(false);
-
     const [openSupplierModal, setOpenSupplierModal] = React.useState(false);
     const [supplierForm, setSupplierForm] = React.useState({
         name: "",

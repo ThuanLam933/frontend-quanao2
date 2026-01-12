@@ -39,6 +39,38 @@ const STATUS_COLOR = {
     cancelled: "error",
     canceled: "error",
 };
+const STATUS_LABEL = {
+    pending: "Chờ xác nhận",
+    confirmed: "Đã xác nhận",
+    cancelled: "Đã hủy",
+    canceled: "Đã hủy",
+};
+const PAYMENT_STATUS_COLOR = {
+  unpaid: "warning",
+  pending: "warning",
+  paid: "success",
+  failed: "error",
+  refunded: "info",
+};
+
+const PAYMENT_STATUS_LABEL = {
+  unpaid: "Chưa thanh toán",
+  pending: "Chờ thanh toán",
+  paid: "Đã thanh toán",
+  failed: "Thanh toán thất bại",
+  refunded: "Đã hoàn tiền",
+};
+
+const getPaymentStatus = (o) => {
+  const raw =
+    o?.status_method ??
+    o?.paymentStatus ??
+    o?.payment?.status ??
+    (o?.is_paid ?? o?.isPaid) ? "paid" : null;
+
+  return raw ? String(raw).toLowerCase() : null;
+};
+
 
 const PAGE_SIZE = 12;
 const parseIso = (s) => {
@@ -67,9 +99,9 @@ const formatDateTimeVN = (isoString) => {
 };
 
 const getOrderTotal = (x) =>
-  x?.total_after_discount ??
-  x?.totalAfterDiscount ??
-  x?.total_discounted ??
+//   x?.total_after_discount ??
+//   x?.totalAfterDiscount ??
+//   x?.total_discounted ??
   x?.total_price;
 
 const formatVND = (v) =>
@@ -242,6 +274,7 @@ export default function OrdersPage({ setSnack }) {
                                 <TableCell>Tên </TableCell>
                                 <TableCell align="right">Giá tiền</TableCell>
                                 <TableCell>Phương thức thanh toán</TableCell>
+                                <TableCell>Trạng thái thanh toán</TableCell>
                                 <TableCell>Trạng thái</TableCell>
                                 <TableCell>Ngày lên đơn</TableCell>
                                 <TableCell align="right" sx={{ width: 160 }}>
@@ -269,9 +302,24 @@ export default function OrdersPage({ setSnack }) {
                                         />
                                     </TableCell>
                                     <TableCell>
+                                    {(() => {
+                                        const ps = getPaymentStatus(o);
+                                        return (
                                         <Chip
                                             size="small"
-                                            label={o.status ?? "—"}
+                                            label={PAYMENT_STATUS_LABEL[ps] ?? (ps ?? "Chua thanh toan")}
+                                            color={PAYMENT_STATUS_COLOR[ps] || "default"}
+                                        />
+                                        );
+                                    })()}
+                                    </TableCell>
+                                    <TableCell>
+                                        <Chip
+                                            size="small"
+                                            label={
+                                                STATUS_LABEL[(o.status || "").toLowerCase()] ?? o.status ?? "—"
+                                            }
+                                            // label={o.status ?? "—"}
                                             color={
                                                 STATUS_COLOR[
                                                     (o.status || "")
@@ -280,6 +328,16 @@ export default function OrdersPage({ setSnack }) {
                                             }
                                         />
                                     </TableCell>
+                                    {/* <TableCell>
+                                    <Chip
+                                        size="small"
+                                        variant="outlined"
+                                        label={o.payment_method ?? "—"}
+                                    />
+                                    </TableCell> */}
+
+                                    
+
                                     <TableCell>
                                         {formatDateTimeVN(o.created_at  )}
                                     </TableCell>
@@ -349,7 +407,7 @@ export default function OrdersPage({ setSnack }) {
 
                             {!loading && visible.length === 0 && (
                                 <TableRow>
-                                    <TableCell colSpan={7} align="center">
+                                    <TableCell colSpan={8} align="center">
                                         <Box sx={{ py: 3 }}>
                                             <Typography
                                                 variant="body2"
@@ -452,7 +510,10 @@ const totalAfterDiscount =
                 </Typography>
                 {sel?.status && (
                     <Chip
-                        label={sel.status}
+                        // label={sel.status}
+                        label={
+                            STATUS_LABEL[(sel.status || "").toLowerCase()] ?? sel.status ?? "—"
+                        }
                         color={statusColor}
                         size="small"
                         sx={{ textTransform: "capitalize" }}
