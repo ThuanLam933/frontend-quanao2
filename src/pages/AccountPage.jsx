@@ -18,6 +18,7 @@ import {
   Snackbar,
   Alert,
   Dialog,
+  Chip,
   FormControl,
   InputLabel,
   Select,
@@ -131,6 +132,36 @@ const getNewSizeName = (idx, colorId, sizeId) => {
   const [orderDetail, setOrderDetail] = useState(null);
   const [loadingOrderDetail, setLoadingOrderDetail] = useState(false);
 
+  const EXCHANGE_STATUS_COLOR = {
+    pending: "warning",
+    approved: "success",
+    rejected: "error",
+    in_transit: "info",
+    completed: "success",
+    cancelled: "error",
+    canceled: "error",
+  };
+
+  const EXCHANGE_STATUS_LABEL = {
+    pending: "Chờ xử lý",
+    approved: "Đã duyệt",
+    rejected: "Từ chối",
+    in_transit: "Đang vận chuyển",
+    completed: "Hoàn thành",
+    cancelled: "Đã hủy",
+    canceled: "Đã hủy",
+  };
+
+  const EXCHANGE_STATUS_OPTIONS = [
+    { value: "pending", label: EXCHANGE_STATUS_LABEL.pending },
+    { value: "approved", label: EXCHANGE_STATUS_LABEL.approved },
+    { value: "rejected", label: EXCHANGE_STATUS_LABEL.rejected },
+    { value: "in_transit", label: EXCHANGE_STATUS_LABEL.in_transit },
+    { value: "completed", label: EXCHANGE_STATUS_LABEL.completed },
+    { value: "cancelled", label: EXCHANGE_STATUS_LABEL.cancelled },
+  ];
+
+
   // ==== ĐỔI TRẢ ====
   const [openExchangeDialog, setOpenExchangeDialog] = useState(false);
   const [exchangeList, setExchangeList] = useState([]);
@@ -163,12 +194,12 @@ const getNewSizeName = (idx, colorId, sizeId) => {
 
     const list = Array.isArray(data) ? data : data.data ?? [];
 
-    // loại bỏ biến thể hiện tại nếu muốn (optional)
+    
     const filtered = list.filter((pd) =>
       excludeId ? Number(pd.id) !== Number(excludeId) : true
     );
 
-    // Build colors, sizesByColor, map color+size -> pdId
+    
     const colorsMap = new Map(); // colorId -> {id,name}
     const sizesByColor = {}; // colorId -> Map(sizeId-> {id,name})
     const pdByColorSize = {}; // `${colorId}-${sizeId}` -> pdId
@@ -424,7 +455,7 @@ const getNewSizeName = (idx, colorId, sizeId) => {
 
     try {
       const token = localStorage.getItem("access_token");
-      // Lấy chi tiết đơn hàng
+     
       const orderRes = await fetch(`${API_BASE}/api/orders/${orderId}`, {
         headers: {
           "Content-Type": "application/json",
@@ -435,7 +466,7 @@ const getNewSizeName = (idx, colorId, sizeId) => {
       if (!orderRes.ok) throw new Error(orderData.message || "Không tìm thấy đơn hàng");
       setExchangeOrder(orderData);
 
-      // Lấy danh sách báo cáo đổi trả của user cho order này
+      
       const userId = user?.id;
       const exchangesRes = await fetch(`${API_BASE}/api/user-exchanges/${userId}`, {
         headers: {
@@ -444,14 +475,14 @@ const getNewSizeName = (idx, colorId, sizeId) => {
         },
       });
       const exchangesData = await exchangesRes.json();
-      // Lọc các báo cáo theo order_id
+      
       const oid = Number(orderId);
       const filtered = Array.isArray(exchangesData)
         ? exchangesData.filter((ex) => (ex.order_id) === oid)
         : [];
       setExchangeList(filtered);
 
-      // Chuẩn bị dữ liệu cho form đổi trả (mặc định lấy các item trong order)
+     
       const items =
   orderData.items ??
   orderData.order_details ??
@@ -482,17 +513,17 @@ if (Array.isArray(items) && items.length > 0) {
       const colorId = pd?.color?.id ?? null;
       const sizeId = pd?.size?.id ?? null;
       return {
-      // ====== OLD (cũ) ======
+      
       product_old_detail_id: pdId,
       product_old_color_name: colorName,
       product_old_size_name: sizeName,
 
-      // ====== NEW (mới) ======
+      
       color_id: null,
       size_id: null,
       product_new_id: null,
 
-      // ====== common ======
+      
       product_id: productId,
       product_name: product?.name ?? item.product_name ?? "",
       product_price: item.price ?? item.product_price ?? 0,
@@ -503,10 +534,10 @@ if (Array.isArray(items) && items.length > 0) {
     }),
   }));
 
-  // reset options trước để tránh bị dính dữ liệu cũ
+  
   setVariantOptions({});
 
-  // gọi API lấy biến thể cho từng item
+  
   items.forEach((item, idx) => {
   const pd = item.product_detail ?? item.productDetail ?? null;
   const product = pd?.product ?? item.product ?? {};
@@ -540,7 +571,7 @@ if (Array.isArray(items) && items.length > 0) {
     }
   };
 
-  // Đóng dialog đổi trả
+  
   const handleCloseExchangeDialog = () => {
     setOpenExchangeDialog(false);
     setExchangeList([]);
@@ -553,7 +584,7 @@ if (Array.isArray(items) && items.length > 0) {
   const handleSubmitExchange = async () => {
   setExchangeSubmitting(true);
   try {
-    // Validate: bắt buộc chọn product_new_id
+    
     const missingNew = (exchangeForm.exchange_details || []).some(
       (d) => !d.product_new_id
     );
@@ -562,7 +593,7 @@ if (Array.isArray(items) && items.length > 0) {
         severity: "error",
         message: "Vui lòng chọn Size,Màu của sản phẩm cần đổi.",
       });
-      return; // thoát khỏi hàm submit
+      return; 
     }
     const invalidQty = (exchangeForm.exchange_details || []).some(
   (d) =>
@@ -583,7 +614,7 @@ if (invalidQty) {
   user_id: user.id,
   note: exchangeForm.note,
   exchange_details: exchangeForm.exchange_details.map((d) => ({
-    product_detail_id: d.product_old_detail_id, // hoặc d.product_detail_id nếu bạn giữ tên cũ
+    product_detail_id: d.product_old_detail_id, 
     quantity: d.quantity,
     reason: d.reason,
     product_old_id: d.product_old_detail_id,
@@ -1334,13 +1365,26 @@ const isCompleted = (o.status || "").toLowerCase() === "completed";
           </Typography>
         ) : (
           <Stack spacing={1} sx={{ mb: 2 }}>
-            {exchangeList.map((ex) => (
-              <Paper key={ex.id} sx={{ p: 2, border: "1px solid #eee" }}>
-                <Typography sx={{ fontWeight: 700 }}>Yêu cầu #{ex.id}</Typography>
-                <Typography variant="body2">Trạng thái: {ex.status ?? "—"}</Typography>
-                <Typography variant="body2">Ghi chú: {ex.note ?? "—"}</Typography>
-              </Paper>
-            ))}
+            {exchangeList.map((ex) => {
+              const st = String(ex.status ?? "").toLowerCase();
+              return (
+                <Paper key={ex.id} sx={{ p: 2, border: "1px solid #eee" }}>
+                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+                    <Typography sx={{ fontWeight: 700, flexGrow: 1 }}>
+                      Yêu cầu #{ex.id}
+                    </Typography>
+
+                    <Chip
+                      size="small"
+                      label={EXCHANGE_STATUS_LABEL[st] ?? ex.status ?? "—"}
+                      color={EXCHANGE_STATUS_COLOR[st] || "default"}
+                    />
+                  </Stack>
+
+                  <Typography variant="body2">Ghi chú: {ex.note ?? "—"}</Typography>
+                </Paper>
+              );
+            })}
           </Stack>
         )}
 

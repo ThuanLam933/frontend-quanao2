@@ -19,6 +19,10 @@ import {
   Stack,
   IconButton,
   Chip,
+  Menu,
+  MenuItem,
+  ListItemText,
+  ListItemIcon,
   Tooltip,
   Divider,
   Pagination,
@@ -28,25 +32,42 @@ import {
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SearchIcon from "@mui/icons-material/Search";
-
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import CancelIcon from "@mui/icons-material/Cancel";
 const API_BASE = "http://127.0.0.1:8000";
 const PAGE_SIZE = 12;
 
 const EXCHANGE_STATUS_COLOR = {
   pending: "warning",
-  confirmed: "success",
-  cancelled: "error",
-  canceled: "error",
+  approved: "success",
+  rejected: "error",
+  in_transit: "info",
   completed: "success",
+  cancelled: "error",
+  canceled: "error", // phòng khi backend trả "canceled"
 };
 
 const EXCHANGE_STATUS_LABEL = {
   pending: "Chờ xử lý",
-  confirmed: "Đã xác nhận",
+  approved: "Đã duyệt",
+  rejected: "Từ chối",
+  in_transit: "Đang vận chuyển",
+  completed: "Hoàn thành",
   cancelled: "Đã hủy",
   canceled: "Đã hủy",
-  completed: "Hoàn thành",
 };
+
+const EXCHANGE_STATUS_OPTIONS = [
+  { value: "pending", label: EXCHANGE_STATUS_LABEL.pending },
+  { value: "approved", label: EXCHANGE_STATUS_LABEL.approved },
+  { value: "rejected", label: EXCHANGE_STATUS_LABEL.rejected },
+  { value: "in_transit", label: EXCHANGE_STATUS_LABEL.in_transit },
+  { value: "completed", label: EXCHANGE_STATUS_LABEL.completed },
+  { value: "cancelled", label: EXCHANGE_STATUS_LABEL.cancelled },
+  // nếu backend dùng canceled thay vì cancelled thì thêm:
+  // { value: "canceled", label: EXCHANGE_STATUS_LABEL.canceled },
+];
+
 
 const parseIso = (s) => {
   if (!s) return null;
@@ -165,6 +186,57 @@ export default function ExchangePage({ setSnack }) {
     (currentPage - 1) * PAGE_SIZE,
     currentPage * PAGE_SIZE
   );
+  const [statusMenu, setStatusMenu] = useState({ anchorEl: null, exchange: null });
+
+const openStatusMenu = (e, exchange) => {
+  setStatusMenu({ anchorEl: e.currentTarget, exchange });
+};
+
+const closeStatusMenu = () => {
+  setStatusMenu({ anchorEl: null, exchange: null });
+};
+
+const changeExchangeStatus = async (exchangeId, status) => {
+  const token = localStorage.getItem("access_token");
+  try {
+    const res = await fetch(`${API_BASE}/api/admin/exchanges/${exchangeId}`, {
+      method: "PUT", // nếu backend dùng PATCH thì đổi thành "PATCH"
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ status }),
+    });
+
+    if (!res.ok) throw new Error("Exchange status update failed");
+
+    setSnack?.({ severity: "success", message: "Cập nhật trạng thái thành công!" });
+
+    // refresh list
+    await fetchExchanges();
+
+    // nếu đang mở dialog chi tiết đúng exchange đó thì refresh detail luôn
+    if (sel?.id === exchangeId) {
+      await fetchExchangeDetail(exchangeId);
+    }
+  } catch (err) {
+    console.error(err);
+    setSnack?.({ severity: "error", message: "Cập nhật trạng thái thất bại!" });
+  }
+};
+
+const handlePickExchangeStatus = async (status) => {
+  const exchange = statusMenu.exchange;
+  if (!exchange) return;
+
+  closeStatusMenu();
+
+  const current = String(exchange.status || "").toLowerCase();
+  if (current === String(status).toLowerCase()) return;
+
+  await changeExchangeStatus(exchange.id, status);
+};
+
 
   return (
     <Box>
@@ -300,12 +372,21 @@ export default function ExchangePage({ setSnack }) {
                     <TableCell align="right">{details.length}</TableCell>
 
                     <TableCell align="right">
-                      <Tooltip title="Xem chi tiết">
-                        <IconButton size="small" onClick={() => handleView(x)}>
-                          <VisibilityIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
+                      <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                        <Tooltip title="Xem chi tiết">
+                          <IconButton size="small" onClick={() => handleView(x)}>
+                            <VisibilityIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+
+                        <Tooltip title="Đổi trạng thái">
+                          <IconButton size="small" onClick={(e) => openStatusMenu(e, x)}>
+                            <RefreshIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
                     </TableCell>
+
                   </TableRow>
                 );
               })}
@@ -341,6 +422,39 @@ export default function ExchangePage({ setSnack }) {
         loading={detailLoading}
         onClose={() => setSel(null)}
       />
+      <Menu
+  anchorEl={statusMenu.anchorEl}
+  open={Boolean(statusMenu.anchorEl)}
+  onClose={closeStatusMenu}
+  anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+  transformOrigin={{ vertical: "top", horizontal: "right" }}
+>
+  {EXCHANGE_STATUS_OPTIONS.map((opt) => {
+    const current = String(statusMenu.exchange?.status || "").toLowerCase();
+    const isSelected = current === opt.value;
+
+    return (
+      <MenuItem
+        key={opt.value}
+        selected={isSelected}
+        disabled={isSelected}
+        onClick={() => handlePickExchangeStatus(opt.value)}
+      >
+        <ListItemIcon>
+          {opt.value === "approved" || opt.value === "completed" ? (
+            <CheckCircleIcon fontSize="small" color="success" />
+          ) : opt.value === "rejected" || opt.value === "cancelled" ? (
+            <CancelIcon fontSize="small" color="error" />
+          ) : (
+            <CheckCircleIcon fontSize="small" color="warning" />
+          )}
+        </ListItemIcon>
+        <ListItemText primary={opt.label} />
+      </MenuItem>
+    );
+  })}
+</Menu>
+
     </Box>
   );
 }
