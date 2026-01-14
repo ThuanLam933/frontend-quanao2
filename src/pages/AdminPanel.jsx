@@ -28,7 +28,7 @@ import SizesPage from "./admin/SizesPage";
 import InventoryPage from "./admin/InventoryPage";
 import OrdersPage from "./admin/OrdersPage";
 import UsersPage from "./admin/UsersPage";
-import ReturnsPage from "./admin/ReturnsPage";
+import ExchangePage from "./admin/ExchangePage";
 import StockPage from "./admin/StockPage";
 import CommentsPage from "./admin/CommentsPage";
 import ImageAdminPage from "./admin/ImageAdminPage";
@@ -57,7 +57,7 @@ const SIDEBAR_ITEMS = [
   { key: "sizes", title: "Kích Cỡ" },
   { key: "orders", title: "Đơn hàng" },
   { key: "users", title: "Người dùng" },
-  { key: "returns", title: "Phiếu trả" },
+  { key: "exchanges", title: "Phiếu trả" },
   { key: "stock", title: "Phiếu nhập" },
   { key: "discountproduct", title: "Sản phẩm giảm giá" },
   { key: "discount", title: "Mã giảm giá đơn hàng" },
@@ -154,7 +154,7 @@ export default function AdminPanel() {
             {page === "variants" && <VariantPage setSnack={setSnack} />}
             {page === "orders" && <OrdersPage setSnack={setSnack} />}
             {page === "users" && <UsersPage setSnack={setSnack} />}
-            {page === "returns" && <ReturnsPage setSnack={setSnack} />}
+            {page === "exchanges" && <ExchangePage setSnack={setSnack} />}
             {page === "stock" && <StockPage setSnack={setSnack} />}
             {page === "discountproduct" && (
               <DiscountProductPage setSnack={setSnack} />

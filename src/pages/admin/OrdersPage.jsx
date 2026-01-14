@@ -19,6 +19,10 @@ import {
     Stack,
     IconButton,
     Chip,
+    Menu,
+    MenuItem,
+    ListItemIcon,
+    ListItemText,
     Tooltip,
     Divider,
     Pagination,
@@ -44,7 +48,19 @@ const STATUS_LABEL = {
     confirmed: "Đã xác nhận",
     cancelled: "Đã hủy",
     canceled: "Đã hủy",
+    completed: "Hoàn thành",
+    shipping: "Đang giao hàng",
 };
+const STATUS_OPTIONS = [
+  { value: "pending", label: STATUS_LABEL.pending },
+  { value: "confirmed", label: STATUS_LABEL.confirmed },
+  { value: "shipping", label: STATUS_LABEL.shipping },
+  { value: "completed", label: STATUS_LABEL.completed },
+  { value: "cancelled", label: STATUS_LABEL.cancelled },
+  // nếu backend dùng canceled thì thêm dòng dưới (tuỳ bạn)
+  // { value: "canceled", label: STATUS_LABEL.canceled },
+];
+
 const PAYMENT_STATUS_COLOR = {
   unpaid: "warning",
   pending: "warning",
@@ -115,6 +131,26 @@ export default function OrdersPage({ setSnack }) {
     const [sel, setSel] = useState(null);
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
+    const [statusMenu, setStatusMenu] = useState({ anchorEl: null, order: null });
+    const openStatusMenu = (e, order) => {
+  setStatusMenu({ anchorEl: e.currentTarget, order });
+};
+    const closeStatusMenu = () => {
+  setStatusMenu({ anchorEl: null, order: null });
+};
+
+const handlePickStatus = async (status) => {
+  const order = statusMenu.order;
+  if (!order) return;
+
+  closeStatusMenu();
+
+  const current = String(order.status || "").toLowerCase();
+  if (current === String(status).toLowerCase()) return;
+
+  await changeStatus(order.id, status);
+};
+
 
     const fetchOrders = useCallback(async () => {
         setLoading(true);
@@ -342,66 +378,22 @@ export default function OrdersPage({ setSnack }) {
                                         {formatDateTimeVN(o.created_at  )}
                                     </TableCell>
                                     <TableCell align="right">
-                                        <Stack
-                                            direction="row"
-                                            spacing={0.5}
-                                            justifyContent="flex-end"
-                                        >
+                                        <Stack direction="row" spacing={0.5} justifyContent="flex-end">
                                             <Tooltip title="Xem chi tiết">
-                                                <IconButton
-                                                    size="small"
-                                                    onClick={() => handleView(o)}
-                                                >
-                                                    <VisibilityIcon fontSize="small" />
-                                                </IconButton>
+                                            <IconButton size="small" onClick={() => handleView(o)}>
+                                                <VisibilityIcon fontSize="small" />
+                                            </IconButton>
                                             </Tooltip>
-                                            <Tooltip title="Xác nhận đơn">
-                                                <span>
-                                                    <IconButton
-                                                        size="small"
-                                                        color="success"
-                                                        onClick={() =>
-                                                            changeStatus(
-                                                                o.id,
-                                                                "confirmed"
-                                                            )
-                                                        }
-                                                        disabled={
-                                                            (o.status || "")
-                                                                .toLowerCase() ===
-                                                            "confirmed"
-                                                        }
-                                                    >
-                                                        <CheckCircleIcon fontSize="small" />
-                                                    </IconButton>
-                                                </span>
-                                            </Tooltip>
-                                            <Tooltip title="Hủy đơn">
-                                                <span>
-                                                    <IconButton
-                                                        size="small"
-                                                        color="error"
-                                                        onClick={() =>
-                                                            changeStatus(
-                                                                o.id,
-                                                                "cancelled"
-                                                            )
-                                                        }
-                                                        disabled={
-                                                            (o.status || "")
-                                                                .toLowerCase() ===
-                                                                "cancelled" ||
-                                                            (o.status || "")
-                                                                .toLowerCase() ===
-                                                                "canceled"
-                                                        }
-                                                    >
-                                                        <CancelIcon fontSize="small" />
-                                                    </IconButton>
-                                                </span>
+
+                                            <Tooltip title="Đổi trạng thái">
+                                            <IconButton size="small" onClick={(e) => openStatusMenu(e, o)}>
+                                                {/* có thể dùng icon khác, tạm dùng RefreshIcon */}
+                                                <RefreshIcon fontSize="small" />
+                                            </IconButton>
                                             </Tooltip>
                                         </Stack>
-                                    </TableCell>
+                                        </TableCell>
+
                                 </TableRow>
                             ))}
 
@@ -439,6 +431,38 @@ export default function OrdersPage({ setSnack }) {
                     />
                 </Box>
             </Paper>
+                    <Menu
+                        anchorEl={statusMenu.anchorEl}
+                        open={Boolean(statusMenu.anchorEl)}
+                        onClose={closeStatusMenu}
+                        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+                        transformOrigin={{ vertical: "top", horizontal: "right" }}
+                        >
+                        {STATUS_OPTIONS.map((opt) => {
+                            const current = String(statusMenu.order?.status || "").toLowerCase();
+                            const isSelected = current === opt.value;
+
+                            return (
+                            <MenuItem
+                                key={opt.value}
+                                selected={isSelected}
+                                disabled={isSelected}
+                                onClick={() => handlePickStatus(opt.value)}
+                            >
+                                <ListItemIcon>
+                                {opt.value === "confirmed" ? (
+                                    <CheckCircleIcon fontSize="small" color="success" />
+                                ) : opt.value === "cancelled" ? (
+                                    <CancelIcon fontSize="small" color="error" />
+                                ) : (
+                                    <CheckCircleIcon fontSize="small" color="warning" />
+                                )}
+                                </ListItemIcon>
+                                <ListItemText primary={opt.label} />
+                            </MenuItem>
+                            );
+                        })}
+                        </Menu>
 
             <OrderDetailDialog sel={sel} onClose={() => setSel(null)} />
         </Box>

@@ -18,6 +18,10 @@ import {
   Snackbar,
   Alert,
   Dialog,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
   DialogTitle,
   DialogContent,
   DialogActions,
@@ -107,10 +111,106 @@ export default function AccountPage() {
     new_password: "",
     confirm_password: "",
   });
+  const getNewColorName = (idx, colorId) => {
+  const colors = variantOptions[idx]?.colors ?? [];
+  const found = colors.find((c) => Number(c.id) === Number(colorId));
+  return found?.name ?? "—";
+};
+
+const getNewSizeName = (idx, colorId, sizeId) => {
+  const sizes =
+    variantOptions[idx]?.sizesByColor?.[String(colorId)] ??
+    variantOptions[idx]?.sizesByColor?.[colorId] ??
+    [];
+  const found = sizes.find((s) => Number(s.id) === Number(sizeId));
+  return found?.name ?? "—";
+};
+
 
   const [openOrderDialog, setOpenOrderDialog] = useState(false);
   const [orderDetail, setOrderDetail] = useState(null);
   const [loadingOrderDetail, setLoadingOrderDetail] = useState(false);
+
+  // ==== ĐỔI TRẢ ====
+  const [openExchangeDialog, setOpenExchangeDialog] = useState(false);
+  const [exchangeList, setExchangeList] = useState([]);
+  const [exchangeLoading, setExchangeLoading] = useState(false);
+  const [exchangeOrder, setExchangeOrder] = useState(null);
+  const [exchangeForm, setExchangeForm] = useState({
+    note: "",
+    exchange_details: [],
+  });
+  const [exchangeSubmitting, setExchangeSubmitting] = useState(false);
+  const [variantOptions, setVariantOptions] = useState({}); 
+// { [idx]: [{id, label}] }
+  const fetchProductDetailOptions = async (productId, idx, excludeId) => {
+  if (!productId) return;
+
+  try {
+    const token = localStorage.getItem("access_token");
+    const res = await fetch(
+      `${API_BASE}/api/product-details?product_id=${productId}`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || "Không tải được biến thể");
+
+    const list = Array.isArray(data) ? data : data.data ?? [];
+
+    // loại bỏ biến thể hiện tại nếu muốn (optional)
+    const filtered = list.filter((pd) =>
+      excludeId ? Number(pd.id) !== Number(excludeId) : true
+    );
+
+    // Build colors, sizesByColor, map color+size -> pdId
+    const colorsMap = new Map(); // colorId -> {id,name}
+    const sizesByColor = {}; // colorId -> Map(sizeId-> {id,name})
+    const pdByColorSize = {}; // `${colorId}-${sizeId}` -> pdId
+
+    filtered.forEach((pd) => {
+      const color = pd?.color;
+      const size = pd?.size;
+      if (!color?.id || !size?.id) return;
+
+      colorsMap.set(color.id, { id: color.id, name: color.name });
+
+      if (!sizesByColor[color.id]) sizesByColor[color.id] = new Map();
+      sizesByColor[color.id].set(size.id, { id: size.id, name: size.name });
+
+      pdByColorSize[`${color.id}-${size.id}`] = pd.id;
+    });
+
+    const colors = Array.from(colorsMap.values());
+    const sizesByColorPlain = Object.fromEntries(
+      Object.entries(sizesByColor).map(([colorId, m]) => [
+        colorId,
+        Array.from(m.values()),
+      ])
+    );
+
+    setVariantOptions((prev) => ({
+      ...prev,
+      [idx]: {
+        pds: filtered,
+        colors,
+        sizesByColor: sizesByColorPlain,
+        pdByColorSize,
+      },
+    }));
+  } catch (e) {
+    setVariantOptions((prev) => ({
+      ...prev,
+      [idx]: { pds: [], colors: [], sizesByColor: {}, pdByColorSize: {} },
+    }));
+  }
+};
+
 
   const sanitizePhone = (value) => {
     if (!value) return "";
@@ -315,6 +415,206 @@ export default function AccountPage() {
     setOpenOrderDialog(false);
     setOrderDetail(null);
   };
+  const handleOpenExchanges = async (orderId) => {
+    setOpenExchangeDialog(true);
+    setExchangeLoading(true);
+    setExchangeList([]);
+    setExchangeOrder(null);
+    setExchangeForm({ note: "", exchange_details: [] });
+
+    try {
+      const token = localStorage.getItem("access_token");
+      // Lấy chi tiết đơn hàng
+      const orderRes = await fetch(`${API_BASE}/api/orders/${orderId}`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const orderData = await orderRes.json();
+      if (!orderRes.ok) throw new Error(orderData.message || "Không tìm thấy đơn hàng");
+      setExchangeOrder(orderData);
+
+      // Lấy danh sách báo cáo đổi trả của user cho order này
+      const userId = user?.id;
+      const exchangesRes = await fetch(`${API_BASE}/api/user-exchanges/${userId}`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const exchangesData = await exchangesRes.json();
+      // Lọc các báo cáo theo order_id
+      const oid = Number(orderId);
+      const filtered = Array.isArray(exchangesData)
+        ? exchangesData.filter((ex) => (ex.order_id) === oid)
+        : [];
+      setExchangeList(filtered);
+
+      // Chuẩn bị dữ liệu cho form đổi trả (mặc định lấy các item trong order)
+      const items =
+  orderData.items ??
+  orderData.order_details ??
+  orderData.orderDetails ??
+  [];
+
+if (Array.isArray(items) && items.length > 0) {
+  setExchangeForm((prev) => ({
+    ...prev,
+    exchange_details: items.map((item) => {
+      const pd =
+        item.product_detail ?? item.productDetail ?? item.product_detail_id_obj ?? null;
+
+      const pdId =
+        item.product_detail_id ??
+        pd?.id ??
+        item.productDetail?.id;
+
+      const product = pd?.product ?? item.product ?? {};
+      const productId = product?.id ?? item.product_id ?? null;
+
+      const colorName =
+        pd?.color?.name ?? item.color?.name ?? item.color_name ?? "";
+
+      const sizeName =
+        pd?.size?.name ?? item.size?.name ?? item.size_name ?? "";
+
+      const colorId = pd?.color?.id ?? null;
+      const sizeId = pd?.size?.id ?? null;
+      return {
+      // ====== OLD (cũ) ======
+      product_old_detail_id: pdId,
+      product_old_color_name: colorName,
+      product_old_size_name: sizeName,
+
+      // ====== NEW (mới) ======
+      color_id: null,
+      size_id: null,
+      product_new_id: null,
+
+      // ====== common ======
+      product_id: productId,
+      product_name: product?.name ?? item.product_name ?? "",
+      product_price: item.price ?? item.product_price ?? 0,
+      quantity: 1,
+      max_quantity: Number(item.quantity ?? 1),
+      reason: "",
+    };
+    }),
+  }));
+
+  // reset options trước để tránh bị dính dữ liệu cũ
+  setVariantOptions({});
+
+  // gọi API lấy biến thể cho từng item
+  items.forEach((item, idx) => {
+  const pd = item.product_detail ?? item.productDetail ?? null;
+  const product = pd?.product ?? item.product ?? {};
+  const productId = product?.id ?? item.product_id ?? null;
+
+  const oldPdId =
+    item.product_detail_id ??
+    pd?.id ??
+    item.productDetail?.id ??
+    null;
+
+  if (productId) fetchProductDetailOptions(productId, idx, oldPdId);
+});
+
+} else {
+  setSnack({
+    severity: "error",
+    message: "Đơn hàng không có sản phẩm để đổi trả.",
+  });
+}
+
+
+    } catch (err) {
+      setSnack({
+        severity: "error",
+        message: err.message || "Không tải được dữ liệu báo cáo đổi trả.",
+      });
+      setOpenExchangeDialog(false);
+    } finally {
+      setExchangeLoading(false);
+    }
+  };
+
+  // Đóng dialog đổi trả
+  const handleCloseExchangeDialog = () => {
+    setOpenExchangeDialog(false);
+    setExchangeList([]);
+    setExchangeOrder(null);
+    setExchangeForm({ note: "", exchange_details: [] });
+  };
+
+  
+
+  const handleSubmitExchange = async () => {
+  setExchangeSubmitting(true);
+  try {
+    // Validate: bắt buộc chọn product_new_id
+    const missingNew = (exchangeForm.exchange_details || []).some(
+      (d) => !d.product_new_id
+    );
+    if (missingNew) {
+      setSnack({
+        severity: "error",
+        message: "Vui lòng chọn Size,Màu của sản phẩm cần đổi.",
+      });
+      return; // thoát khỏi hàm submit
+    }
+    const invalidQty = (exchangeForm.exchange_details || []).some(
+  (d) =>
+    Number(d.quantity) < 1 ||
+    Number(d.quantity) > Number(d.max_quantity ?? 1)
+);
+
+if (invalidQty) {
+  setSnack({ severity: "error", message: "Số lượng đổi/trả không hợp lệ." });
+  return;
+}
+
+
+    const token = localStorage.getItem("access_token");
+
+    const payload = {
+  order_id: exchangeOrder.id,
+  user_id: user.id,
+  note: exchangeForm.note,
+  exchange_details: exchangeForm.exchange_details.map((d) => ({
+    product_detail_id: d.product_old_detail_id, // hoặc d.product_detail_id nếu bạn giữ tên cũ
+    quantity: d.quantity,
+    reason: d.reason,
+    product_old_id: d.product_old_detail_id,
+    product_new_id: d.product_new_id,
+  })),
+};
+
+
+    const res = await fetch(`${API_BASE}/api/exchanges`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.message || "Gửi báo cáo đổi trả thất bại.");
+    }
+
+    setSnack({ severity: "success", message: "Đã gửi báo cáo đổi trả!" });
+    handleOpenExchanges(exchangeOrder.id);
+  } catch (err) {
+    setSnack({ severity: "error", message: err.message || "Có lỗi xảy ra." });
+  } finally {
+    setExchangeSubmitting(false);
+  }
+};
 
   const handleLogout = () => {
     localStorage.removeItem("access_token");
@@ -322,7 +622,7 @@ export default function AccountPage() {
     setUser(null);
     navigate("/login");
   };
-
+    
   const greetingName =
     user?.name || (user?.email ? user.email.split("@")[0] : "Bạn");
 
@@ -513,9 +813,10 @@ export default function AccountPage() {
     confirmed: "Đã xác nhận",
     cancelled: "Đã hủy",
     canceled: "Đã hủy",
+    completed: "Hoàn thành",
 };
 
-
+const isCompleted = (o.status || "").toLowerCase() === "completed";
                           const statusColor = statusColors[o.status] || "#333";
 
                           return (
@@ -591,6 +892,21 @@ export default function AccountPage() {
                                 }}
                               >
                                 XEM CHI TIẾT
+                              </Button>
+                              
+                              <Button
+                                variant="outlined"
+                                onClick={() => {
+                                  if (!isCompleted){
+                                    setSnack({ severity: "warning", message: "Chi duoc doi tra khi don hang da thanh cong "});
+                                    return;
+                                  }
+                                  handleOpenExchanges(o.id);
+                                }}
+                                disabled={!isCompleted}
+                                sx={{ borderRadius: 0, px: 3, fontWeight: 600, ml: 2 }}
+                              >
+                                ĐỔI TRẢ
                               </Button>
                             </Paper>
                           );
@@ -991,6 +1307,243 @@ export default function AccountPage() {
             <Button onClick={handleCloseOrderDialog}>Đóng</Button>
           </DialogActions>
         </Dialog>
+            <Dialog
+  open={openExchangeDialog}
+  onClose={handleCloseExchangeDialog}
+  maxWidth="md"
+  fullWidth
+>
+  <DialogTitle sx={{ fontWeight: 700 }}>
+    {exchangeOrder ? `Đổi trả - Đơn hàng #${exchangeOrder.id}` : "Đổi trả"}
+  </DialogTitle>
+
+  <DialogContent dividers>
+    {exchangeLoading ? (
+      <Box sx={{ textAlign: "center", py: 4 }}>
+        <CircularProgress />
+      </Box>
+    ) : (
+      <Box>
+        <Typography sx={{ fontWeight: 700, mb: 1 }}>
+          Lịch sử đổi trả
+        </Typography>
+
+        {exchangeList.length === 0 ? (
+          <Typography sx={{ color: "#666", mb: 2 }}>
+            Chưa có yêu cầu đổi trả nào cho đơn này.
+          </Typography>
+        ) : (
+          <Stack spacing={1} sx={{ mb: 2 }}>
+            {exchangeList.map((ex) => (
+              <Paper key={ex.id} sx={{ p: 2, border: "1px solid #eee" }}>
+                <Typography sx={{ fontWeight: 700 }}>Yêu cầu #{ex.id}</Typography>
+                <Typography variant="body2">Trạng thái: {ex.status ?? "—"}</Typography>
+                <Typography variant="body2">Ghi chú: {ex.note ?? "—"}</Typography>
+              </Paper>
+            ))}
+          </Stack>
+        )}
+
+        <Divider sx={{ my: 2 }} />
+
+        <TextField
+          label="Ghi chú"
+          fullWidth
+          multiline
+          minRows={2}
+          value={exchangeForm.note}
+          onChange={(e) =>
+            setExchangeForm((p) => ({ ...p, note: e.target.value }))
+          }
+          sx={{ mb: 2 }}
+        />
+
+        <Typography sx={{ fontWeight: 700, mb: 1 }}>Sản phẩm đổi trả</Typography>
+
+        <Stack spacing={2}>
+          {(exchangeForm.exchange_details || []).map((d, idx) => (
+            <Paper key={idx} sx={{ p: 2, border: "1px solid #eee" }}>
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={3}>
+                 <TextField
+                    label="Số lượng"
+                    type="number"
+                    fullWidth
+                    inputProps={{ min: 1, max: d.max_quantity ?? 1 }}
+                    value={d.quantity}
+                    onChange={(e) => {
+                      const maxQ = Number(d.max_quantity ?? 1);
+                      const vRaw = Number(e.target.value || 1);
+                      const v = Math.max(1, Math.min(maxQ, vRaw));
+
+                      setExchangeForm((prev) => {
+                        const next = [...prev.exchange_details];
+                        next[idx] = { ...next[idx], quantity: v };
+                        return { ...prev, exchange_details: next };
+                      });
+                    }}
+                  />
+
+                </Grid>
+
+                <Grid item xs={12} md={9}>
+                  <TextField
+                    label="Lý do"
+                    fullWidth
+                    value={d.reason}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setExchangeForm((prev) => {
+                        const next = [...prev.exchange_details];
+                        next[idx] = { ...next[idx], reason: v };
+                        return { ...prev, exchange_details: next };
+                      });
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Chọn màu</InputLabel>
+                    <Select
+                      label="Chọn màu"
+                      value={d.color_id ?? ""}
+                      onChange={(e) => {
+                        const colorId = e.target.value ? Number(e.target.value) : null;
+
+                        setExchangeForm((prev) => {
+                          const next = [...prev.exchange_details];
+                          const current = next[idx];
+
+                          // reset size khi đổi màu để tránh size cũ không hợp lệ
+                          next[idx] = {
+                            ...current,
+                            color_id: colorId,
+                            size_id: null,
+                            product_new_id: null,
+                          };
+                          return { ...prev, exchange_details: next };
+                        });
+                      }}
+                    >
+                      <MenuItem value="">
+                        <em>Chưa chọn</em>
+                      </MenuItem>
+
+                      {(variantOptions[idx]?.colors ?? []).map((c) => (
+                        <MenuItem key={c.id} value={c.id}>
+                          {c.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth disabled={!d.color_id}>
+                    <InputLabel>Chọn size</InputLabel>
+                    <Select
+                      label="Chọn size"
+                      value={d.size_id ?? ""}
+                      onChange={(e) => {
+                        const sizeId = e.target.value ? Number(e.target.value) : null;
+
+                        setExchangeForm((prev) => {
+                          const next = [...prev.exchange_details];
+                          const current = next[idx];
+
+                          const map = variantOptions[idx]?.pdByColorSize ?? {};
+                          const newPdId =
+                            current.color_id && sizeId
+                              ? map[`${current.color_id}-${sizeId}`] ?? null
+                              : null;
+
+                          next[idx] = {
+                            ...current,
+                            size_id: sizeId,
+                            product_new_id: newPdId, // <-- tự set ở đây
+                          };
+                          return { ...prev, exchange_details: next };
+                        });
+                      }}
+                    >
+                      <MenuItem value="">
+                        <em>Chưa chọn</em>
+                      </MenuItem>
+
+                      {(
+                        variantOptions[idx]?.sizesByColor?.[String(d.color_id)] ??
+                        variantOptions[idx]?.sizesByColor?.[d.color_id] ??
+                        []
+                      ).map((s) => (
+                        <MenuItem key={s.id} value={s.id}>
+                          {s.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </Grid>
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="body2" sx={{ mt: 1, color: "#666" }}>
+                    <strong>Sản phẩm cũ</strong> <br />
+                    Tên sản phẩm: {d.product_name} <br />
+                    Màu sản phẩm: {d.product_old_color_name} <br />
+                    Size sản phẩm: {d.product_old_size_name} <br />
+                    Giá sản phẩm:{" "}
+                    {d.product_price
+                      ? Number(d.product_price).toLocaleString("vi-VN") + "₫"
+                      : "—"}{" "}
+                    <br />
+                    product_detail_id: {d.product_old_detail_id}
+                  </Typography>
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <Typography variant="body2" sx={{ mt: 1, color: "#666" }}>
+                    <strong>Sản phẩm mới</strong> <br />
+                    Tên sản phẩm: {d.product_name} <br />
+                    Màu sản phẩm: {d.color_id ? getNewColorName(idx, d.color_id) : "—"} <br />
+                    Size sản phẩm:{" "}
+                    {d.color_id && d.size_id ? getNewSizeName(idx, d.color_id, d.size_id) : "—"}{" "}
+                    <br />
+                    Giá sản phẩm:{" "}
+                    {d.product_price
+                      ? Number(d.product_price).toLocaleString("vi-VN") + "₫"
+                      : "—"}{" "}
+                    <br />
+                    product_detail_id_mới: {d.product_new_id ?? "—"}
+                  </Typography>
+                </Grid>
+              </Grid>
+
+              
+            </Paper>
+          ))}
+        </Stack>
+
+        {(!exchangeForm.exchange_details || exchangeForm.exchange_details.length === 0) && (
+          <Typography sx={{ color: "#d32f2f", mt: 2 }}>
+            Không có sản phẩm để đổi trả (items rỗng hoặc sai key).
+          </Typography>
+        )}
+      </Box>
+    )}
+  </DialogContent>
+
+  <DialogActions>
+    <Button onClick={handleCloseExchangeDialog}>Đóng</Button>
+    <Button
+      variant="contained"
+      
+      onClick={handleSubmitExchange}
+      disabled={exchangeSubmitting || exchangeLoading || !exchangeOrder || exchangeForm.exchange_details.length === 0}
+      sx={{ backgroundColor: "#000", borderRadius: 0, fontWeight: 700, "&:hover": { backgroundColor: "#222" } }}
+    >
+      {exchangeSubmitting ? <CircularProgress size={18} sx={{ color: "#fff" }} /> : "GỬI YÊU CẦU"}
+    </Button>
+  </DialogActions>
+</Dialog>
 
         <Snackbar
           open={!!snack}
