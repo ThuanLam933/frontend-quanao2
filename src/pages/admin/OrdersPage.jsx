@@ -71,21 +71,25 @@ const PAYMENT_STATUS_COLOR = {
 
 const PAYMENT_STATUS_LABEL = {
   unpaid: "Chưa thanh toán",
-  pending: "Chờ thanh toán",
   paid: "Đã thanh toán",
-  failed: "Thanh toán thất bại",
   refunded: "Đã hoàn tiền",
 };
 
 const getPaymentStatus = (o) => {
+  
+  if (o?.status_method !== undefined && o?.status_method !== null) {
+    return Number(o.status_method) === 1 ? "paid" : "unpaid";
+  }
+
+  
   const raw =
-    o?.status_method ??
     o?.paymentStatus ??
     o?.payment?.status ??
-    (o?.is_paid ?? o?.isPaid) ? "paid" : null;
+    ((o?.is_paid ?? o?.isPaid) ? "paid" : null);
 
   return raw ? String(raw).toLowerCase() : null;
 };
+
 
 
 const PAGE_SIZE = 12;
@@ -133,23 +137,32 @@ export default function OrdersPage({ setSnack }) {
     const [page, setPage] = useState(1);
     const [statusMenu, setStatusMenu] = useState({ anchorEl: null, order: null });
     const openStatusMenu = (e, order) => {
-  setStatusMenu({ anchorEl: e.currentTarget, order });
-};
+    const current = String(order?.status || "").toLowerCase();
+    if (current === "completed") {
+        setSnack?.({
+        severity: "warning",
+        message: "Đơn đã hoàn thành, không thể thay đổi trạng thái!",
+        });
+        return;
+    }
+    setStatusMenu({ anchorEl: e.currentTarget, order });
+    };
+
     const closeStatusMenu = () => {
-  setStatusMenu({ anchorEl: null, order: null });
-};
+    setStatusMenu({ anchorEl: null, order: null });
+    };
 
-const handlePickStatus = async (status) => {
-  const order = statusMenu.order;
-  if (!order) return;
+    const handlePickStatus = async (status) => {
+    const order = statusMenu.order;
+    if (!order) return;
 
-  closeStatusMenu();
+    closeStatusMenu();
 
-  const current = String(order.status || "").toLowerCase();
-  if (current === String(status).toLowerCase()) return;
+    const current = String(order.status || "").toLowerCase();
+    if (current === String(status).toLowerCase()) return;
 
-  await changeStatus(order.id, status);
-};
+    await changeStatus(order.id, status);
+    };
 
 
     const fetchOrders = useCallback(async () => {

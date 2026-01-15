@@ -560,7 +560,24 @@ const isDuplicateCombo = (colorId, sizeId) => {
       } catch {
         
       }
+const uploadOne = async (file) => {
+  const imgFd = new FormData();
+  imgFd.append("product_detail_id", String(variantId));
+  imgFd.append("image", file, file.name);
 
+  const r = await fetch(`${API_BASE}/api/image-products`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: imgFd,
+  });
+
+  if (!r.ok) {
+    const msg = await readErrorMessage(r);
+    throw new Error(msg);
+  }
+
+  return r.json().catch(() => null);
+};
       const variantId = isEdit ? variant.id : createdOrUpdated?.id ?? null;
       if (variantId && hasNewImages) {
         for (let i = 0; i < files.length; i++) {

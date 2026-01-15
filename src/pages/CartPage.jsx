@@ -851,7 +851,7 @@ export default function CartPage() {
                                 }}
                               >
                                 <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                                  <IconButton size="small" onClick={() => subQty(it.id)} disabled={disabledItem}>
+                                  <IconButton size="small" onClick={() => subQty(it.id)} >
                                     <RemoveCircleOutlineIcon fontSize="small" />
                                   </IconButton>
 

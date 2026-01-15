@@ -1,6 +1,6 @@
 import React, { Suspense, lazy } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
-
+import ForgotPasswordPage from "../pages/ForgotPasswordPage";
 // Route-based code splitting
 const LoginPage = lazy(() => import("../pages/LoginPage"));
 const HomePage = lazy(() => import("../pages/HomePage"));
@@ -31,6 +31,7 @@ export default function AppRoute() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
         {/* public routes wrapped with main layout */}
         <Route element={<MainLayout />}>

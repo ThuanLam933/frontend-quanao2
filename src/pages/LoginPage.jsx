@@ -171,11 +171,11 @@ export default function LoginPage() {
                   </Typography>
                 )}
 
-                <FormControlLabel
+                {/* <FormControlLabel
                   control={<Checkbox value="remember" color="primary" />}
                   label="Ghi nhớ đăng nhập"
                   sx={{ mt: 1 }}
-                />
+                /> */}
 
                 <Button
                   type="submit"
@@ -200,7 +200,7 @@ export default function LoginPage() {
 
                 <Grid container justifyContent="space-between">
                   <Grid item>
-                    <Link href="#" variant="body2" sx={{ color: "#64B5F6" }}>
+                    <Link href="/forgot-password" variant="body2" sx={{ color: "#64B5F6" }}>
                       Quên mật khẩu?
                     </Link>
                   </Grid>
