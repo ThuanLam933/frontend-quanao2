@@ -15,6 +15,7 @@ import {
   Select,
   MenuItem,
   Card,
+  Rating,
   CardMedia,
   CardContent,
   CardActions,
@@ -79,6 +80,57 @@ export default function HomePage() {
       setLoadingCategories(false);
     }
   }, []);
+  const [ratingMap, setRatingMap] = useState({}); 
+
+
+  const fetchRatingsForProducts = useCallback(async (productList) => {
+    try {
+      
+      const need = (productList || []).filter((p) => p?.id && !ratingMap[p.id]);
+
+      if (need.length === 0) return;
+
+      
+      const CONCURRENCY = 6;
+      const chunks = [];
+      for (let i = 0; i < need.length; i += CONCURRENCY) {
+        chunks.push(need.slice(i, i + CONCURRENCY));
+      }
+
+      const nextMap = {};
+
+      for (const chunk of chunks) {
+        const results = await Promise.all(
+          chunk.map(async (p) => {
+            const url = `${API_BASE}/api/products/${p.id}/reviews?page=1&per_page=1`;
+            const res = await fetch(url);
+            if (!res.ok) return null;
+
+            const json = await res.json().catch(() => null);
+            if (!json) return null;
+            const meta = json.meta || {};
+            const avg =
+              Number(meta.avg_rating ?? json.avg_rating ?? json.data?.avg_rating ?? 0) || 0;
+
+            const count =
+              Number(meta.review_count ?? meta.total ?? json.review_count ?? json.total ?? 0) || 0;
+
+            return { id: p.id, avg, count };
+          })
+        );
+
+        results.filter(Boolean).forEach((r) => {
+          nextMap[r.id] = { avg: r.avg, count: r.count };
+        });
+      }
+
+      if (Object.keys(nextMap).length > 0) {
+        setRatingMap((prev) => ({ ...prev, ...nextMap }));
+      }
+    } catch (e) {
+      console.warn("fetchRatingsForProducts error:", e);
+    }
+  }, [ratingMap]);
 
   const fetchMinVariantsInStock = useCallback(async (productList) => {
     try {
@@ -220,7 +272,7 @@ export default function HomePage() {
     fetchCategories();
     fetchProducts();
   }, [fetchCategories, fetchProducts]);
-
+  
   const categoryTiles = useMemo(() => {
     if (categories && categories.length > 0) {
       return categories.map((c, i) => ({
@@ -266,21 +318,52 @@ export default function HomePage() {
     }
 
     const getPrice = (p) => Number(p.final_price ?? p.original_price ?? 0);
+    const getReviewCount = (p) => Number(ratingMap[p.id]?.count ?? 0);
 
     if (sortBy === "price_asc") {
       list.sort((a, b) => getPrice(a) - getPrice(b));
     } else if (sortBy === "price_desc") {
       list.sort((a, b) => getPrice(b) - getPrice(a));
     }
+    else if (sortBy === "review_count_asc") {
+      list.sort((a, b) => getReviewCount(a) - getReviewCount(b));
+    } else if (sortBy === "review_count_desc") {
+      list.sort((a, b) => getReviewCount(b) - getReviewCount(a));
+    }
+
 
     return list;
-  }, [products, query, selectedCategory, sortBy]);
+  }, [products, query, selectedCategory, sortBy, ratingMap]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPageProducts = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE;
     return filtered.slice(start, start + PAGE_SIZE);
   }, [filtered, page]);
+  useEffect(() => {
+    if (loadingProducts) return;
+
+    // Nếu đang sort theo lượt đánh giá, fetch rating cho danh sách đang filtered
+    if (sortBy === "review_count_asc" || sortBy === "review_count_desc") {
+      // Nếu nhiều sản phẩm quá, bạn có thể giới hạn: filtered.slice(0, 60)
+      fetchRatingsForProducts(filtered);
+      return;
+    }
+
+    // Các sort khác: chỉ cần fetch cho page hiện tại để nhẹ
+    if (currentPageProducts.length > 0) {
+      fetchRatingsForProducts(currentPageProducts);
+    }
+  }, [loadingProducts, sortBy, filtered, currentPageProducts, fetchRatingsForProducts]);
+
+  // useEffect(() => {
+  //   if (!loadingProducts && currentPageProducts?.length) {
+  //     fetchRatingsForProducts(currentPageProducts);
+  //   }
+  // }, [loadingProducts, currentPageProducts, fetchRatingsForProducts]);
+
+
+  
 
   const formatPrice = (price) => {
     if (!price || price <= 0) return "Liên hệ";
@@ -524,6 +607,9 @@ export default function HomePage() {
                 <MenuItem value="default">Mặc định</MenuItem>
                 <MenuItem value="price_asc">Giá: Thấp → Cao</MenuItem>
                 <MenuItem value="price_desc">Giá: Cao → Thấp</MenuItem>
+                <MenuItem value="review_count_asc">Lượt đánh giá: Thấp → Cao</MenuItem>
+                <MenuItem value="review_count_desc">Lượt đánh giá: Cao → Thấp</MenuItem>
+
               </Select>
             </FormControl>
 
@@ -613,12 +699,21 @@ export default function HomePage() {
                                 </Box>
                               )}
                             </Box>
+                            {(() => {
+                              const r = ratingMap[p.id];
+                              const avg = r ? Number(r.avg || 0) : Number(p.rating || 0);
+                              const count = r ? Number(r.count || 0) : Number(p.review_count || 0);
 
-                            <Typography variant="body2" sx={{ color: "#777", mt: 0.5 }}>
-                              {(p.rating ?? 0).toFixed(1)} ★
-                            </Typography>
-
-                            <Box sx={{ mt: 1 }}>
+                              return (
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.5 }}>
+                                  <Rating value={avg} precision={0.1} readOnly size="small" />
+                                  <Typography variant="body2" sx={{ color: "#777" }}>
+                                    {avg.toFixed(1)}{count > 0 ? ` (${count})` : ""}
+                                  </Typography>
+                                </Box>
+                              );
+                            })()}
+                            <Box sx={{ mt: 1, minHeight: 46 /* cố định vùng giá */ }}>
                               {isStopped ? (
                                 <Typography sx={{ fontSize: 14, fontWeight: 700, color: "#999" }}>
                                   Hết bán
@@ -627,34 +722,36 @@ export default function HomePage() {
                                 <Typography sx={{ fontSize: 14, fontWeight: 700, color: "#999" }}>
                                   Hết hàng
                                 </Typography>
-                              ) : p.has_discount ? (
+                              ) : (
                                 <>
+                                  {/* Dòng 1: giá gốc (luôn render để giữ layout) */}
                                   <Typography
                                     sx={{
-                                      fontSize: 20,
+                                      fontSize: 14,
                                       color: "#999",
-                                      textDecoration: "line-through",
+                                      textDecoration: p.has_discount ? "line-through" : "none",
+                                      visibility: p.has_discount ? "visible" : "hidden", // không giảm giá vẫn chiếm chỗ
+                                      lineHeight: 1.2,
                                     }}
                                   >
-                                    {formatPrice(p.original_price)}
+                                    {formatPrice(p.original_price ?? p.final_price ?? p.original_price)}
                                   </Typography>
 
+                                  {/* Dòng 2: giá hiện tại */}
                                   <Typography
                                     sx={{
                                       fontSize: 16,
                                       fontWeight: 700,
-                                      color: "secondary.main",
+                                      color: p.has_discount ? "secondary.main" : "#111",
+                                      lineHeight: 1.2,
                                     }}
                                   >
-                                    {formatPrice(p.final_price)}
+                                    {formatPrice(p.has_discount ? p.final_price : (p.final_price ?? p.original_price))}
                                   </Typography>
                                 </>
-                              ) : (
-                                <Typography sx={{ fontSize: 16, fontWeight: 700 }}>
-                                  {formatPrice(p.final_price ?? p.original_price)}
-                                </Typography>
                               )}
                             </Box>
+
                           </CardContent>
 
                           <CardActions sx={{ px: 2, pb: 2, pt: 0 }}>

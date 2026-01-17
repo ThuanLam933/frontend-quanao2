@@ -696,8 +696,8 @@ if (invalidQty) {
                   {[
                     ["Thông Tin Cá Nhân", 0, <PersonOutlineIcon />],
                     ["Lịch Sử Đặt Hàng", 1, <ShoppingBagIcon />],
-                    ["Thông Tin Giao Hàng", 2, <LocalShippingIcon />],
-                    ["Đăng Ký Nhận Tin", 3, <MailOutlineIcon />],
+                    // ["Thông Tin Giao Hàng", 2, <LocalShippingIcon />],
+                    // ["Đăng Ký Nhận Tin", 3, <MailOutlineIcon />],
                     ["Đổi Mật Khẩu", 4, <LockIcon />],
                   ].map(([label, index, icon]) => (
                     <React.Fragment key={index}>

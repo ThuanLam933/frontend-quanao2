@@ -217,7 +217,7 @@ export default function ForgotPasswordPage() {
                                         {loading ? <CircularProgress size={24} color="inherit" /> : "Đặt lại mật khẩu"}
                                     </Button>
                                     <Box sx={{ textAlign: "center" }}>
-                                        <Link href="/" variant="body2" sx={{ color: "#64B5F6" }}>
+                                        <Link href="/login" variant="body2" sx={{ color: "#64B5F6" }}>
                                             Quay lại đăng nhập
                                         </Link>
                                     </Box>

@@ -115,7 +115,7 @@ function sanitizePhone(value) {
 
                   <TextField margin="normal" required fullWidth id="email" label="Email" variant="outlined" value={email} onChange={(e) => setEmail(e.target.value)} InputLabelProps={{ style: { color: "#90CAF9" } }} InputProps={{ style: { color: "white" } }} />
 
-                  <TextField margin="normal" fullWidth id="phone" label="Số điện thoại (tùy chọn)" variant="outlined" value={phone} onChange={(e) => setPhone(sanitizePhone(e.target.value))}  inputProps={{ inputMode: "numeric", maxLength: 10 }} InputLabelProps={{ style: { color: "#90CAF9" } }} InputProps={{ style: { color: "white" } }} />
+                  <TextField margin="normal" fullWidth id="phone" label="Số điện thoại * " variant="outlined" value={phone} onChange={(e) => setPhone(sanitizePhone(e.target.value))}  inputProps={{ inputMode: "numeric", maxLength: 10 }} InputLabelProps={{ style: { color: "#90CAF9" } }} InputProps={{ style: { color: "white" } }} />
 
                   <TextField margin="normal" required fullWidth name="password" label="Mật khẩu" type="password" variant="outlined" value={password} onChange={(e) => setPassword(e.target.value)} InputLabelProps={{ style: { color: "#90CAF9" } }} InputProps={{ style: { color: "white" } }} />
 
@@ -123,7 +123,7 @@ function sanitizePhone(value) {
 
                   {error && <Typography variant="body2" sx={{ color: "#ef5350", mt: 1, textAlign: "center" }}>{error}</Typography>}
 
-                  <FormControlLabel control={<Checkbox value="agree" color="primary" />} label={<Typography variant="body2" sx={{ color: "#90CAF9" }}>Tôi đồng ý với <Link href="#" sx={{ color: "#64B5F6" }}>Điều khoản & Điều kiện</Link></Typography>} />
+                  {/* <FormControlLabel control={<Checkbox value="agree" color="primary" />} label={<Typography variant="body2" sx={{ color: "#90CAF9" }}>Tôi đồng ý với <Link href="#" sx={{ color: "#64B5F6" }}>Điều khoản & Điều kiện</Link></Typography>} /> */}
 
                   <Button type="submit" fullWidth variant="contained" disabled={loading} sx={{ mt: 1, py: 1.2, fontWeight: "bold", backgroundColor: "#1E88E5", "&:hover": { backgroundColor: "#1565C0" } }}>
                     {loading ? <CircularProgress size={22} color="inherit" /> : "Tạo tài khoản"}

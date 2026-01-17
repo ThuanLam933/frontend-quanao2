@@ -34,7 +34,9 @@ const TYPE_COLOR = {
     adjustment: "warning",
     revert_receipt: "info",
     order: "primary",
-    other: "default"
+    other: "default",
+    exchange_approved: "error",     // vì trừ
+    exchange_completed: "success",  // vì cộng
 };
 const TYPE_LABEL = {
   receipt: "Nhập kho",
@@ -42,6 +44,8 @@ const TYPE_LABEL = {
   adjustment: "Điều chỉnh",
   revert_receipt: "Hoàn tác phiếu nhập",
   other: "Khác",
+  exchange_approved: "Đổi/Trả (Đã duyệt - trừ hàng mới)",
+  exchange_completed: "Đổi/Trả (Hoàn thành - cộng hàng cũ)",
 };
 
 const TYPE_OPTIONS = [
@@ -50,6 +54,8 @@ const TYPE_OPTIONS = [
     { value: "adjustment", label: "Điều chỉnh trực tiếp" },
     { value: "revert_receipt", label: "Hoàn tác phiếu nhập" },
     { value: "order", label: "Đơn hàng bán ra" },
+    { value: "exchange_approved", label: "Đổi/Trả - Đã duyệt (trừ)" },
+    { value: "exchange_completed", label: "Đổi/Trả - Hoàn thành (cộng)" },
     { value: "other", label: "Khác" }
 ];
 

@@ -71,23 +71,44 @@ const EXCHANGE_STATUS_OPTIONS = [
 
 const parseIso = (s) => {
   if (!s) return null;
-  const normalized = String(s).replace(/\.(\d{3})\d*(Z)$/, ".$1$2");
-  const d = new Date(normalized);
+
+  let str = String(s).trim();
+
+  // "YYYY-MM-DD HH:mm:ss" -> "YYYY-MM-DDTHH:mm:ss"
+  if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(str)) {
+    str = str.replace(" ", "T");
+  }
+
+  // Cắt microseconds: .123456 -> .123
+  str = str.replace(/\.(\d{3})\d+/, ".$1");
+
+  // Nếu KHÔNG có timezone (không có Z hoặc ±HH:MM) thì coi như UTC => thêm Z
+  const hasTZ = /([zZ]|[+\-]\d{2}:\d{2})$/.test(str);
+  if (!hasTZ) str += "Z";
+
+  const d = new Date(str);
   return Number.isNaN(d.getTime()) ? null : d;
 };
+
+
 
 const formatDateTimeVN = (isoString) => {
   const d = parseIso(isoString);
   if (!d) return "—";
 
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yyyy = d.getFullYear();
-  const HH = String(d.getHours()).padStart(2, "0");
-  const MI = String(d.getMinutes()).padStart(2, "0");
-
-  return `${HH}:${MI} ${dd}/${mm}/${yyyy}`;
+  return new Intl.DateTimeFormat("vi-VN", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    hour: "2-digit",
+    minute: "2-digit",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour12: false,
+  }).format(d).replace(",", "");
 };
+
+
+
 
 export default function ExchangePage({ setSnack }) {
   const [exchanges, setExchanges] = useState([]);
@@ -317,18 +338,18 @@ const handlePickExchangeStatus = async (status) => {
                   #
                 </TableCell>
                 <TableCell align="right" sx={{ width: 90 }}>
-                  Order
+                  Mã đơn hàng
                 </TableCell>
                 <TableCell align="right" sx={{ width: 90 }}>
                   User
                 </TableCell>
-                <TableCell>Ghi chú</TableCell>
+                <TableCell sx={{ width:360 }}>Ghi chú</TableCell>
                 <TableCell align="center" sx={{ width: 140 }}>
                   Trạng thái
                 </TableCell>
                 <TableCell sx={{ width: 180 }}>Ngày tạo</TableCell>
                 <TableCell align="right" sx={{ width: 120 }}>
-                  Số dòng SP
+                  Số lượng sản phẩm
                 </TableCell>
                 <TableCell align="right" sx={{ width: 120 }}>
                   Actions
@@ -344,20 +365,32 @@ const handlePickExchangeStatus = async (status) => {
                   : Array.isArray(x.exchange_details)
                   ? x.exchange_details
                   : [];
-                const created =
-                  x.create_exchange ?? x.created_at ?? x.createdAt ?? null;
+                const created = x.created_at ?? x.create_exchange ?? x.createdAt ?? null;
+
 
                 return (
                   <TableRow hover key={x.id}>
                     <TableCell align="right">{x.id}</TableCell>
                     <TableCell align="right">{x.order_id ?? "—"}</TableCell>
-                    <TableCell align="right">{x.user_id ?? "—"}</TableCell>
+                    <TableCell align="right">{x.user?.name ?? "—"}</TableCell>
 
-                    <TableCell>
-                      <Typography variant="body2" noWrap title={x.note ?? ""}>
-                        {x.note ? x.note : "—"}
-                      </Typography>
-                    </TableCell>
+                     <TableCell sx={{ width: 360, maxWidth: 360 }}>
+                        <Tooltip title={x.note ?? ""} placement="top" arrow>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              display: "-webkit-box",
+                              WebkitBoxOrient: "vertical",
+                              WebkitLineClamp: 2,        // hiển thị tối đa 2 dòng
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              overflowWrap: "anywhere",  // xử lý chuỗi dài không có khoảng trắng
+                            }}
+                          >
+                            {x.note ? x.note : "Không có ghi chú."}
+                          </Typography>
+                        </Tooltip>
+                      </TableCell>
 
                     <TableCell align="center">
                       <Chip
@@ -433,11 +466,15 @@ const handlePickExchangeStatus = async (status) => {
     const current = String(statusMenu.exchange?.status || "").toLowerCase();
     const isSelected = current === opt.value;
 
+    const blockedBack =
+    (current === "approved" && ["pending", "rejected", "cancelled"].includes(opt.value)) ||
+    (current === "in_transit" && ["pending", "approved", "rejected", "cancelled"].includes(opt.value)) ||
+    (current === "completed" && opt.value !== "completed");
     return (
       <MenuItem
         key={opt.value}
         selected={isSelected}
-        disabled={isSelected}
+        disabled={isSelected || blockedBack}
         onClick={() => handlePickExchangeStatus(opt.value)}
       >
         <ListItemIcon>
@@ -471,8 +508,8 @@ function ExchangeDetailDialog({ sel, loading, onClose }) {
     exchange.details ??
     [];
 
-  const created =
-    exchange.create_exchange ?? exchange.created_at ?? exchange.createdAt ?? null;
+  const created = exchange.created_at ?? exchange.create_exchange ?? exchange.createdAt ?? null;
+
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
@@ -521,7 +558,7 @@ function ExchangeDetailDialog({ sel, loading, onClose }) {
                   Ghi chú
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {exchange?.note ? exchange.note : "—"}
+                  {exchange?.note ? exchange.note : "Không có ghi chú."}
                 </Typography>
               </Grid>
             </Grid>
@@ -555,7 +592,7 @@ function ExchangeDetailDialog({ sel, loading, onClose }) {
                     <TableCell align="right" sx={{ width: 140 }}>
                       Sản phẩm mới
                     </TableCell>
-                    <TableCell>Lý do</TableCell>
+                    <TableCell sx={{ width:260 }}>Lý do</TableCell>
                   </TableRow>
                 </TableHead>
 

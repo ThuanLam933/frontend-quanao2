@@ -15,6 +15,7 @@ import {
   Chip,
 } from "@mui/material";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
+import ReviewProduct from "./ReviewProduct"; 
 
 const API_BASE = "http://127.0.0.1:8000";
 const CART_KEY = "cart";
@@ -427,14 +428,34 @@ export default function ProductPage() {
               </Box>
 
               <TextField
-                label="Số lượng"
-                type="number"
-                size="small"
-                value={qty}
-                sx={{ width: 120 }}
-                disabled={isStopped || selectedOutOfStock}
-                onChange={(e) => setQty(Math.max(1, Math.floor(Number(e.target.value))))}
-              />
+  label="Số lượng"
+  type="number"
+  size="small"
+  value={qty}
+  sx={{ width: 120 }}
+  disabled={isStopped || selectedOutOfStock}
+  inputProps={{ min: 1 }}
+  onChange={(e) => {
+    const v = e.target.value;
+
+    // cho phép rỗng để người dùng xoá và gõ lại
+    if (v === "") {
+      setQty("");
+      return;
+    }
+
+    // chỉ cho nhập số nguyên dương
+    if (/^\d+$/.test(v)) {
+      setQty(v);
+    }
+  }}
+  onBlur={() => {
+    // khi rời khỏi input: nếu rỗng hoặc 0 thì về 1
+    const n = parseInt(qty, 10);
+    if (!n || n < 1) setQty("1");
+  }}
+/>
+
 
               <Button
                 fullWidth
@@ -456,10 +477,23 @@ export default function ProductPage() {
               </Button>
             </Grid>
           </Grid>
+            <Divider sx={{ my: 4 }} />
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="h6" sx={{ fontWeight: 800, mb: 2 }}>
+                Mô tả sản phẩm
+              </Typography>
+              <Typography sx={{ color: "#333", whiteSpace: "pre-wrap" }}>
+                {product.description || "Chưa có mô tả."}
+              </Typography>
+            </Box>
+            <Divider sx={{ my: 4 }} />
+            {/* REVIEW SECTION - thêm đúng ở đây */}
+            <ReviewProduct productId={product.id} />
 
-          <Snackbar open={!!snack} autoHideDuration={2500} onClose={() => setSnack(null)}>
-            {snack && <Alert severity={snack.severity}>{snack.message}</Alert>}
-          </Snackbar>
+            <Snackbar open={!!snack} autoHideDuration={2500} onClose={() => setSnack(null)}>
+              {snack && <Alert severity={snack.severity}>{snack.message}</Alert>}
+            </Snackbar>
+
         </Container>
       </Box>
     </ThemeProvider>
