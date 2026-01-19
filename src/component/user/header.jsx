@@ -108,7 +108,7 @@ function Header() {
             {[
               { label: "Trang chủ", link: "/trang-chu" },
               { label: "Sản phẩm", link: "/collections" },
-              { label: "Liên hệ", link: "/contact" },
+              { label: "Liên hệ", link: "/lien-he" },
             ].map((item) => (
               <Button
                 key={item.label}
@@ -152,9 +152,7 @@ function Header() {
               <AccountCircleIcon sx={{ color: "#111" }} />
             </IconButton>
 
-            <IconButton onClick={() => navigate("/wishlist")}>
-              <FavoriteBorderIcon sx={{ color: "#111" }} />
-            </IconButton>
+            
 
             <IconButton onClick={() => navigate("/cart")}>
               <Badge badgeContent={cartCount} color="error">

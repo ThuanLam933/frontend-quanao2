@@ -252,6 +252,8 @@ export default function ProductPage() {
     }
 
     localStorage.setItem(CART_KEY, JSON.stringify(cart));
+    window.dispatchEvent(new Event("cartUpdated"));
+
     setSnack({ severity: "success", message: "Đã thêm vào giỏ hàng!" });
   };
 

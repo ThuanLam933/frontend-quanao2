@@ -35,7 +35,7 @@ function CategoryEditDialog({ open, onClose, item, onSave, slugify }) {
 
   useEffect(() => {
     setForm(item ?? null);
-    setManualSlug(!!(item && item.slug));
+    setManualSlug(false);
   }, [item]);
 
   const onNameChange = (value) => {
@@ -92,14 +92,14 @@ function CategoryEditDialog({ open, onClose, item, onSave, slugify }) {
             value={form.slug ?? ""}
             onChange={(e) => onSlugChange(e.target.value)}
           />
-          <TextField
+          {/* <TextField
             label="Ghi chú"
             fullWidth
             multiline
             minRows={3}
             value={form.description ?? ""}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
-          />
+          /> */}
         </Stack>
       </DialogContent>
       <DialogActions>
@@ -229,7 +229,7 @@ export default function CategoriesPage({ setSnack }) {
       fetchCategories();
     } catch (err) {
       console.error(err);
-      setSnack({ severity: "error", message: "Xóa thất bại" });
+      setSnack({ severity: "error", message: "Xóa thất bại. " });
     }
   };
 

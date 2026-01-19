@@ -63,7 +63,7 @@ const EXCHANGE_STATUS_OPTIONS = [
   { value: "rejected", label: EXCHANGE_STATUS_LABEL.rejected },
   { value: "in_transit", label: EXCHANGE_STATUS_LABEL.in_transit },
   { value: "completed", label: EXCHANGE_STATUS_LABEL.completed },
-  { value: "cancelled", label: EXCHANGE_STATUS_LABEL.cancelled },
+  
   // nếu backend dùng canceled thay vì cancelled thì thêm:
   // { value: "canceled", label: EXCHANGE_STATUS_LABEL.canceled },
 ];

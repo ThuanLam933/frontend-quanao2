@@ -457,6 +457,8 @@ export default function HomePage() {
       }
 
       localStorage.setItem("cart", JSON.stringify(cart));
+      window.dispatchEvent(new Event("cartUpdated"));
+
 
       setSnack({
         severity: "success",
@@ -626,187 +628,200 @@ export default function HomePage() {
             </Button>
           </Box>
 
-          {loadingProducts ? (
-            <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
-              <CircularProgress />
-            </Box>
-          ) : error ? (
-            <Typography color="error" textAlign="center" sx={{ py: 6 }}>
-              {error}
-            </Typography>
-          ) : (
-            <>
-              <Grid container spacing={3}>
+           {/* LIST SAN PHAM - CO DINH 4 COT */}
+            {loadingProducts ? (
+              <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
+                <CircularProgress />
+              </Box>
+            ) : error ? (
+              <Typography color="error" textAlign="center" sx={{ py: 6 }}>
+                {error}
+              </Typography>
+            ) : (
+              <>
                 {currentPageProducts.length === 0 ? (
-                  <Grid item xs={12}>
-                    <Typography textAlign="center">Không tìm thấy sản phẩm.</Typography>
-                  </Grid>
+                  <Typography textAlign="center">Không tìm thấy sản phẩm.</Typography>
                 ) : (
-                  currentPageProducts.map((p) => {
-                    const isStopped = Number(p.status) !== 1;
+                  <Box
+                    sx={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(4, minmax(0, 1fr))", // CO DINH 4 SAN PHAM / 1 HANG
+                      gap: 2,
+                    }}
+                  >
+                    {currentPageProducts.map((p) => {
+                      const isStopped = Number(p.status) !== 1;
 
-                    return (
-                      <Grid item xs={12} sm={6} md={4} key={p.id}>
-                        <Card
-                          elevation={0}
-                          sx={{
-                            border: "1px solid #e0e0e0",
-                            boxShadow: "none",
-                            borderRadius: 0,
-                            transition: "0.25s ease",
-                            "&:hover": { transform: "translateY(-3px)" },
-                          }}
-                        >
-                          <CardMedia
-                            component="img"
-                            image={p.image_url || "/images/placeholder.jpg"}
+                      return (
+                        <Box key={p.id} sx={{ minWidth: 0 }}>
+                          <Card
+                            elevation={0}
                             sx={{
-                              height: 320,
-                              objectFit: "cover",
-                              transition: "transform 0.35s ease",
-                              "&:hover": { transform: "scale(1.02)" },
+                              border: "1px solid #e0e0e0",
+                              boxShadow: "none",
+                              borderRadius: 0,
+                              minWidth: 0,
+                              transition: "0.25s ease",
+                              "&:hover": { transform: "translateY(-3px)" },
                             }}
-                          />
+                          >
+                            <CardMedia
+                              component="img"
+                              image={p.image_url || "/images/placeholder.jpg"}
+                              sx={{
+                                height: 270,
+                                width: "100%",
+                                objectFit: "cover",
+                                transition: "transform 0.5s ease",
+                                "&:hover": { transform: "scale(1.02)" },
+                              }}
+                            />
 
-                          <CardContent sx={{ pt: 1.5, pb: 1.5 }}>
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                              <Typography
-                                variant="subtitle1"
-                                sx={{
-                                  fontWeight: 600,
-                                  textTransform: "uppercase",
-                                  letterSpacing: 0.5,
-                                  fontSize: 14,
-                                }}
-                              >
-                                {p.name}
-                              </Typography>
-
-                              {p.has_discount && p.discount_percent > 0 && !isStopped && (
-                                <Box
+                            <CardContent sx={{ pt: 1.5, pb: 1.5 }}>
+                              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                <Typography
+                                  variant="subtitle1"
                                   sx={{
+                                    fontWeight: 600,
+                                    textTransform: "uppercase",
+                                    letterSpacing: 0.5,
                                     fontSize: 14,
-                                    fontWeight: 700,
-                                    color: "#fff",
-                                    backgroundColor: "secondary.main",
-                                    px: 0.8,
-                                    py: 0.2,
-                                    borderRadius: "2px",
-                                    lineHeight: 1,
                                   }}
                                 >
-                                  -{p.discount_percent}%
-                                </Box>
-                              )}
-                            </Box>
-                            {(() => {
-                              const r = ratingMap[p.id];
-                              const avg = r ? Number(r.avg || 0) : Number(p.rating || 0);
-                              const count = r ? Number(r.count || 0) : Number(p.review_count || 0);
+                                  {p.name}
+                                </Typography>
 
-                              return (
-                                <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.5 }}>
-                                  <Rating value={avg} precision={0.1} readOnly size="small" />
-                                  <Typography variant="body2" sx={{ color: "#777" }}>
-                                    {avg.toFixed(1)}{count > 0 ? ` (${count})` : ""}
-                                  </Typography>
-                                </Box>
-                              );
-                            })()}
-                            <Box sx={{ mt: 1, minHeight: 46 /* cố định vùng giá */ }}>
-                              {isStopped ? (
-                                <Typography sx={{ fontSize: 14, fontWeight: 700, color: "#999" }}>
-                                  Hết bán
-                                </Typography>
-                              ) : p.in_stock === false ? (
-                                <Typography sx={{ fontSize: 14, fontWeight: 700, color: "#999" }}>
-                                  Hết hàng
-                                </Typography>
-                              ) : (
-                                <>
-                                  {/* Dòng 1: giá gốc (luôn render để giữ layout) */}
-                                  <Typography
+                                {p.has_discount && p.discount_percent > 0 && !isStopped && (
+                                  <Box
                                     sx={{
                                       fontSize: 14,
-                                      color: "#999",
-                                      textDecoration: p.has_discount ? "line-through" : "none",
-                                      visibility: p.has_discount ? "visible" : "hidden", // không giảm giá vẫn chiếm chỗ
-                                      lineHeight: 1.2,
-                                    }}
-                                  >
-                                    {formatPrice(p.original_price ?? p.final_price ?? p.original_price)}
-                                  </Typography>
-
-                                  {/* Dòng 2: giá hiện tại */}
-                                  <Typography
-                                    sx={{
-                                      fontSize: 16,
                                       fontWeight: 700,
-                                      color: p.has_discount ? "secondary.main" : "#111",
-                                      lineHeight: 1.2,
+                                      color: "#fff",
+                                      backgroundColor: "secondary.main",
+                                      px: 0.8,
+                                      py: 0.2,
+                                      borderRadius: "2px",
+                                      lineHeight: 1,
                                     }}
                                   >
-                                    {formatPrice(p.has_discount ? p.final_price : (p.final_price ?? p.original_price))}
+                                    -{p.discount_percent}%
+                                  </Box>
+                                )}
+                              </Box>
+
+                              {(() => {
+                                const r = ratingMap[p.id];
+                                const avg = r ? Number(r.avg || 0) : Number(p.rating || 0);
+                                const count = r ? Number(r.count || 0) : Number(p.review_count || 0);
+
+                                return (
+                                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.5 }}>
+                                    <Rating value={avg} precision={0.1} readOnly size="small" />
+                                    <Typography variant="body2" sx={{ color: "#777" }}>
+                                      {avg.toFixed(1)}
+                                      {count > 0 ? ` (${count})` : ""}
+                                    </Typography>
+                                  </Box>
+                                );
+                              })()}
+
+                              <Box sx={{ mt: 1, minHeight: 46 }}>
+                                {isStopped ? (
+                                  <Typography sx={{ fontSize: 14, fontWeight: 700, color: "#999" }}>
+                                    Hết bán
                                   </Typography>
-                                </>
-                              )}
-                            </Box>
+                                ) : p.in_stock === false ? (
+                                  <Typography sx={{ fontSize: 14, fontWeight: 700, color: "#999" }}>
+                                    Hết hàng
+                                  </Typography>
+                                ) : (
+                                  <>
+                                    <Typography
+                                      sx={{
+                                        fontSize: 14,
+                                        color: "#999",
+                                        textDecoration: p.has_discount ? "line-through" : "none",
+                                        visibility: p.has_discount ? "visible" : "hidden",
+                                        lineHeight: 1.2,
+                                      }}
+                                    >
+                                      {formatPrice(p.original_price ?? p.final_price ?? p.original_price)}
+                                    </Typography>
 
-                          </CardContent>
+                                    <Typography
+                                      sx={{
+                                        fontSize: 16,
+                                        fontWeight: 700,
+                                        color: p.has_discount ? "secondary.main" : "#111",
+                                        lineHeight: 1.2,
+                                      }}
+                                    >
+                                      {formatPrice(
+                                        p.has_discount
+                                          ? p.final_price
+                                          : (p.final_price ?? p.original_price)
+                                      )}
+                                    </Typography>
+                                  </>
+                                )}
+                              </Box>
+                            </CardContent>
 
-                          <CardActions sx={{ px: 2, pb: 2, pt: 0 }}>
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              sx={{
-                                borderRadius: 0,
-                                borderColor: "#111",
-                                textTransform: "none",
-                                fontSize: 13,
-                                px: 2.5,
-                              }}
-                              onClick={() => navigate(`/product/${p.id}`)}
-                            >
-                              Xem
-                            </Button>
+                            <CardActions sx={{ px: 2, pb: 2, pt: 0 }}>
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                sx={{
+                                  borderRadius: 0,
+                                  borderColor: "#111",
+                                  textTransform: "none",
+                                  fontSize: 13,
+                                  px: 2.5,
+                                }}
+                                onClick={() => navigate(`/product/${p.id}`)}
+                              >
+                                Xem
+                              </Button>
 
-                            <Button
-                              size="small"
-                              variant="contained"
-                              disabled={isStopped || p.in_stock === false}
-                              sx={{
-                                bgcolor: "#111",
-                                color: "#fff",
-                                borderRadius: 0,
-                                textTransform: "none",
-                                fontSize: 13,
-                                px: 2.5,
-                                ml: 1,
-                                "&:hover": { bgcolor: "#000" },
-                                "&.Mui-disabled": { bgcolor: "#ccc", color: "#666" },
-                              }}
-                              onClick={() => handleAddToCart(p)}
-                            >
-                              Thêm giỏ
-                            </Button>
-                          </CardActions>
-                        </Card>
-                      </Grid>
-                    );
-                  })
+                              <Button
+                                size="small"
+                                variant="contained"
+                                disabled={isStopped || p.in_stock === false}
+                                sx={{
+                                  bgcolor: "#111",
+                                  color: "#fff",
+                                  borderRadius: 0,
+                                  textTransform: "none",
+                                  fontSize: 13,
+                                  px: 2.5,
+                                  ml: 1,
+                                  "&:hover": { bgcolor: "#000" },
+                                  "&.Mui-disabled": { bgcolor: "#ccc", color: "#666" },
+                                }}
+                                onClick={() => handleAddToCart(p)}
+                              >
+                                Thêm giỏ
+                              </Button>
+                            </CardActions>
+                          </Card>
+                        </Box>
+                      );
+                    })}
+                  </Box>
                 )}
-              </Grid>
 
-              <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
-                <Pagination
-                  count={pageCount}
-                  page={page}
-                  onChange={(_, v) => setPage(v)}
-                  color="primary"
-                />
-              </Box>
-            </>
-          )}
+                <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
+                  <Pagination
+                    count={pageCount}
+                    page={page}
+                    onChange={(_, v) => setPage(v)}
+                    color="primary"
+                  />
+                </Box>
+              </>
+            )}
+
+
         </Container>
 
         <Snackbar open={!!snack} autoHideDuration={2500} onClose={() => setSnack(null)}>

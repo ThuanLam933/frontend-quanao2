@@ -39,9 +39,11 @@ const API_BASE = "http://127.0.0.1:8000";
 
 const STATUS_COLOR = {
     pending: "warning",
-    confirmed: "success",
+    confirmed: "primary",
     cancelled: "error",
     canceled: "error",
+    completed: "success",
+    shipping: "info",
 };
 const STATUS_LABEL = {
     pending: "Chờ xác nhận",
@@ -60,6 +62,31 @@ const STATUS_OPTIONS = [
   // nếu backend dùng canceled thì thêm dòng dưới (tuỳ bạn)
   // { value: "canceled", label: STATUS_LABEL.canceled },
 ];
+const STATUS_FLOW = ["pending", "confirmed", "shipping", "completed"]; 
+// cancelled/canceled là trạng thái kết thúc riêng
+
+const normalizeStatus = (s) => String(s || "").toLowerCase();
+
+const isTerminal = (s) => ["cancelled", "canceled", "completed"].includes(normalizeStatus(s));
+
+const canChangeStatus = (currentStatus, nextStatus) => {
+  const cur = normalizeStatus(currentStatus);
+  const next = normalizeStatus(nextStatus);
+  if (cur === "cancelled" || cur === "canceled") return false;
+  if (cur === "completed") return false;
+  if (cur === next) return false;
+  if (cur === "shipping" && (next === "cancelled" || next === "canceled")) return false;
+  const curIdx = STATUS_FLOW.indexOf(cur);
+  const nextIdx = STATUS_FLOW.indexOf(next);
+  if (nextIdx !== -1 && curIdx !== -1) {
+    return nextIdx >= curIdx;
+  }
+  if (next === "cancelled" || next === "canceled") {
+    return cur === "pending" || cur === "confirmed";
+  }
+  return true;
+};
+
 
 const PAYMENT_STATUS_COLOR = {
   unpaid: "warning",
@@ -455,26 +482,29 @@ export default function OrdersPage({ setSnack }) {
                             const current = String(statusMenu.order?.status || "").toLowerCase();
                             const isSelected = current === opt.value;
 
+                            const disabled = !canChangeStatus(current, opt.value);
+
                             return (
-                            <MenuItem
+                                <MenuItem
                                 key={opt.value}
                                 selected={isSelected}
-                                disabled={isSelected}
+                                disabled={disabled}
                                 onClick={() => handlePickStatus(opt.value)}
-                            >
+                                >
                                 <ListItemIcon>
-                                {opt.value === "confirmed" ? (
+                                    {opt.value === "confirmed" ? (
                                     <CheckCircleIcon fontSize="small" color="success" />
-                                ) : opt.value === "cancelled" ? (
+                                    ) : opt.value === "cancelled" ? (
                                     <CancelIcon fontSize="small" color="error" />
-                                ) : (
+                                    ) : (
                                     <CheckCircleIcon fontSize="small" color="warning" />
-                                )}
+                                    )}
                                 </ListItemIcon>
                                 <ListItemText primary={opt.label} />
-                            </MenuItem>
+                                </MenuItem>
                             );
-                        })}
+                            })}
+
                         </Menu>
 
             <OrderDetailDialog sel={sel} onClose={() => setSel(null)} />

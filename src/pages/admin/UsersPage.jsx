@@ -217,7 +217,7 @@ export default function UsersPage({ setSnack }) {
                                 </TableCell>
                                 <TableCell>Email</TableCell>
                                 <TableCell>Name</TableCell>
-                                <TableCell>Verified</TableCell>
+                                {/* <TableCell>Verified</TableCell> */}
                                 <TableCell>Created</TableCell>
                                 <TableCell align="right" sx={{ width: 160 }}>
                                     Actions
@@ -256,7 +256,7 @@ export default function UsersPage({ setSnack }) {
                                             <TableCell>
                                                 {u.name ?? "—"}
                                             </TableCell>
-                                            <TableCell>
+                                            {/* <TableCell>
                                                 <Chip
                                                     size="small"
                                                     label={
@@ -268,7 +268,7 @@ export default function UsersPage({ setSnack }) {
                                                             : "default"
                                                     }
                                                 />
-                                            </TableCell>
+                                            </TableCell> */}
                                             <TableCell>
                                                 {createdTime
                                                     ? new Date(
@@ -289,7 +289,7 @@ export default function UsersPage({ setSnack }) {
                                                                 : "Khóa user"
                                                         }
                                                     >
-                                                        <span>
+                                                        {/* <span>
                                                             <IconButton
                                                                 size="small"
                                                                 onClick={() =>
@@ -310,7 +310,7 @@ export default function UsersPage({ setSnack }) {
                                                                     <LockIcon fontSize="small" />
                                                                 )}
                                                             </IconButton>
-                                                        </span>
+                                                        </span> */}
                                                     </Tooltip>
 
                                                     <Tooltip title="Xem chi tiết">
@@ -391,13 +391,13 @@ function UserDetailDialog({ user, onClose }) {
                     </Typography>
 
                     <Stack direction="row" spacing={1}>
-                        <Chip
+                        {/* <Chip
                             size="small"
                             label={
                                 verified ? "Verified" : "Chưa xác thực"
                             }
                             color={verified ? "success" : "default"}
-                        />
+                        /> */}
                         <Chip
                             size="small"
                             label={locked ? "Locked" : "Active"}

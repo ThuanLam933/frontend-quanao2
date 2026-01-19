@@ -12,6 +12,7 @@ const AccountPage = lazy(() => import("../pages/AccountPage"));
 const RegisterPage = lazy(() => import("../pages/RegisterPage"));
 const PaymentPage = lazy(() => import("../pages/PaymentPage"));
 const VnpayReturnPage = lazy(() => import("../pages/VnpayReturnPage"));
+const ContactPage = lazy(() => import("../pages/ContactPage"));
 
 
 /**
@@ -21,7 +22,10 @@ const VnpayReturnPage = lazy(() => import("../pages/VnpayReturnPage"));
  */
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem("access_token");
-  if (!token) return <Navigate to="/login" replace />;
+  const user = localStorage.getItem("user");
+  const role = user ? JSON.parse(user).role : null;
+  console.log("ProtectedRoute check:", { token, role });
+  if (!token || role !== "admin") return <Navigate to="/trang-chu" replace />;
   return children;
 }
 
@@ -36,6 +40,7 @@ export default function AppRoute() {
         {/* public routes wrapped with main layout */}
         <Route element={<MainLayout />}>
           <Route path="/trang-chu" element={<HomePage />} />
+          <Route path="/lien-he" element={<ContactPage />} />
           <Route path="/product/:id" element={<ProductPage />} />
           <Route path="/cart" element={<CartPage />} />
           <Route path="/account" element={<AccountPage />} />
@@ -52,7 +57,6 @@ export default function AppRoute() {
             </ProtectedRoute>
           }
         />
-
         <Route path="*" element={<Navigate to="/trang-chu" replace />} />
       </Routes>
     </Suspense>

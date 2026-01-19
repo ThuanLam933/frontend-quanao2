@@ -83,10 +83,13 @@ export default function VnpayReturnPage() {
         localStorage.removeItem("cart");
 
         setStatus("success");
-        setMsg("Thanh toán thành công! Đang chuyển đến đơn hàng...");
+        setMsg("Thanh toán thành công!");
 
         const orderId = body?.order?.id ?? body?.id;
-        navigate(`/order/${orderId}`);
+        setTimeout(() => {
+          navigate(`/order/${orderId}`, { replace: true });
+        }, 1500);
+
       } catch (e) {
         setStatus("fail");
         setMsg(e.message || "Có lỗi khi tạo đơn sau thanh toán");

@@ -39,7 +39,7 @@ function SizeEditDialog({ open, onClose, item, onSave, slugify }) {
 
     useEffect(() => {
         setForm(item ?? null);
-        setManualSlug(!!item?.slug);
+        setManualSlug(false);
     }, [item]);
 
     const onNameChange = (v) => {

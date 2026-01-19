@@ -196,8 +196,15 @@ export default function PaymentPage() {
 
         localStorage.removeItem("cart");
         localStorage.removeItem(DISCOUNT_KEY);
-        navigate(`/order/${orderBody?.order?.id}`);
+
+        setSnack({ severity: "success", message: "Đặt hàng thành công!" });
+
+        setTimeout(() => {
+          navigate(`/order/${orderBody?.order?.id}`, { replace: true });
+        }, 5500);
+
         return;
+
       }
 
       localStorage.setItem(

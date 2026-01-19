@@ -40,7 +40,7 @@ const BASE_COLUMNS = [
   { id: "image", label: "Hình ảnh" },
   { id: "name", label: "Tên" },
   { id: "slug", label: "Slug" },
-  { id: "description", label: "Mô tả" },
+  // { id: "description", label: "Mô tả" },
   { id: "status", label: "Trạng thái" },
   { id: "category", label: "Loại" },
   { id: "actions", label: "Actions" },
@@ -746,7 +746,7 @@ function ProductEditDialog({
           sx={{ mt: 1 }}
         />
 
-        <TextField
+        {/* <TextField
           label="Description"
           fullWidth
           multiline
@@ -756,7 +756,7 @@ function ProductEditDialog({
             setForm({ ...form, description: e.target.value })
           }
           sx={{ mt: 1 }}
-        />
+        /> */}
 
         {form.id && (
           <TextField

@@ -35,7 +35,7 @@ function ColorEditDialog({ open, onClose, item, onSave, slugify }) {
 
   useEffect(() => {
     setForm(item ?? null);
-    setManualSlug(!!(item && item.slug));
+    setManualSlug(false);
   }, [item]);
 
   const onNameChange = (value) => {
@@ -216,19 +216,27 @@ export default function ColorsPage({ setSnack }) {
   const handleDelete = async (id) => {
     const token = localStorage.getItem("access_token");
     if (!window.confirm("Xóa color?")) return;
+
     try {
       const res = await fetch(`${API_BASE}/api/colors/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error("Delete failed");
-      setSnack({ severity: "success", message: "Đã xóa color" });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.message || "Xóa thất bại");
+      }
+
+      setSnack({ severity: "success", message: data.message || "Đã xóa color" });
       fetchColors();
     } catch (err) {
       console.error(err);
-      setSnack({ severity: "error", message: "Xóa thất bại" });
+      setSnack({ severity: "error", message: err.message || "Xóa thất bại" });
     }
   };
+
 
   return (
     <Box>

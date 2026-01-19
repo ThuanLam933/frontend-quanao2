@@ -37,6 +37,7 @@ const TYPE_COLOR = {
     other: "default",
     exchange_approved: "error",     // vì trừ
     exchange_completed: "success",  // vì cộng
+    order_cancel: "error",
 };
 const TYPE_LABEL = {
   receipt: "Nhập kho",
@@ -46,6 +47,7 @@ const TYPE_LABEL = {
   other: "Khác",
   exchange_approved: "Đổi/Trả (Đã duyệt - trừ hàng mới)",
   exchange_completed: "Đổi/Trả (Hoàn thành - cộng hàng cũ)",
+  order_cancel: "Hủy đơn hàng",
 };
 
 const TYPE_OPTIONS = [
@@ -56,6 +58,7 @@ const TYPE_OPTIONS = [
     { value: "order", label: "Đơn hàng bán ra" },
     { value: "exchange_approved", label: "Đổi/Trả - Đã duyệt (trừ)" },
     { value: "exchange_completed", label: "Đổi/Trả - Hoàn thành (cộng)" },
+    { value: "order_cancel", label: "Hủy đơn hàng" },
     { value: "other", label: "Khác" }
 ];
 
@@ -156,10 +159,18 @@ export default function InventoryPage({ setSnack }) {
                 body: JSON.stringify({})
             });
             if (!res.ok) {
-                const txt = await res.text().catch(() => "");
-                setSnack({ severity: "error", message: txt || `Revert receipt thất bại (${res.status})` });
+                let msg = `Revert receipt thất bại (${res.status})`;
+                try {
+                    const err = await res.json();            // parse JSON
+                    msg = err?.message || msg;
+                } catch (_) {
+                    const t = await res.text().catch(() => "");
+                    if (t) msg = t;
+                }
+                setSnack({ severity: "error", message: msg });
                 return;
-            }
+                }
+
             setSnack({ severity: "success", message: "Đã revert receipt và cập nhật tồn kho." });
             fetchLogs(page);
         } catch (err) {

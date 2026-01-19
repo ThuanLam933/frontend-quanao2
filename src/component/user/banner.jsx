@@ -84,7 +84,7 @@ function HomeBanner() {
             </Typography>
 
             <Stack direction="row" spacing={2}>
-              <Button
+              {/* <Button
                 variant="contained"
                 sx={{
                   backgroundColor: "#111",
@@ -98,9 +98,9 @@ function HomeBanner() {
                 onClick={() => navigate("/collections")}
               >
                 Khám phá
-              </Button>
+              </Button> */}
 
-              <Button
+              {/* <Button
                 variant="outlined"
                 sx={{
                   borderColor: "#fff",
@@ -117,7 +117,7 @@ function HomeBanner() {
                 onClick={() => navigate("/collections?new=1")}
               >
                 Mua ngay
-              </Button>
+              </Button> */}
             </Stack>
           </Box>
         </Container>

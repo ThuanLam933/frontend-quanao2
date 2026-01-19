@@ -72,22 +72,25 @@ export default function DashboardPage({ setSnack }) {
                 catRes,
                 colorRes,
                 sizeRes,
-                retRes,
-                supRes,
-                invRes,
-                recRes,
-            ] = await Promise.all([
+                retRes, 
+                supRes, 
+                invRes, 
+                recRes, 
+                ] = await Promise.all([
                 fetch(`${API_BASE}/api/product-details`),
                 fetchWithAuth(`${API_BASE}/api/orders-all`),
                 fetchWithAuth(`${API_BASE}/api/admin/users`),
                 fetch(`${API_BASE}/api/categories`),
                 fetch(`${API_BASE}/api/colors`),
                 fetch(`${API_BASE}/api/sizes`),
-                
+
+                fetchWithAuth(`${API_BASE}/api/exchanges`),
                 fetchWithAuth(`${API_BASE}/api/admin/suppliers`),
                 fetchWithAuth(`${API_BASE}/api/admin/inventory/logs`),
                 fetchWithAuth(`${API_BASE}/api/admin/receipts`),
-            ]);
+                
+                ]);
+
 
             const [p, o, u, cat, color, size, ret, sup, inv, rec] =
                 await Promise.all([
@@ -339,6 +342,7 @@ export default function DashboardPage({ setSnack }) {
         { key: "exchanges", title: "Phiếu trả hàng", color: "#FF7675" },
         { key: "suppliers", title: "Nhà cung cấp", color: "#74B9FF" },
         { key: "receipts", title: "Phiếu nhập kho", color: "#A29BFE" },
+        
     ];
 
     const monthlyRevenue = stats?.monthlyRevenue || 0;
