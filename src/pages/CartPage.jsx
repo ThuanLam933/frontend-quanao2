@@ -146,8 +146,8 @@ export default function CartPage() {
       const raw = localStorage.getItem(STORAGE_KEY) || "[]";
       const parsed = JSON.parse(raw);
       arr = (Array.isArray(parsed) ? parsed : []).map((it) => normalizeLocalItem(it));
+      
       setItems(arr);
-
       const totalQty = arr.reduce((s, it) => s + (Number(it.qty) || 0), 0);
       localStorage.setItem("guest_cart_count", String(totalQty));
 

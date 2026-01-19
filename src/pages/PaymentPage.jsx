@@ -127,7 +127,7 @@ export default function PaymentPage() {
 
   const [paymentMethod, setPaymentMethod] = useState("cod");
 
-  const SHIPPING_FEE = 30000;
+  const SHIPPING_FEE = 0;
 
   const subtotal = useMemo(() => {
     return cart.reduce((s, it) => {
@@ -201,7 +201,7 @@ export default function PaymentPage() {
 
         setTimeout(() => {
           navigate(`/order/${orderBody?.order?.id}`, { replace: true });
-        }, 5500);
+        }, 1700);
 
         return;
 
@@ -258,9 +258,9 @@ export default function PaymentPage() {
             THANH TOÁN
           </Typography>
 
-          <Grid container spacing={4}>
+          <Grid container spacing={5}>
             <Grid item xs={12} md={7}>
-              <Paper sx={{ p: 3, border: "1px solid #e5e5e5", boxShadow: "none" }}>
+              <Paper sx={{ p: 4, border: "1px solid #e5e5e5", boxShadow: "none" }}>
                 <Typography variant="h6" sx={{ mb: 2 }}>
                   Thông tin giao hàng
                 </Typography>
@@ -270,21 +270,24 @@ export default function PaymentPage() {
                     label="Họ và tên"
                     value={name}
                     fullWidth
-                    onChange={(e) => setName(e.target.value)}
+                    
+                    // onChange={(e) => setName(e.target.value)}
                     InputProps={{ sx: { borderRadius: 0 } }}
                   />
                   <TextField
                     label="Email"
                     value={email}
                     fullWidth
-                    onChange={(e) => setEmail(e.target.value)}
+                    
+                    // onChange={(e) => setEmail(e.target.value)}
                     InputProps={{ sx: { borderRadius: 0 } }}
                   />
                   <TextField
                     label="Số điện thoại"
                     value={phone}
                     fullWidth
-                    onChange={(e) => setPhone(sanitizePhone(e.target.value))}
+                    
+                    // onChange={(e) => setPhone(sanitizePhone(e.target.value))}
                     inputProps={{ inputMode: "numeric", maxLength: 10 }}
                     InputProps={{ sx: { borderRadius: 0 } }}
                   />
@@ -355,7 +358,7 @@ export default function PaymentPage() {
             <Grid item xs={12} md={5}>
               <Paper
                 sx={{
-                  p: 2.5,
+                  p: 3.5,
                   border: "1px solid #e5e5e5",
                   boxShadow: "none",
                   backgroundColor: "#f7f7f7",
@@ -391,13 +394,12 @@ export default function PaymentPage() {
                         />
 
                         <Box sx={{ flex: 1 }}>
-                          <Typography sx={{ fontWeight: 700 }}>{it.name}</Typography>
+                          <Typography sx={{ fontWeight: 500 }}>{it.name}</Typography>
                           <Typography sx={{ fontSize: 13, color: "#666" }}>
                             Size: {it.size_name || it.size} — Màu: {it.color_name || it.color}
                           </Typography>
                           <Typography sx={{ fontSize: 13 }}>Số lượng: {it.quantity}</Typography>
                         </Box>
-
                         <Box sx={{ textAlign: "right" }}>
                           {it.has_discount && (
                             <Typography

@@ -126,6 +126,7 @@ export default function ReviewProduct({ productId }) {
         setSnack({ severity: "error", message: "Phiên đăng nhập hết hạn." });
         return;
       }
+      
 
       const json = await res.json().catch(() => ({}));
 

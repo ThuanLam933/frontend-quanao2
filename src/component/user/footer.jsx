@@ -77,12 +77,12 @@ function Footer() {
                   fontSize: 15,
                   "&:hover": { color: "#000" },
                 }}
-                onClick={() => navigate("/contact")}
+                onClick={() => navigate("/lien-he")}
               >
                 Liên hệ
               </Button>
 
-              <Button
+              {/* <Button
                 variant="contained"
                 sx={{
                   backgroundColor: "#111",
@@ -94,7 +94,7 @@ function Footer() {
                 onClick={() => navigate("/collections")}
               >
                 Mua ngay
-              </Button>
+              </Button> */}
             </Stack>
           </Grid>
         </Grid>
