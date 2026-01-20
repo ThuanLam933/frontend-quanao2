@@ -150,7 +150,6 @@ export default function CartPage() {
       setItems(arr);
       const totalQty = arr.reduce((s, it) => s + (Number(it.qty) || 0), 0);
       localStorage.setItem("guest_cart_count", String(totalQty));
-
       window.dispatchEvent(
         new CustomEvent("cartUpdated", { detail: { count: totalQty, items: arr } })
       );

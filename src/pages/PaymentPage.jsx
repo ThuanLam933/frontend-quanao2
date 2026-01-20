@@ -400,7 +400,11 @@ export default function PaymentPage() {
                           </Typography>
                           <Typography sx={{ fontSize: 13 }}>Số lượng: {it.quantity}</Typography>
                         </Box>
-                        <Box sx={{ textAlign: "right" }}>
+                        <Box sx={{ textAlign: "right",
+                          minWidth:120,
+                          pl:2,
+                          flexShrink:0,
+                         }}>
                           {it.has_discount && (
                             <Typography
                               sx={{

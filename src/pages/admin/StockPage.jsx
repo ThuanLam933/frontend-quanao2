@@ -674,7 +674,7 @@ export default function StockPage({ setSnack }) {
                                                         <VisibilityIcon fontSize="small" />
                                                     </IconButton>
                                                 </Tooltip>
-                                                <Tooltip title="Xóa phiếu">
+                                                {/* <Tooltip title="Xóa phiếu">
                                                     <IconButton
                                                         size="small"
                                                         color="error"
@@ -686,7 +686,7 @@ export default function StockPage({ setSnack }) {
                                                     >
                                                         <DeleteIcon fontSize="small" />
                                                     </IconButton>
-                                                </Tooltip>
+                                                </Tooltip> */}
                                             </Stack>
                                         </TableCell>
                                     </TableRow>

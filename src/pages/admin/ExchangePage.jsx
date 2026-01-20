@@ -107,6 +107,29 @@ const formatDateTimeVN = (isoString) => {
   }).format(d).replace(",", "");
 };
 
+const formatProductDetail = (pd) => {
+  if (pd == null) return "—";
+
+  // nếu chỉ là ID số (backend chưa embed object)
+  if (typeof pd === "number" || /^\d+$/.test(String(pd))) {
+    return `#${pd}`; // ít nhất hiển thị ID
+  }
+
+  // nếu backend trả nested object kiểu { product, color, size }
+  const name =
+    pd.product?.name ??
+    pd.product_name ??
+    pd.name ??
+    "—";
+
+  const color = pd.color?.name ?? pd.color ?? pd.color_name ?? "";
+  const size = pd.size?.name ?? pd.size ?? pd.size_name ?? "";
+
+  const attrs = [color, size].filter(Boolean).join(" / ");
+  return attrs ? `${name} (${attrs})` : name;
+};
+
+
 
 
 
@@ -497,18 +520,19 @@ const handlePickExchangeStatus = async (status) => {
 }
 
 function ExchangeDetailDialog({ sel, loading, onClose }) {
-  const open = !!sel || loading;
+   const open = !!sel || loading;
 
   const exchange = sel ?? {};
   const st = String(exchange.status ?? "").toLowerCase();
 
   const details =
-    exchange.exchangeDetails ??
     exchange.exchange_details ??
+    exchange.exchangeDetails ??
     exchange.details ??
     [];
 
-  const created = exchange.created_at ?? exchange.create_exchange ?? exchange.createdAt ?? null;
+  const created =
+    exchange.created_at ?? exchange.create_exchange ?? exchange.createdAt ?? null;
 
 
   return (
@@ -586,9 +610,7 @@ function ExchangeDetailDialog({ sel, loading, onClose }) {
                     <TableCell align="right" sx={{ width: 110 }}>
                       Số lượng
                     </TableCell>
-                    <TableCell align="right" sx={{ width: 140 }}>
-                      Sản phẩm cũ
-                    </TableCell>
+                    
                     <TableCell align="right" sx={{ width: 140 }}>
                       Sản phẩm mới
                     </TableCell>
@@ -596,24 +618,36 @@ function ExchangeDetailDialog({ sel, loading, onClose }) {
                   </TableRow>
                 </TableHead>
 
-                <TableBody>
-                  {details.map((d, idx) => (
-                    <TableRow key={d.id ?? idx} hover>
-                      <TableCell align="right">{d.id ?? idx + 1}</TableCell>
-                      <TableCell align="right">
-                        {d.product_detail_id ?? "—"}
-                      </TableCell>
-                      <TableCell align="right">{d.quantity ?? "—"}</TableCell>
-                      <TableCell align="right">{d.product_old_id ?? "—"}</TableCell>
-                      <TableCell align="right">{d.product_new_id ?? "—"}</TableCell>
-                      <TableCell>
-                        <Typography variant="body2" color="text.secondary">
-                          {d.reason ? d.reason : "—"}
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
+               <TableBody>
+              {details.map((d, idx) => {
+                // backend trả snake_case
+                const currentDetail = d.product_detail ?? d.productDetail ?? null;
+
+                // hiện tại backend chỉ trả ID số cho old/new
+                
+                const newVal = d.product_new_detail ?? d.productNewDetail ?? d.product_new_id ?? d.product_new ?? null;
+
+                return (
+                  <TableRow key={d.id ?? idx} hover>
+                    <TableCell align="right">{d.id ?? idx + 1}</TableCell>
+
+                    <TableCell>{formatProductDetail(currentDetail)}</TableCell>
+
+                    <TableCell align="right">{d.quantity ?? "—"}</TableCell>
+
+                    
+
+                    <TableCell>{formatProductDetail(newVal)}</TableCell>
+
+                    <TableCell>
+                      <Typography variant="body2" color="text.secondary">
+                        {d.reason ? d.reason : "—"}
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
               </Table>
             )}
           </>
